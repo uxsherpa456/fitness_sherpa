@@ -5,6 +5,17 @@ Native SwiftUI app (HealthKit + SwiftData), built from the spec in
 
 > Scaffolding lands once Xcode is set up (Mac required).
 
+## Already here (drop into the Xcode target)
+
+- [`DATA_MAP.md`](DATA_MAP.md) — HealthKit metric map, authorization, freshness/query patterns
+- [`Sources/DiagnosisEngine.swift`](Sources/DiagnosisEngine.swift) — pure-Swift port of the
+  diagnostic engine (the strength × running quadrant). No dependencies; unit-testable.
+- [`Sources/Models.swift`](Sources/Models.swift) — SwiftData schema: `Goal`, `Baseline`,
+  `DiagnosisRecord`, `Session`, `Benchmark`, `HealthSnapshot`.
+
+First session: new SwiftUI project → add HealthKit capability → add these files to the
+target → paste the auth snippet from `DATA_MAP.md` → start reading Ultra 2 data.
+
 ## Planned structure
 
 - **SwiftUI `TabView`** — Today · Athlete · Plan · AI Coach (mirrors the prototype)
