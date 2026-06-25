@@ -7,6 +7,7 @@ Native SwiftUI app (HealthKit + SwiftData), built from the spec in
 
 ## Already here (drop into the Xcode target)
 
+- [`SETUP.md`](SETUP.md) — **start here Saturday**: Xcode install → project → capabilities → run on device
 - [`DATA_MAP.md`](DATA_MAP.md) — HealthKit metric map, authorization, freshness/query patterns
 - [`Sources/DiagnosisEngine.swift`](Sources/DiagnosisEngine.swift) — pure-Swift port of the
   diagnostic engine (the strength × running quadrant). No dependencies; unit-testable.
