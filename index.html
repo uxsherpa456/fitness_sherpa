@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HYROX Readiness — Prototype</title>
+<!-- build: today + train + AI COACH + athlete(race-log metrics) · 4 tabs -->
+<meta http-equiv="Cache-Control" content="no-store" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     DESIGN TOKENS  — modular system, swap values to re-theme
+     ============================================================ */
+  :root {
+    --bg:            #0E0F11;
+    --bg-deep:       #08090A;
+    --surface:       #1A1B1E;   /* dark card */
+    --surface-2:     #232427;   /* raised dark card */
+    --surface-line:  #2A2C30;
+
+    --mint:          #C7F0E3;   /* hero accent card */
+    --mint-deep:     #A7E6D2;
+    --sand:          #EFEEE9;   /* light card */
+
+    --ink:           #0E0F11;   /* text on light/mint */
+    --ink-soft:      #44474C;
+
+    --text:          #F4F5F4;
+    --text-muted:    #8A8E95;
+    --text-faint:    #5A5E65;
+
+    --green:         #7CE3A2;
+    --yellow:        #F2D484;
+    --red:           #F0917B;
+
+    --r-lg: 28px;
+    --r-md: 22px;
+    --r-sm: 16px;
+    --r-pill: 999px;
+
+    --gap: 12px;
+    --pad: 18px;
+
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", system-ui, sans-serif;
+    --mono: "SF Mono", "JetBrains Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font);
+    background:
+      radial-gradient(1200px 600px at 70% -10%, #15171a 0%, transparent 60%),
+      var(--bg-deep);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 28px 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ============================================================
+     PHONE FRAME
+     ============================================================ */
+  .phone {
+    width: 390px;
+    height: 844px;
+    background: var(--bg);
+    border-radius: 54px;
+    position: relative;
+    box-shadow:
+      0 0 0 11px #1c1d20,
+      0 0 0 13px #2c2e32,
+      0 40px 90px -20px rgba(0,0,0,.8);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .notch {
+    position: absolute;
+    top: 11px; left: 50%; transform: translateX(-50%);
+    width: 124px; height: 33px;
+    background: #000;
+    border-radius: var(--r-pill);
+    z-index: 50;
+  }
+
+  /* status bar */
+  .statusbar {
+    height: 52px;
+    flex: 0 0 52px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 30px 6px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .2px;
+    color: var(--text);
+    z-index: 40;
+  }
+  .statusbar .icons { display: flex; gap: 7px; align-items: center; }
+  .statusbar svg { display: block; }
+
+  /* ============================================================
+     SCROLL AREA
+     ============================================================ */
+  .screen {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 16px 120px;
+    scrollbar-width: none;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+
+  /* ============================================================
+     APP HEADER
+     ============================================================ */
+  .apphead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 4px 18px;
+  }
+  .apphead .greeting { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+  .apphead .title { font-size: 27px; font-weight: 700; letter-spacing: -.5px; margin-top: 3px; }
+  .avatar {
+    width: 46px; height: 46px; border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--surface-line);
+    display: grid; place-items: center;
+    color: var(--text); cursor: pointer;
+    transition: background .15s;
+  }
+  .avatar:hover { background: var(--surface-line); }
+
+  /* ============================================================
+     GENERIC CARD / MODULE
+     ============================================================ */
+  /* App convention: flat left edge + accent stripe, rounded right */
+  .card {
+    background: var(--surface);
+    border-radius: 0 var(--r-lg) var(--r-lg) 0;
+    padding: var(--pad);
+    margin-bottom: var(--gap);
+    border: 1px solid rgba(255,255,255,.03);
+    border-left: 3px solid var(--mint);
+  }
+  .card.light { background: var(--sand); color: var(--ink); border: 1px solid transparent; border-left: 3px solid var(--mint); }
+  .card.mint  { background: var(--mint); color: var(--ink); border: 1px solid transparent; border-left: 3px solid rgba(14,15,17,.18); }
+
+  .module-label {
+    font-size: 12px;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .card.mint .module-label, .card.light .module-label { color: var(--ink-soft); }
+
+  .row { display: flex; gap: var(--gap); }
+  .row > * { flex: 1; margin-bottom: 0; }
+
+  .iconbtn {
+    width: 38px; height: 38px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: rgba(14,15,17,.08);
+    color: var(--ink); cursor: pointer; border: none;
+    flex: 0 0 auto; transition: transform .15s;
+  }
+  .iconbtn:active { transform: scale(.9); }
+  .iconbtn.dark { background: var(--surface-2); color: var(--text); }
+
+  /* ============================================================
+     COUNTDOWN STRIP
+     ============================================================ */
+  .countdown {
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(100deg, #1d2b27 0%, #16201d 100%);
+    border: 1px solid #28433b;
+    border-left: 3px solid var(--mint);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    padding: 14px 18px;
+    margin-bottom: var(--gap);
+  }
+  .countdown .left { display: flex; align-items: center; gap: 12px; }
+  .countdown .flag { font-size: 22px; }
+  .countdown .race { font-size: 13px; color: var(--mint); font-weight: 600; }
+  .countdown .loc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .countdown .days { text-align: right; }
+  .countdown .days b { font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: -.5px; }
+  .countdown .days span { font-size: 11px; color: var(--text-muted); display: block; }
+
+  /* ============================================================
+     READINESS HERO (mint)
+     ============================================================ */
+  .readiness .top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .verdict-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(14,15,17,.10);
+    padding: 6px 12px; border-radius: var(--r-pill);
+    font-size: 12px; font-weight: 700; letter-spacing: .3px;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .dot.green { background: #1f9e57; }
+  .readiness .score {
+    font-size: 64px; font-weight: 800; letter-spacing: -2px; line-height: 1;
+    margin: 14px 0 2px;
+  }
+  .readiness .score small { font-size: 22px; font-weight: 600; color: var(--ink-soft); }
+  .readiness .verdict-text { font-size: 14px; font-weight: 600; line-height: 1.4; max-width: 250px; }
+  .readiness .sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; line-height: 1.45; }
+  .micro-row { display: flex; gap: 8px; margin-top: 16px; }
+  .micro {
+    flex: 1; background: rgba(14,15,17,.06);
+    border-radius: var(--r-sm); padding: 10px 12px;
+  }
+  .micro .k { font-size: 11px; color: var(--ink-soft); font-weight: 600; }
+  .micro .v { font-size: 16px; font-weight: 700; margin-top: 3px; }
+  .micro .v small { font-size: 11px; font-weight: 600; color: var(--ink-soft); }
+
+  /* ============================================================
+     FRESHNESS BANNER
+     ============================================================ */
+  .freshness {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--surface-line);
+    border-left: 3px solid var(--mint);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+    padding: 12px 15px; margin-bottom: var(--gap);
+    cursor: pointer;
+  }
+  .freshness .pulse {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 0 0 rgba(124,227,162,.6);
+    animation: pulse 2.2s infinite; flex: 0 0 auto;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(124,227,162,.5); }
+    70% { box-shadow: 0 0 0 8px rgba(124,227,162,0); }
+    100% { box-shadow: 0 0 0 0 rgba(124,227,162,0); }
+  }
+  .freshness .ftext { flex: 1; }
+  .freshness .ftext b { font-size: 13px; font-weight: 600; }
+  .freshness .ftext span { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+  .freshness .warn { color: var(--yellow); font-weight: 600; }
+  .freshness .chev { color: var(--text-faint); }
+
+  /* ============================================================
+     DIAGNOSIS CARD
+     ============================================================ */
+  .diagnosis { background: var(--surface); }
+  .diag-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .diag-head .profile { font-size: 19px; font-weight: 700; letter-spacing: -.3px; }
+  .diag-head .tag {
+    font-size: 11px; font-weight: 700; color: var(--mint);
+    background: rgba(199,240,227,.10); padding: 5px 10px; border-radius: var(--r-pill);
+  }
+  /* 2x2 matrix */
+  .matrix { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 4px 0 14px; }
+  .quad {
+    border: 1px solid var(--surface-line); border-radius: 14px;
+    padding: 11px 12px; position: relative; min-height: 64px;
+  }
+  .quad.active { background: var(--mint); border-color: var(--mint); color: var(--ink); }
+  .quad .qt { font-size: 11.5px; font-weight: 700; line-height: 1.25; }
+  .quad .qs { font-size: 10px; margin-top: 4px; color: var(--text-faint); line-height: 1.3; }
+  .quad.active .qs { color: var(--ink-soft); }
+  .quad .youtag {
+    position: absolute; top: -8px; right: 9px;
+    background: var(--ink); color: var(--mint);
+    font-size: 9px; font-weight: 800; letter-spacing: .5px;
+    padding: 3px 7px; border-radius: var(--r-pill);
+  }
+  .limiter {
+    background: var(--surface-2); border-radius: var(--r-sm);
+    padding: 13px 14px; border-left: 3px solid var(--mint);
+  }
+  .limiter .lk { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+  .limiter .lv { font-size: 13.5px; line-height: 1.5; margin-top: 6px; }
+  .limiter .lv b { color: var(--mint); font-weight: 700; }
+
+  /* ============================================================
+     LAST WORKOUT READ
+     ============================================================ */
+  .lw-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .lw-title { font-size: 15px; font-weight: 700; }
+  .lw-title span { display: block; font-size: 11.5px; color: var(--text-muted); font-weight: 500; margin-top: 2px; }
+  .drift-chart { height: 64px; display: flex; align-items: flex-end; gap: 3px; margin: 6px 0 12px; }
+  .drift-chart .bar { flex: 1; background: var(--surface-2); border-radius: 3px; transition: height .4s; }
+  .drift-chart .bar.hi { background: var(--mint-deep); }
+  .drift-chart .bar.warn { background: var(--yellow); }
+  .read-line { font-size: 13px; line-height: 1.55; color: var(--text); }
+  .read-line b { color: var(--mint); }
+  .read-tags { display: flex; gap: 7px; margin-top: 12px; flex-wrap: wrap; }
+  .rtag { font-size: 11px; font-weight: 600; padding: 6px 11px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--text-muted); }
+  .rtag.good { color: var(--green); background: rgba(124,227,162,.10); }
+  .rtag.bad  { color: var(--red); background: rgba(240,145,123,.10); }
+
+  /* ============================================================
+     NEXT SESSION
+     ============================================================ */
+  .session.light .s-row { display: flex; align-items: center; gap: 13px; }
+  .s-icon {
+    width: 48px; height: 48px; border-radius: 14px; flex: 0 0 auto;
+    background: var(--ink); color: var(--mint);
+    display: grid; place-items: center;
+  }
+  .s-body { flex: 1; }
+  .s-body .sn { font-size: 15.5px; font-weight: 700; }
+  .s-body .sm { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .s-why {
+    margin-top: 13px; background: rgba(14,15,17,.05);
+    border-radius: var(--r-sm); padding: 11px 13px;
+    font-size: 12px; line-height: 1.5; color: var(--ink-soft);
+  }
+  .s-why b { color: var(--ink); }
+
+  /* ============================================================
+     AI CHAT (primed)
+     ============================================================ */
+  .ai { background: linear-gradient(160deg, #1f2a27 0%, var(--surface) 70%); border: 1px solid #28403a; border-left: 3px solid var(--mint); }
+  .ai-head { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+  .ai-orb {
+    width: 40px; height: 40px; border-radius: 13px; flex: 0 0 auto;
+    background: var(--mint); color: var(--ink);
+    display: grid; place-items: center; font-weight: 800;
+  }
+  .ai-head .ai-t { font-size: 14.5px; font-weight: 700; }
+  .ai-head .ai-s { font-size: 11px; color: var(--mint); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
+  .primed-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .pchip {
+    font-size: 10.5px; font-weight: 600; color: var(--text-muted);
+    background: rgba(255,255,255,.04); border: 1px solid var(--surface-line);
+    padding: 5px 9px; border-radius: var(--r-pill);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .pchip .tick { color: var(--green); }
+  .pchip.stale { color: var(--yellow); border-color: #5a4a1a; background: rgba(242,212,132,.08); }
+
+  .chatlog { display: flex; flex-direction: column; gap: 9px; margin-bottom: 12px; }
+  .bubble {
+    max-width: 88%; padding: 11px 13px; border-radius: 16px; font-size: 12.5px; line-height: 1.5;
+  }
+  .bubble.ai-b { background: var(--surface-2); color: var(--text); border-bottom-left-radius: 5px; align-self: flex-start; }
+  .bubble.ai-b b { color: var(--mint); }
+  .bubble.me { background: var(--mint); color: var(--ink); border-bottom-right-radius: 5px; align-self: flex-end; font-weight: 500; }
+  .bubble.cite {
+    font-size: 11px; color: var(--text-muted);
+    background: transparent; border: 1px dashed var(--surface-line);
+    align-self: flex-start; padding: 8px 11px;
+  }
+  .bubble.cite b { color: var(--text); }
+
+  .suggest { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; }
+  .sg {
+    text-align: left; font-size: 12px; color: var(--text);
+    background: rgba(255,255,255,.03); border: 1px solid var(--surface-line);
+    padding: 10px 13px; border-radius: 13px; cursor: pointer;
+    transition: background .15s, border-color .15s;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .sg:hover { background: rgba(199,240,227,.06); border-color: #3a5b52; }
+  .sg .arr { color: var(--mint); flex: 0 0 auto; }
+
+  .ai-input {
+    display: flex; align-items: center; gap: 9px;
+    background: var(--bg); border: 1px solid var(--surface-line);
+    border-radius: var(--r-pill); padding: 7px 7px 7px 16px;
+  }
+  .ai-input input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-size: 13px; font-family: var(--font);
+  }
+  .ai-input input::placeholder { color: var(--text-faint); }
+  .sendbtn {
+    width: 38px; height: 38px; border-radius: 50%; flex: 0 0 auto;
+    background: var(--mint); color: var(--ink); border: none; cursor: pointer;
+    display: grid; place-items: center; transition: transform .12s;
+  }
+  .sendbtn:active { transform: scale(.9); }
+
+  /* typing indicator */
+  .typing { display: flex; gap: 4px; padding: 13px; align-self: flex-start; }
+  .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); animation: blink 1.2s infinite; }
+  .typing span:nth-child(2){ animation-delay: .2s; }
+  .typing span:nth-child(3){ animation-delay: .4s; }
+  @keyframes blink { 0%,60%,100%{ opacity:.25 } 30%{ opacity:1 } }
+
+  /* ============================================================
+     COACH ENTRY (on Today) + COACH SCREEN (own tab)
+     ============================================================ */
+  .coach-entry { cursor: pointer; display: flex; align-items: center; gap: 13px; }
+  .coach-entry .ce-body { flex: 1; }
+  .coach-entry .ce-t { font-size: 14.5px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .coach-entry .ce-s { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin-top: 6px; }
+  .coach-entry .ce-s b { color: var(--mint); }
+
+  .coachscreen { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; padding: 4px 16px 0; }
+  .coachscreen .apphead { padding: 10px 4px 14px; }
+  .live-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green); margin-right: 6px; vertical-align: middle;
+    box-shadow: 0 0 0 0 rgba(124,227,162,.6); animation: pulse 2.2s infinite;
+  }
+  .coachscreen .primed-chips { margin-bottom: 6px; }
+  .coachscreen .chatlog {
+    flex: 1 1 auto; overflow-y: auto; min-height: 0;
+    padding: 12px 2px; margin: 0; scrollbar-width: none;
+  }
+  .coachscreen .chatlog::-webkit-scrollbar { display: none; }
+  .coach-bottom {
+    flex: 0 0 auto; padding: 12px 0 108px;
+    background: linear-gradient(to top, var(--bg) 72%, transparent);
+  }
+  .coachscreen .suggest { margin-bottom: 10px; }
+  .coachscreen .ai-input { margin: 0; }
+
+  /* ============================================================
+     PROGRESS · RACE LOG  (START / CURRENT / GOAL)
+     ============================================================ */
+  .racelog { padding-top: 14px; }
+  .rl-head { padding: 8px 4px 0; }
+  .rl-meta { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; letter-spacing: 2px; color: var(--text-faint); }
+  .rl-titlerow { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-top: 18px; }
+  .rl-title { font-size: 30px; line-height: 1.02; font-weight: 800; letter-spacing: -.6px; color: var(--text); text-transform: uppercase; }
+  .rl-title .accent { color: var(--mint); }
+  .rl-where { text-align: right; padding-top: 5px; flex: 0 0 auto; }
+  .rl-loc { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; color: var(--mint); font-weight: 600; }
+  .rl-when { font-size: 13px; color: var(--text); margin-top: 6px; font-weight: 600; }
+  .rl-when span { color: var(--text-faint); margin: 0 4px; }
+
+  .rl-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; column-gap: 10px; margin-top: 28px; padding: 0 4px; }
+  .rl-colhead {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 2px; color: var(--text-muted);
+    padding-bottom: 9px; border-bottom: 1px solid var(--surface-line); margin-bottom: 18px;
+  }
+  .rl-cell { margin-bottom: 20px; }
+  .rl-num { font-size: 23px; font-weight: 800; letter-spacing: -1px; line-height: 1; display: flex; align-items: center; gap: 2px; }
+  .rl-lab { font-family: var(--mono); font-size: 9px; letter-spacing: 1.5px; color: var(--text-faint); margin-top: 8px; white-space: nowrap; }
+  .rl-cell.start  .rl-num { color: #7C8088; }
+  .rl-cell.current .rl-num { color: var(--text); }
+  .rl-cell.goal   .rl-num { color: var(--mint); }
+  .rl-num .arr { color: var(--mint); font-size: 16px; font-weight: 700; line-height: 1; margin-right: 1px; }
+  .rl-num .spark { margin-left: 3px; flex: 0 0 auto; }
+  .rl-num .dash { width: 28px; height: 4px; background: var(--text-faint); display: inline-block; border-radius: 2px; }
+
+  .rl-foot { display: grid; grid-template-columns: 1fr 1fr 1fr; column-gap: 10px; padding: 0 4px; margin-top: 2px; }
+  .rl-foot div { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; padding-top: 12px; border-top: 1px solid var(--surface-line); line-height: 1.4; }
+  .rl-foot .f-start { color: var(--text-faint); }
+  .rl-foot .f-current { color: var(--text); font-weight: 700; }
+  .rl-foot .f-goal { color: var(--mint); font-weight: 700; }
+
+  .rl-settings { display: flex; gap: 20px; padding: 26px 8px 8px; }
+  .rl-settings a { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; color: var(--text-faint); text-decoration: none; cursor: pointer; }
+  .rl-settings a:hover { color: var(--text); }
+
+  /* ============================================================
+     TRAIN · TRAINING PLAN (vertical calendar)
+     ============================================================ */
+  .plan { padding-top: 4px; }
+  .plan .apphead { padding: 10px 4px 6px; }
+  .plan-weekhead {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 2px; color: var(--text-muted);
+    padding: 6px 6px 12px;
+  }
+  .plan-weekhead .blk { color: var(--mint); }
+  .plan-prog { display: flex; align-items: center; gap: 9px; padding: 0 6px 18px; }
+  .plan-prog .bar { flex: 1; height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+  .plan-prog .bar > i { display: block; height: 100%; background: var(--mint); border-radius: 3px; }
+  .plan-prog .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; color: var(--text-faint); }
+
+  .days { position: relative; padding: 0 4px; }
+  .day { position: relative; display: flex; gap: 14px; padding-bottom: 12px; }
+  .day::before { content: ''; position: absolute; left: 19px; top: 10px; bottom: 0; width: 2px; background: var(--surface-line); }
+  .day:last-child::before { display: none; }
+  .day-date { flex: 0 0 40px; text-align: center; position: relative; z-index: 1; }
+  .day-dow { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; color: var(--text-faint); }
+  .day-num {
+    font-size: 15px; font-weight: 700; color: var(--text-muted);
+    width: 30px; height: 30px; line-height: 28px; border-radius: 50%; margin: 5px auto 0;
+    background: var(--surface); border: 1px solid var(--surface-line);
+  }
+  .day.today .day-num { background: var(--mint); color: var(--ink); border-color: var(--mint); }
+  .day.done .day-dow, .day.done .day-num { opacity: .65; }
+
+  .sess {
+    flex: 1; background: var(--surface); border: 1px solid rgba(255,255,255,.03);
+    border-left: 3px solid var(--surface-line); border-radius: 0 16px 16px 0; padding: 13px 15px;
+  }
+  .sess.run { border-left-color: var(--mint); }
+  .sess.strength { border-left-color: #FFFFFF; }
+  .sess.sim { border-left-color: var(--mint); background: linear-gradient(160deg, #1f2a27 0%, var(--surface) 70%); }
+  .sess.recovery { border-left-color: #7C8088; }
+  .sess.rest { border-left-color: var(--surface-line); background: transparent; padding: 12px 15px; }
+  .day.done .sess { opacity: .72; }
+  .day.today .sess { border-color: var(--mint); box-shadow: 0 0 0 1px rgba(199,240,227,.22); }
+
+  .sess-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+  .sess-type { font-family: var(--mono); font-size: 9.5px; letter-spacing: 1.5px; color: var(--text-muted); }
+  .sess.run .sess-type, .sess.sim .sess-type { color: var(--mint); }
+  .sess-status { font-size: 13px; line-height: 1; }
+  .sess-status.done { color: var(--green); }
+  .sess-status.up { color: var(--text-faint); }
+  .todaytag { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; font-weight: 700; color: var(--ink); background: var(--mint); padding: 3px 8px; border-radius: var(--r-pill); }
+  .sess-name { font-size: 15px; font-weight: 700; color: var(--text); }
+  .sess.rest .sess-name { color: var(--text-faint); font-weight: 600; font-size: 13.5px; }
+  .sess-meta { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .sess-why { font-size: 11.5px; color: var(--mint); margin-top: 9px; display: flex; align-items: center; gap: 7px; line-height: 1.4; }
+  .sess-why::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--mint); flex: 0 0 auto; }
+
+  .plan-next {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 2px; color: var(--text-faint);
+    padding: 16px 6px 10px; border-top: 1px solid var(--surface-line); margin: 8px 4px 0;
+  }
+
+  /* ============================================================
+     ATHLETE · status hub
+     ============================================================ */
+  .athlete .apphead { padding: 10px 4px 12px; }
+  .prof-chip {
+    display: inline-flex; align-items: center; gap: 6px; margin: 0 4px 14px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; color: var(--mint);
+    background: rgba(199,240,227,.07); border: 1px solid #2a4640; padding: 6px 11px; border-radius: var(--r-pill);
+  }
+
+  .fit-row { display: flex; align-items: center; gap: 18px; }
+  .ring { position: relative; width: 92px; height: 92px; flex: 0 0 auto; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring-val { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+  .ring-val b { font-size: 27px; font-weight: 800; letter-spacing: -1px; color: var(--text); }
+  .ring-val small { font-size: 10px; font-weight: 600; color: var(--text-faint); margin-top: -1px; }
+  .fit-info { flex: 1; }
+  .fit-big { font-size: 15px; font-weight: 700; }
+  .fit-big b { color: var(--mint); }
+  .fit-sub { font-size: 12px; color: var(--text-muted); margin-top: 6px; line-height: 1.45; }
+  .fit-trend { font-size: 12px; color: var(--green); font-weight: 700; margin-top: 9px; }
+
+  .ts-row { display: flex; align-items: center; gap: 10px; margin-bottom: 13px; }
+  .ts-badge { font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; font-weight: 700; padding: 6px 12px; border-radius: var(--r-pill); }
+  .ts-badge.productive { color: var(--green); background: rgba(124,227,162,.12); }
+  .ts-load { font-size: 12px; color: var(--text-muted); }
+  .ts-bar { position: relative; height: 8px; border-radius: 5px; margin: 2px 0 14px;
+    background: linear-gradient(90deg, #3a3c40 0 24%, #2a4a3e 24% 68%, #4a3a32 68% 100%); }
+  .ts-bar .marker { position: absolute; top: -3px; left: 44%; width: 14px; height: 14px; border-radius: 50%; background: var(--mint); border: 2px solid var(--surface); }
+  .ts-zones { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 8.5px; letter-spacing: .5px; color: var(--text-faint); margin-bottom: 12px; }
+  .ts-text { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+
+  .metgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .mtile { background: var(--surface-2); border-radius: 14px; padding: 12px 13px; }
+  .mtile .mk { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; color: var(--text-faint); }
+  .mtile .mv { font-size: 19px; font-weight: 700; margin-top: 6px; }
+  .mtile .mv small { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+  .mtile .mv .up { color: var(--green); font-size: 12px; font-weight: 700; }
+
+  .plan-sum { margin-bottom: 14px; }
+  .ps-block { font-size: 16px; font-weight: 700; }
+  .ps-meta { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; line-height: 1.45; }
+  .ps-btn {
+    width: 100%; background: var(--ink); color: var(--mint); border: none; border-radius: 14px;
+    padding: 13px; font-size: 13px; font-weight: 700; font-family: var(--font); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .ps-btn:active { transform: scale(.985); }
+
+  /* ============================================================
+     DIAGNOSIS · quadrant chart
+     ============================================================ */
+  .qchart { display: grid; grid-template-columns: 14px 1fr; grid-template-rows: 1fr 16px; gap: 5px; margin: 10px 0 16px; }
+  .qc-ylabel {
+    grid-column: 1; grid-row: 1; writing-mode: vertical-rl; transform: rotate(180deg);
+    align-self: center; justify-self: center; white-space: nowrap;
+    font-family: var(--mono); font-size: 8px; letter-spacing: 1.5px; color: var(--text-faint);
+  }
+  .qc-xlabel {
+    grid-column: 2; grid-row: 2; align-self: center; text-align: center;
+    font-family: var(--mono); font-size: 8px; letter-spacing: 1.5px; color: var(--text-faint);
+  }
+  .qc-area {
+    grid-column: 2; grid-row: 1; position: relative; height: 230px;
+    border: 1px solid var(--surface-line); border-radius: 14px; background: var(--surface-2); overflow: hidden;
+  }
+  .qc-vline { position: absolute; left: 50%; top: 8px; bottom: 8px; width: 1px; background: var(--surface-line); }
+  .qc-hline { position: absolute; top: 50%; left: 8px; right: 8px; height: 1px; background: var(--surface-line); }
+  .qc-cell { position: absolute; width: 50%; height: 50%; padding: 11px 12px; box-sizing: border-box; display: flex; flex-direction: column; }
+  .qc-cell.tl { left: 0; top: 0; align-items: flex-start; justify-content: flex-start; }
+  .qc-cell.tr { right: 0; top: 0; align-items: flex-end; justify-content: flex-start; text-align: right; }
+  .qc-cell.bl { left: 0; bottom: 0; align-items: flex-start; justify-content: flex-end; }
+  .qc-cell.br { right: 0; bottom: 0; align-items: flex-end; justify-content: flex-end; text-align: right; }
+  .qc-cell.active { background: rgba(199,240,227,.10); }
+  .qc-cell b { font-size: 12px; font-weight: 700; line-height: 1.2; color: var(--text); }
+  .qc-cell.active b { color: var(--mint); }
+  .qc-cell span { display: block; font-size: 9px; color: var(--text-faint); margin-top: 4px; line-height: 1.3; }
+  .qc-you { position: absolute; transform: translate(-50%,-50%); display: flex; flex-direction: column; align-items: center; gap: 5px; z-index: 4; transition: left .6s ease, top .6s ease; }
+  .qc-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 5px rgba(199,240,227,.15), 0 0 16px rgba(199,240,227,.55); }
+  .qc-tag { font-family: var(--mono); font-size: 8px; font-weight: 800; letter-spacing: 1px; color: var(--ink); background: var(--mint); padding: 2px 7px; border-radius: var(--r-pill); }
+
+  /* ============================================================
+     FUEL · what to eat today
+     ============================================================ */
+  .fuel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .fuel-cal b { font-size: 30px; font-weight: 800; letter-spacing: -1px; }
+  .fuel-cal small { font-size: 13px; color: var(--text-muted); font-weight: 600; margin-left: 3px; }
+  .fuel-tag { font-family: var(--mono); font-size: 9.5px; letter-spacing: 1.5px; color: var(--mint); background: rgba(199,240,227,.08); border: 1px solid #2a4640; padding: 5px 9px; border-radius: var(--r-pill); white-space: nowrap; }
+  .fuel-why { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin: 9px 0 14px; }
+  .fuel-why b { color: var(--text); }
+  .fuel-ask { margin-top: 14px; font-size: 12px; color: var(--mint); font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+
+  /* ============================================================
+     ONBOARDING · baseline assessment
+     ============================================================ */
+  #onboarding { position: absolute; inset: 0; z-index: 110; background: var(--bg); display: none; flex-direction: column; }
+  #onboarding.show { display: flex; }
+  .ob-head { flex: 0 0 auto; padding: 56px 22px 8px; }
+  .ob-kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 3px; color: var(--mint); }
+  .ob-prog { height: 4px; background: var(--surface-2); border-radius: 3px; margin: 12px 0 7px; overflow: hidden; }
+  .ob-prog > i { display: block; height: 100%; width: 0; background: var(--mint); border-radius: 3px; transition: width .35s ease; }
+  .ob-step { font-family: var(--mono); font-size: 9.5px; letter-spacing: 1px; color: var(--text-faint); }
+  .ob-body { flex: 1 1 auto; overflow-y: auto; padding: 16px 22px 8px; scrollbar-width: none; }
+  .ob-body::-webkit-scrollbar { display: none; }
+  .ob-panel { display: none; flex-direction: column; animation: fade .35s ease; }
+  .ob-panel.active { display: flex; }
+  .ob-q { font-family: "Hanken Grotesk","Inter",sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -.5px; line-height: 1.08; color: var(--text); margin-bottom: 6px; }
+  .ob-q .accent { color: var(--mint); }
+  .ob-sub { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px; }
+  .ob-sub b { color: var(--text); }
+  .ob-field { margin-bottom: 14px; }
+  .ob-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; color: var(--text-faint); margin-bottom: 7px; }
+  .ob-input { width: 100%; box-sizing: border-box; background: var(--surface); border: 1px solid var(--surface-line); border-left: 3px solid var(--mint); border-radius: 0 12px 12px 0; padding: 14px 15px; color: var(--text); font-size: 18px; font-weight: 700; font-family: var(--font); outline: none; }
+  .ob-input:focus { border-color: var(--mint); }
+  .ob-fixed { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--surface-line); border-left: 3px solid var(--mint); border-radius: 0 12px 12px 0; padding: 13px 15px; font-size: 13px; color: var(--text); margin-bottom: 14px; }
+  .ob-fixed b { color: var(--mint); }
+  .ob-connect { width: 100%; background: var(--mint); color: var(--ink); border: none; border-radius: 14px; padding: 15px; font-size: 14px; font-weight: 700; font-family: var(--font); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .ob-connect:disabled { opacity: .85; }
+  .ob-pulled { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .ob-pulled .row { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text); background: var(--surface); border-left: 3px solid var(--green); border-radius: 0 10px 10px 0; padding: 10px 12px; }
+  .ob-pulled .row b { margin-left: auto; color: var(--text); font-weight: 700; }
+  .ob-pulled .row.warn { border-left-color: var(--yellow); color: var(--text-muted); }
+  .ob-opt { display: flex; flex-direction: column; gap: 9px; }
+  .ob-choice { text-align: left; background: var(--surface); border: 1px solid var(--surface-line); border-left: 3px solid var(--surface-line); border-radius: 0 14px 14px 0; padding: 14px 15px; cursor: pointer; color: var(--text); font-size: 14px; font-weight: 700; font-family: var(--font); transition: border-color .15s, background .15s; }
+  .ob-choice .d { display: block; font-size: 11.5px; color: var(--text-muted); font-weight: 500; margin-top: 3px; }
+  .ob-choice.sel { border-color: var(--mint); border-left-color: var(--mint); background: rgba(199,240,227,.06); }
+  .ob-foot { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 22px 30px; }
+  .ob-back { background: none; border: none; color: var(--text-muted); font-size: 14px; font-family: var(--font); cursor: pointer; padding: 10px 4px; }
+  .ob-back[hidden] { visibility: hidden; }
+  .ob-next { background: var(--mint); color: var(--ink); border: none; border-radius: var(--r-pill); padding: 14px 30px; font-size: 14px; font-weight: 700; font-family: var(--font); cursor: pointer; }
+  .ob-spinner { width: 34px; height: 34px; border: 3px solid var(--surface-2); border-top-color: var(--mint); border-radius: 50%; animation: spin .8s linear infinite; margin: 30px auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ob-reveal-pre { text-align: center; color: var(--text-muted); font-size: 13px; padding-top: 24px; }
+  .ob-kicker2 { font-family: var(--mono); font-size: 10px; letter-spacing: 3px; color: var(--mint); margin-bottom: 8px; }
+  .ob-profile { font-family: "Hanken Grotesk","Inter",sans-serif; font-size: 26px; font-weight: 800; letter-spacing: -.5px; color: var(--mint); line-height: 1.1; margin-bottom: 8px; }
+  .ob-limiter { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 10px; }
+  .ob-limiter b { color: var(--text); }
+  .ob-focus { font-size: 12.5px; color: var(--mint); margin-top: 12px; line-height: 1.5; }
+  .ob-relaunch { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; color: var(--text-faint); cursor: pointer; margin-top: 14px; }
+  .ob-relaunch:hover { color: var(--mint); }
+
+  /* ============================================================
+     TAB TOUR · post-onboarding coach-marks
+     ============================================================ */
+  #tour { position: absolute; inset: 0; z-index: 100; background: rgba(8,9,10,.76); display: none; }
+  #tour.show { display: block; }
+  .tabbar.touring { z-index: 140; }
+  .tab.tour-hi { box-shadow: 0 0 0 0 rgba(199,240,227,.6); animation: tabpulse 1.6s infinite; }
+  @keyframes tabpulse { 0% { box-shadow: 0 0 0 0 rgba(199,240,227,.5); } 70% { box-shadow: 0 0 0 11px rgba(199,240,227,0); } 100% { box-shadow: 0 0 0 0 rgba(199,240,227,0); } }
+  .tour-card { position: absolute; left: 50%; transform: translateX(-50%); bottom: 112px; width: 300px; box-sizing: border-box; background: var(--surface); border: 1px solid var(--surface-line); border-left: 3px solid var(--mint); border-radius: 0 18px 18px 0; padding: 16px 18px; z-index: 141; box-shadow: 0 16px 40px -10px rgba(0,0,0,.7); }
+  .tour-arrow { position: absolute; bottom: -8px; left: 50%; width: 15px; height: 15px; background: var(--surface); border-right: 1px solid var(--surface-line); border-bottom: 1px solid var(--surface-line); transform: rotate(45deg); transition: left .35s ease; }
+  .tour-step { font-family: var(--mono); font-size: 9.5px; letter-spacing: 1.5px; color: var(--mint); margin-bottom: 7px; }
+  .tour-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .tour-body { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+  .tour-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+  .tour-skip { background: none; border: none; color: var(--text-faint); font-size: 12px; font-family: var(--font); cursor: pointer; }
+  .tour-next { background: var(--mint); color: var(--ink); border: none; border-radius: var(--r-pill); padding: 9px 22px; font-size: 13px; font-weight: 700; font-family: var(--font); cursor: pointer; }
+
+  /* ============================================================
+     SPLASH / LAUNCH SCREEN
+     ============================================================ */
+  #splash {
+    position: absolute; inset: 0; z-index: 120;
+    background: radial-gradient(120% 75% at 50% 30%, #14191b 0%, var(--bg-deep) 72%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    overflow: hidden; transition: opacity .6s ease;
+  }
+  #splash.hide { opacity: 0; pointer-events: none; }
+  #splash .bg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #splash .mark {
+    position: relative; font-family: "Hanken Grotesk", "Inter", system-ui, sans-serif;
+    font-weight: 800; font-size: 64px; letter-spacing: -2.5px; line-height: .92; color: var(--mint);
+  }
+  #splash .markrow { position: relative; display: flex; align-items: center; gap: 5px; }
+  #splash .dots { display: flex; gap: 5px; transform: translateY(18px); }
+  #splash .dots i {
+    width: 12px; height: 12px; border-radius: 50%; box-sizing: border-box;
+    border: 1.5px solid var(--mint); overflow: hidden;
+  }
+  #splash .dots i.half { background: linear-gradient(to top, var(--mint) 50%, transparent 50%); }
+  #splash .dots i.full { background: var(--mint); }
+  #splash .tagline {
+    position: absolute; bottom: 54px; font-size: 13px; color: var(--text-muted); letter-spacing: .3px;
+    font-family: "Hanken Grotesk", "Inter", system-ui, sans-serif; font-weight: 500;
+  }
+
+  /* ============================================================
+     TAB BAR
+     ============================================================ */
+  .tabbar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 92px;
+    background: linear-gradient(to top, var(--bg) 55%, rgba(14,15,17,0));
+    display: flex; align-items: flex-start; justify-content: center;
+    padding-top: 14px; gap: 8px; z-index: 30;
+  }
+  .tabs {
+    display: flex; gap: 6px; background: var(--surface);
+    border: 1px solid var(--surface-line);
+    padding: 7px; border-radius: var(--r-pill);
+    box-shadow: 0 10px 30px -8px rgba(0,0,0,.6);
+  }
+  .tab {
+    display: flex; align-items: center; gap: 7px;
+    padding: 10px 16px; border-radius: var(--r-pill);
+    color: var(--text-muted); font-size: 13px; font-weight: 600;
+    cursor: pointer; border: none; background: transparent; font-family: var(--font);
+    transition: all .18s;
+  }
+  .tab.active { background: var(--mint); color: var(--ink); }
+  .tab:not(.active):hover { color: var(--text); }
+  .tab .lbl { display: none; }
+  .tab.active .lbl { display: inline; }
+
+  /* stub screens */
+  .stub { display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 80px 30px; color: var(--text-muted); height: 100%; }
+  .stub.show { display: flex; }
+  .stub .si { width: 64px; height: 64px; border-radius: 20px; background: var(--surface); display: grid; place-items: center; color: var(--mint); margin-bottom: 18px; }
+  .stub h2 { color: var(--text); font-size: 20px; margin-bottom: 8px; }
+  .stub p { font-size: 13px; line-height: 1.6; max-width: 260px; }
+
+  .fade-in { animation: fade .4s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .hint {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    font-size: 12px; color: var(--text-faint); text-align: center;
+  }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="notch"></div>
+
+    <!-- ===================== SPLASH / LAUNCH ===================== -->
+    <div id="splash" onclick="hideSplash()">
+      <!-- placeholder station pattern · swap for your own artwork -->
+      <svg class="bg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" viewBox="0 0 390 844">
+        <defs>
+          <pattern id="stations" patternUnits="userSpaceOnUse" width="160" height="160">
+            <g fill="none" stroke="#C7F0E3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.08">
+              <!-- kettlebell -->
+              <path d="M22 31a9 9 0 0 1 18 0"/>
+              <circle cx="31" cy="45" r="10"/>
+              <!-- wall ball -->
+              <circle cx="120" cy="36" r="12"/>
+              <!-- sled -->
+              <path d="M30 118h34l-5 12H35z"/>
+              <path d="M30 118l-7-7M64 118l7-7"/>
+              <!-- rower stroke -->
+              <path d="M110 108l12 9-12 9"/>
+              <path d="M124 108l12 9-12 9"/>
+              <!-- dumbbell -->
+              <path d="M78 78h20M75 72v12M101 72v12"/>
+            </g>
+          </pattern>
+        </defs>
+        <rect width="390" height="844" fill="url(#stations)"/>
+      </svg>
+
+      <div class="markrow">
+        <span class="mark">ready</span>
+        <span class="dots"><i></i><i class="half"></i><i class="full"></i></span>
+      </div>
+      <div class="tagline">Train on proof, not vibes.</div>
+    </div>
+
+    <!-- ===================== ONBOARDING · baseline assessment ===================== -->
+    <div id="onboarding">
+      <div class="ob-head">
+        <div class="ob-kicker">BASELINE ASSESSMENT</div>
+        <div class="ob-prog"><i id="obBar"></i></div>
+        <div class="ob-step" id="obStepLabel">Welcome</div>
+      </div>
+
+      <div class="ob-body">
+        <div class="ob-panel active" data-step="0">
+          <div class="ob-q">Let's find your <span class="accent">limiter.</span></div>
+          <div class="ob-sub">A quick baseline assessment — your real numbers, not a guess. We'll place you on the HYROX map and track only what moves your goal time. About a minute.</div>
+        </div>
+
+        <div class="ob-panel" data-step="1">
+          <div class="ob-q">Your race</div>
+          <div class="ob-sub">The fixed point everything reasons against.</div>
+          <div class="ob-fixed"><span>🏁</span> <b>HYROX</b> · Washington DC · Sept 4, 2026</div>
+          <div class="ob-field">
+            <div class="ob-label">TARGET FINISH TIME</div>
+            <input class="ob-input" id="obTarget" value="1:10:00">
+          </div>
+        </div>
+
+        <div class="ob-panel" data-step="2">
+          <div class="ob-q">Connect Apple Health</div>
+          <div class="ob-sub">We read bodyweight, VO₂max, resting HR and recent runs — and always show how fresh it is. Stations &amp; strength you'll enter by hand.</div>
+          <button class="ob-connect" onclick="obConnectHealth(this)"><span>♥</span> Connect Apple Health</button>
+          <div class="ob-pulled" id="obPulled" style="display:none">
+            <div class="row"><span>✓</span> Bodyweight <b>214 lb</b></div>
+            <div class="row"><span>✓</span> VO₂max <b>48</b></div>
+            <div class="row"><span>✓</span> Resting HR <b>48 bpm</b></div>
+            <div class="row"><span>✓</span> Recent 5k <b>25:45</b></div>
+            <div class="row warn"><span>⚠</span> Body fat <b>enter manually</b></div>
+          </div>
+        </div>
+
+        <div class="ob-panel" data-step="3">
+          <div class="ob-q">Your run</div>
+          <div class="ob-sub">Roughly half of a HYROX is running. This sets your <b>run axis</b>.</div>
+          <div class="ob-field">
+            <div class="ob-label">RECENT 5K TIME (MM:SS)</div>
+            <input class="ob-input" id="obFiveK" value="25:45">
+          </div>
+        </div>
+
+        <div class="ob-panel" data-step="4">
+          <div class="ob-q">Your body</div>
+          <div class="ob-sub">Power-to-weight is the other half of the run equation.</div>
+          <div class="ob-field">
+            <div class="ob-label">BODYWEIGHT (LB)</div>
+            <input class="ob-input" id="obWeight" value="214">
+          </div>
+          <div class="ob-field">
+            <div class="ob-label">BODY FAT (%)</div>
+            <input class="ob-input" id="obBodyFat" value="16">
+          </div>
+        </div>
+
+        <div class="ob-panel" data-step="5">
+          <div class="ob-q">Your stations</div>
+          <div class="ob-sub">Under race fatigue, how do your functional stations (wall balls, sled, lunges) hold up? This sets your <b>strength axis</b> — what Apple Health can't see.</div>
+          <div class="ob-opt">
+            <button class="ob-choice sel" onclick="obChoose(this,true)">Hold strong<span class="d">Output barely drops late in the race</span></button>
+            <button class="ob-choice" onclick="obChoose(this,true)">Slip a bit<span class="d">Some fade, but manageable</span></button>
+            <button class="ob-choice" onclick="obChoose(this,false)">Blow up<span class="d">Stations wreck my time under fatigue</span></button>
+          </div>
+        </div>
+
+        <div class="ob-panel" data-step="6">
+          <div class="ob-reveal-pre" id="obComputing">
+            <div class="ob-spinner"></div>
+            Reading your numbers against HYROX…
+          </div>
+          <div id="obReveal" style="display:none">
+            <div class="ob-kicker2">YOUR LIMITER</div>
+            <div class="ob-profile" id="obProfile">—</div>
+            <div class="ob-limiter" id="obLimiter">—</div>
+            <div class="qchart">
+              <div class="qc-ylabel">STRENGTH / STATIONS →</div>
+              <div class="qc-area">
+                <div class="qc-vline"></div>
+                <div class="qc-hline"></div>
+                <div class="qc-cell tl"><b>Heavy &amp; slow,<br>strong enough</b><span>limiter: weight + pace</span></div>
+                <div class="qc-cell tr"><b>Good at<br>everything</b><span>limiter: integration</span></div>
+                <div class="qc-cell bl"><b>Weak at<br>everything</b><span>limiter: general base</span></div>
+                <div class="qc-cell br"><b>Light &amp; fast,<br>not strong</b><span>limiter: station capacity</span></div>
+                <div class="qc-you" id="obYou" style="left:50%;top:50%;display:none"><span class="qc-dot"></span><span class="qc-tag">YOU</span></div>
+              </div>
+              <div class="qc-xlabel">RUN / POWER-TO-WEIGHT →</div>
+            </div>
+            <div class="ob-focus" id="obFocus">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ob-foot">
+        <button class="ob-back" onclick="obBack()" hidden>Back</button>
+        <button class="ob-next" onclick="obNext()">Start</button>
+      </div>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="statusbar">
+      <span>9:41</span>
+      <div class="icons">
+        <svg width="17" height="11" viewBox="0 0 17 11" fill="none"><rect x="0" y="6" width="3" height="5" rx="1" fill="#F4F5F4"/><rect x="4.5" y="4" width="3" height="7" rx="1" fill="#F4F5F4"/><rect x="9" y="2" width="3" height="9" rx="1" fill="#F4F5F4"/><rect x="13.5" y="0" width="3" height="11" rx="1" fill="#F4F5F4"/></svg>
+        <svg width="16" height="11" viewBox="0 0 16 11" fill="none"><path d="M8 2.2c2 0 3.8.8 5.2 2l1.1-1.2C13.6 1.4 11 0 8 0S2.4 1.4.7 3l1.1 1.2C3.2 3 5 2.2 8 2.2z" fill="#F4F5F4"/><path d="M8 5.5c1 0 2 .4 2.7 1.1l1.1-1.2C10.7 4.3 9.4 3.7 8 3.7s-2.7.6-3.8 1.7l1.1 1.2C6 5.9 7 5.5 8 5.5z" fill="#F4F5F4"/><circle cx="8" cy="9.2" r="1.6" fill="#F4F5F4"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="#F4F5F4" opacity="0.5"/><rect x="2" y="2" width="17" height="8" rx="1.5" fill="#F4F5F4"/><rect x="23" y="4" width="2" height="4" rx="1" fill="#F4F5F4" opacity="0.5"/></svg>
+      </div>
+    </div>
+
+    <!-- ===================== TODAY ===================== -->
+    <div class="screen" id="screen-today">
+      <div class="apphead">
+        <div>
+          <div class="greeting">Tuesday · 72 days out</div>
+          <div class="title">Today</div>
+        </div>
+        <div class="avatar" title="Athlete" onclick="go('athlete')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="#F4F5F4" stroke-width="1.7"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6" stroke="#F4F5F4" stroke-width="1.7" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+
+      <!-- COUNTDOWN -->
+      <div class="countdown">
+        <div class="left">
+          <span class="flag">🏁</span>
+          <div>
+            <div class="race">HYROX · Goal 1:10:00</div>
+            <div class="loc">Washington DC · Sept 4, 2026</div>
+          </div>
+        </div>
+        <div class="days"><b>72</b><span>days left</span></div>
+      </div>
+
+      <!-- FRESHNESS -->
+      <div class="freshness" onclick="toggleFresh(this)">
+        <span class="pulse"></span>
+        <div class="ftext">
+          <b>Apple Health checked 2 min ago</b>
+          <span id="fresh-detail">All today's metrics current · <span class="warn">body fat 4 days old</span></span>
+        </div>
+        <span class="chev">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="#5A5E65" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </div>
+
+      <!-- READINESS HERO -->
+      <div class="card mint readiness">
+        <div class="top">
+          <div class="module-label">Readiness</div>
+          <div class="verdict-pill"><span class="dot green"></span> GREEN · TRAIN HARD</div>
+        </div>
+        <div class="score">82<small>/100</small></div>
+        <div class="verdict-text">Recovered and trending up. Today's the day to push the session that moves your limiter.</div>
+        <div class="micro-row">
+          <div class="micro"><div class="k">HRV</div><div class="v">68 <small>ms ▲</small></div></div>
+          <div class="micro"><div class="k">Resting HR</div><div class="v">48 <small>bpm</small></div></div>
+          <div class="micro"><div class="k">Sleep</div><div class="v">7.4 <small>hrs</small></div></div>
+        </div>
+      </div>
+
+      <!-- WHAT TO EAT TODAY -->
+      <div class="card">
+        <div class="module-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M6 3v7a2 2 0 0 0 2 2v9M6 3v4M9 3v4M18 3c-1.5 0-2.5 2-2.5 5s1 4 2.5 4v9" stroke="#5A5E65" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          What to eat today
+        </div>
+        <div class="fuel-head">
+          <div class="fuel-cal"><b>2,300</b><small>kcal</small></div>
+          <div class="fuel-tag">RUN DAY · LEAN DEFICIT</div>
+        </div>
+        <div class="fuel-why">You're in a deliberate deficit to drop toward <b>200 lb</b> — but fuel today's quality run: carbs before, protein after. Keep <b>protein high</b> to hold the strength you've already built while the weight comes off.</div>
+        <div class="metgrid" style="grid-template-columns:1fr 1fr 1fr">
+          <div class="mtile"><div class="mk">PROTEIN</div><div class="mv">200 <small>g</small></div></div>
+          <div class="mtile"><div class="mk">CARBS</div><div class="mv">230 <small>g</small></div></div>
+          <div class="mtile"><div class="mk">FAT</div><div class="mv">65 <small>g</small></div></div>
+        </div>
+        <div class="fuel-ask" onclick="go('coach')">Ask the coach what to eat around the session
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#C7F0E3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </div>
+
+      <!-- LAST WORKOUT READ -->
+      <div class="card">
+        <div class="lw-head">
+          <div class="lw-title">Last workout · the read<span>Sat — 8km Zone 2 run</span></div>
+          <div class="iconbtn dark">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M7 17L17 7M17 7H9M17 7v8" stroke="#F4F5F4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="drift-chart" id="driftChart"></div>
+        <div class="read-line">Base is <b>solid</b> — HR drift only <b>3.2%</b>. Strength holds under fatigue, so the stations aren't the leak. The time you're leaving out there is <b>bodyweight and run pace</b>: at 214 lb, 5:18/km is still short of the 1:10 run budget.</div>
+        <div class="read-tags">
+          <span class="rtag good">✓ Base held</span>
+          <span class="rtag good">Strength holds</span>
+          <span class="rtag">Avg 5:18/km</span>
+          <span class="rtag bad">Pace vs 1:10 goal</span>
+        </div>
+      </div>
+
+      <!-- NEXT SESSION -->
+      <div class="card light session">
+        <div class="module-label">Next session · today</div>
+        <div class="s-row">
+          <div class="s-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="15" cy="5" r="2" fill="#C7F0E3"/><path d="M5 20l3-4 2.6 1.6L12 13l-3-2.2 1.6-3.3L14 10l3.4.6" stroke="#C7F0E3" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="s-body">
+            <div class="sn">Tempo run + strides</div>
+            <div class="sm">8 km tempo · 40 min · RPE 7</div>
+          </div>
+          <div class="iconbtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M7 17L17 7M17 7H9M17 7v8" stroke="#0E0F11" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="s-why"><b>Why this, today:</b> readiness is green and your limiter is run pace + power-to-weight. A quality tempo is the highest-value work today — it sharpens 5k pace and strips weight. Lifting stays capped this block so it doesn't fight that.</div>
+      </div>
+
+      <!-- AI COACH · entry point → its own tab -->
+      <div class="card ai coach-entry" onclick="go('coach')">
+        <div class="ai-orb">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" fill="#0E0F11"/></svg>
+        </div>
+        <div class="ce-body">
+          <div class="ce-t">AI Coach <span class="pchip" style="padding:3px 8px"><span class="tick">✓</span> primed</span></div>
+          <div class="ce-s">You're <b>green at 82</b> and your limiter's <b>run pace + power-to-weight</b>. Tap to talk it through — it already has today's data.</div>
+        </div>
+        <div class="iconbtn dark">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="#F4F5F4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== TRAIN · TRAINING PLAN ===================== -->
+    <div class="screen plan" id="screen-train" style="display:none">
+      <div class="apphead">
+        <div>
+          <div class="greeting">Week 6 of 14 · Build block</div>
+          <div class="title">Training Plan</div>
+        </div>
+        <div class="avatar" title="Plan">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="15" rx="3" stroke="#F4F5F4" stroke-width="1.7"/><path d="M3.5 9.5h17M8 3v4M16 3v4" stroke="#F4F5F4" stroke-width="1.7" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+
+      <div class="plan-weekhead">
+        <span>WEEK OF JUN 22</span>
+        <span class="blk">BUILD BLOCK</span>
+      </div>
+      <div class="plan-prog">
+        <span class="lbl">2 / 6</span>
+        <div class="bar"><i style="width:33%"></i></div>
+        <span class="lbl">SESSIONS</span>
+      </div>
+
+      <div class="days">
+        <!-- MON · done -->
+        <div class="day done">
+          <div class="day-date"><div class="day-dow">MON</div><div class="day-num">22</div></div>
+          <div class="sess run">
+            <div class="sess-top"><span class="sess-type">EASY RUN · Z2</span><span class="sess-status done">✓</span></div>
+            <div class="sess-name">Aerobic base run</div>
+            <div class="sess-meta">8 km · 48 min · avg 5:18/km</div>
+          </div>
+        </div>
+
+        <!-- TUE · today -->
+        <div class="day today">
+          <div class="day-date"><div class="day-dow">TUE</div><div class="day-num">23</div></div>
+          <div class="sess run">
+            <div class="sess-top"><span class="sess-type">TEMPO RUN</span><span class="todaytag">TODAY</span></div>
+            <div class="sess-name">Tempo run + strides</div>
+            <div class="sess-meta">8 km tempo · 40 min · RPE 7</div>
+            <div class="sess-why">Moves your limiter — run pace + power-to-weight</div>
+          </div>
+        </div>
+
+        <!-- WED -->
+        <div class="day">
+          <div class="day-date"><div class="day-dow">WED</div><div class="day-num">24</div></div>
+          <div class="sess strength">
+            <div class="sess-top"><span class="sess-type">STRENGTH · CAPPED</span><span class="sess-status up">○</span></div>
+            <div class="sess-name">Maintenance lift</div>
+            <div class="sess-meta">30 min · 3 big lifts · hold only</div>
+            <div class="sess-why">Capped — holds strength without fighting weight loss</div>
+          </div>
+        </div>
+
+        <!-- THU -->
+        <div class="day">
+          <div class="day-date"><div class="day-dow">THU</div><div class="day-num">25</div></div>
+          <div class="sess run">
+            <div class="sess-top"><span class="sess-type">THRESHOLD</span><span class="sess-status up">○</span></div>
+            <div class="sess-name">5 × 1 km intervals</div>
+            <div class="sess-meta">@ 4:30/km · 90s rest</div>
+          </div>
+        </div>
+
+        <!-- FRI · rest -->
+        <div class="day">
+          <div class="day-date"><div class="day-dow">FRI</div><div class="day-num">26</div></div>
+          <div class="sess rest">
+            <div class="sess-name">Rest day</div>
+          </div>
+        </div>
+
+        <!-- SAT · simulation -->
+        <div class="day">
+          <div class="day-date"><div class="day-dow">SAT</div><div class="day-num">27</div></div>
+          <div class="sess sim">
+            <div class="sess-top"><span class="sess-type">HYROX SIMULATION</span><span class="sess-status up">○</span></div>
+            <div class="sess-name">4 stations + compromised runs</div>
+            <div class="sess-meta">4 × (1 km run + station) · race pace</div>
+            <div class="sess-why">Tests the fade — feeds the next re-diagnosis</div>
+          </div>
+        </div>
+
+        <!-- SUN -->
+        <div class="day">
+          <div class="day-date"><div class="day-dow">SUN</div><div class="day-num">28</div></div>
+          <div class="sess run">
+            <div class="sess-top"><span class="sess-type">LONG RUN · Z2</span><span class="sess-status up">○</span></div>
+            <div class="sess-name">Long aerobic run</div>
+            <div class="sess-meta">14 km · Z2 · easy</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="plan-next">NEXT WEEK · PEAK BLOCK →</div>
+    </div>
+
+    <!-- ===================== AI COACH (own tab) ===================== -->
+    <div class="coachscreen" id="screen-coach" style="display:none">
+      <div class="apphead">
+        <div>
+          <div class="greeting"><span class="live-dot"></span>Primed · data 2 min fresh</div>
+          <div class="title">AI Coach</div>
+        </div>
+        <div class="avatar" title="Coach">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" fill="#C7F0E3"/></svg>
+        </div>
+      </div>
+
+      <div class="primed-chips">
+        <span class="pchip"><span class="tick">✓</span> Readiness 82</span>
+        <span class="pchip"><span class="tick">✓</span> Diagnosis loaded</span>
+        <span class="pchip" id="dataToggle" onclick="toggleData()" style="cursor:pointer"><span class="tick">✓</span> Data 2 min fresh</span>
+      </div>
+
+      <div class="chatlog" id="chatlog">
+        <div class="bubble ai-b">Morning. You're <b>green at 82</b> and your limiter is <b>run pace + power-to-weight</b>. I'd hit the tempo run today — want me to walk through why, or adjust it?</div>
+      </div>
+
+      <div class="coach-bottom">
+        <div class="suggest" id="suggest">
+          <button class="sg" onclick="ask(this,'Why a run and not lifting today?')">Why a run and not lifting today? <span class="arr">→</span></button>
+          <button class="sg" onclick="ask(this,'Am I on track for 1:10?')">Am I on track for 1:10? <span class="arr">→</span></button>
+          <button class="sg" onclick="ask(this,'Why am I capping strength work?')">Why am I capping strength work? <span class="arr">→</span></button>
+          <button class="sg" onclick="ask(this,'What if I drop to 195 lb and run a 22:30 5k?')">What if I drop to 195 lb &amp; run 22:30? <span class="arr">→</span></button>
+        </div>
+        <div class="ai-input">
+          <input id="chatInput" placeholder="Ask your coach…" onkeydown="if(event.key==='Enter')freeAsk()" />
+          <button class="sendbtn" onclick="freeAsk()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#0E0F11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== ATHLETE · status hub ===================== -->
+    <div class="screen athlete" id="screen-athlete" style="display:none">
+      <div class="apphead">
+        <div>
+          <div class="greeting">HYROX SINGLES · MEN 35–39</div>
+          <div class="title">Athlete</div>
+        </div>
+        <div class="avatar" title="Profile">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="#F4F5F4" stroke-width="1.7"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6" stroke="#F4F5F4" stroke-width="1.7" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+
+      <div class="prof-chip">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--mint);display:inline-block"></span>
+        72 DAYS TO RACE · GOAL 1:10:00
+      </div>
+
+      <!-- DIAGNOSIS -->
+      <div class="card diagnosis">
+        <div class="module-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3" stroke="#5A5E65" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Current diagnosis · re-runs weekly
+        </div>
+        <div class="diag-head">
+          <div class="profile">Heavy &amp; slow — strong enough</div>
+          <div class="tag">PROFILE 1/4</div>
+        </div>
+
+        <!-- quadrant chart -->
+        <div class="qchart">
+          <div class="qc-ylabel">STRENGTH / STATIONS →</div>
+          <div class="qc-area">
+            <div class="qc-vline"></div>
+            <div class="qc-hline"></div>
+            <div class="qc-cell tl active"><b>Heavy &amp; slow,<br>strong enough</b><span>limiter: weight + pace</span></div>
+            <div class="qc-cell tr"><b>Good at<br>everything</b><span>limiter: integration</span></div>
+            <div class="qc-cell bl"><b>Weak at<br>everything</b><span>limiter: general base</span></div>
+            <div class="qc-cell br"><b>Light &amp; fast,<br>not strong</b><span>limiter: station capacity</span></div>
+            <div class="qc-you" style="left:30%; top:36%"><span class="qc-dot"></span><span class="qc-tag">YOU</span></div>
+          </div>
+          <div class="qc-xlabel">RUN / POWER-TO-WEIGHT →</div>
+        </div>
+
+        <div class="limiter">
+          <div class="lk">Binding constraint</div>
+          <div class="lv">Running economy &amp; power-to-weight. Your stations <b>hold under fatigue</b> — strength isn't the leak. But at <b>214 lb and a 5k of 25:45</b> against the ~22:00 a 1:10 needs, bodyweight and run pace are costing you the race. Focus shifts to losing weight, dropping body fat, and 5k pace; lifting volume is capped so it doesn't fight that.</div>
+        </div>
+        <div class="ob-relaunch" onclick="startOnboarding()">↻ Re-run baseline assessment</div>
+      </div>
+
+      <!-- FITNESS SCORE -->
+      <div class="card">
+        <div class="module-label">Fitness score</div>
+        <div class="fit-row">
+          <div class="ring">
+            <svg width="92" height="92" viewBox="0 0 92 92">
+              <circle cx="46" cy="46" r="40" fill="none" stroke="var(--surface-2)" stroke-width="8"/>
+              <circle cx="46" cy="46" r="40" fill="none" stroke="var(--mint)" stroke-width="8" stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="65.3"/>
+            </svg>
+            <div class="ring-val"><b>74</b><small>/100</small></div>
+          </div>
+          <div class="fit-info">
+            <div class="fit-big">Race-ready: <b>building</b></div>
+            <div class="fit-sub">VO₂max 48 · the engine's there — dropping weight is what frees up the pace.</div>
+            <div class="fit-trend">▲ +6 in the last 4 weeks</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRAINING STATUS -->
+      <div class="card">
+        <div class="module-label">Training status</div>
+        <div class="ts-row">
+          <span class="ts-badge productive">PRODUCTIVE</span>
+          <span class="ts-load">Load ratio 1.1 · optimal</span>
+        </div>
+        <div class="ts-bar"><span class="marker"></span></div>
+        <div class="ts-zones"><span>DETRAIN</span><span>OPTIMAL</span><span>OVERREACH</span></div>
+        <div class="ts-text">Load is building fitness without tipping into overreach. Hold this through the build block — your body's absorbing the work.</div>
+      </div>
+
+      <!-- KEY METRICS · the arc to race day -->
+      <div class="card">
+        <div class="module-label">Key metrics · the arc to race day</div>
+        <div class="rl-grid" style="margin-top:10px">
+          <div class="rl-colhead">START</div>
+          <div class="rl-colhead">CURRENT</div>
+          <div class="rl-colhead">GOAL</div>
+
+          <div class="rl-cell start"><div class="rl-num">220.0</div><div class="rl-lab">LB WEIGHT</div></div>
+          <div class="rl-cell current"><div class="rl-num"><span class="arr">↓</span>214.2<svg class="spark" width="20" height="13" viewBox="0 0 24 16" fill="none"><polyline points="1,3 9,6 16,11 23,12" stroke="#C7F0E3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="rl-lab">LB WEIGHT</div></div>
+          <div class="rl-cell goal"><div class="rl-num">200</div><div class="rl-lab">LB WEIGHT</div></div>
+
+          <div class="rl-cell start"><div class="rl-num">22.0</div><div class="rl-lab">% BODY FAT</div></div>
+          <div class="rl-cell current"><div class="rl-num"><span class="arr">↓</span>16.0<svg class="spark" width="20" height="13" viewBox="0 0 24 16" fill="none"><polyline points="1,4 9,7 16,11 23,12" stroke="#C7F0E3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="rl-lab">% BODY FAT</div></div>
+          <div class="rl-cell goal"><div class="rl-num">14</div><div class="rl-lab">% BODY FAT</div></div>
+
+          <div class="rl-cell start"><div class="rl-num">26:00</div><div class="rl-lab">5K TIME</div></div>
+          <div class="rl-cell current"><div class="rl-num"><span class="arr">↓</span>25:45<svg class="spark" width="20" height="13" viewBox="0 0 24 16" fill="none"><polyline points="2,4 9,12 22,3" stroke="#C7F0E3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="rl-lab">5K TIME</div></div>
+          <div class="rl-cell goal"><div class="rl-num">22:00</div><div class="rl-lab">5K TIME</div></div>
+
+          <div class="rl-cell start"><div class="rl-num">12:00</div><div class="rl-lab">Z2 PACE /MI</div></div>
+          <div class="rl-cell current"><div class="rl-num"><span class="dash"></span></div><div class="rl-lab">Z2 PACE /MI</div></div>
+          <div class="rl-cell goal"><div class="rl-num">9:30</div><div class="rl-lab">Z2 PACE /MI</div></div>
+        </div>
+        <div class="rl-foot">
+          <div class="f-start">MAY 4</div>
+          <div class="f-current">WEEK OF<br>JUN 22, 2026</div>
+          <div class="f-goal">T-MINUS<br>72 DAYS</div>
+        </div>
+      </div>
+
+      <!-- PLAN SUMMARY -->
+      <div class="card light">
+        <div class="module-label">Current plan</div>
+        <div class="plan-sum">
+          <div class="ps-block">Build block · Week 6 of 14</div>
+          <div class="ps-meta">Race in 72 days · next session: Sat — HYROX simulation</div>
+        </div>
+        <button class="ps-btn" onclick="go('train')">View full plan
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#C7F0E3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ===================== TAB TOUR ===================== -->
+    <div id="tour">
+      <div class="tour-card">
+        <div class="tour-step" id="tourStep">1 / 4</div>
+        <div class="tour-title" id="tourTitle">Today</div>
+        <div class="tour-body" id="tourBody"></div>
+        <div class="tour-foot">
+          <button class="tour-skip" onclick="endTour()">Skip</button>
+          <button class="tour-next" onclick="tourNext()">Next</button>
+        </div>
+        <div class="tour-arrow"></div>
+      </div>
+    </div>
+
+    <!-- TAB BAR -->
+    <div class="tabbar">
+      <div class="tabs">
+        <button class="tab active" data-screen="today" onclick="go('today')">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M3 11l9-8 9 8M5 9.5V20h14V9.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="lbl">Today</span>
+        </button>
+        <button class="tab" data-screen="athlete" onclick="go('athlete')">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="7.5" r="3.4" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 20c0-3.6 3-5.5 6.5-5.5s6.5 1.9 6.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span class="lbl">Athlete</span>
+        </button>
+        <button class="tab" data-screen="train" onclick="go('train')">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M6.5 6.5h2v11h-2zM15.5 6.5h2v11h-2zM8.5 11h7v2h-7z" fill="currentColor"/></svg>
+          <span class="lbl">Plan</span>
+        </button>
+        <button class="tab" data-screen="coach" onclick="go('coach')">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H9l-4 3.5V16H4z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M12 7.5l.9 2.3 2.3.9-2.3.9L12 14l-.9-2.4-2.3-.9 2.3-.9z" fill="currentColor"/></svg>
+          <span class="lbl">AI Coach</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+<script>
+  /* ---- splash / launch screen ---- */
+  function hideSplash(){ var s=document.getElementById('splash'); if(!s)return; s.classList.add('hide'); setTimeout(function(){ s.style.display='none'; }, 650); }
+  function showSplash(){ var s=document.getElementById('splash'); s.style.display='flex'; s.style.opacity=''; s.classList.remove('hide'); }
+  setTimeout(function(){ hideSplash(); maybeOnboard(); }, 2200);
+
+  /* ---- HR drift chart (rises slightly = low drift, base held) ---- */
+  (function(){
+    const heights = [38,42,40,45,43,48,46,50,49,52,51,55,53,57,56,59,58,55,60,58];
+    const c = document.getElementById('driftChart');
+    heights.forEach((h,i)=>{
+      const b = document.createElement('div');
+      b.className = 'bar' + (i>15 ? ' hi' : '');
+      b.style.height = '6px';
+      c.appendChild(b);
+      setTimeout(()=> b.style.height = h+'%', 60 + i*28);
+    });
+  })();
+
+  /* ---- freshness toggle ---- */
+  let freshOpen = false;
+  function toggleFresh(el){
+    freshOpen = !freshOpen;
+    const d = document.getElementById('fresh-detail');
+    if(freshOpen){
+      d.innerHTML = 'HRV, resting HR, sleep, last run · all synced now.<br>Body fat last logged 4 days ago — <span class="warn">tap Train to update before I re-diagnose.</span>';
+    } else {
+      d.innerHTML = 'All today\'s metrics current · <span class="warn">body fat 4 days old</span>';
+    }
+  }
+
+  /* ---- tab nav ---- */
+  const DISPLAY = { today:'block', train:'block', coach:'flex', athlete:'block' };
+  function go(screen){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.screen===screen));
+    Object.keys(DISPLAY).forEach(s=>{
+      document.getElementById('screen-'+s).style.display = (s===screen) ? DISPLAY[s] : 'none';
+    });
+    const active = document.getElementById('screen-'+screen);
+    active.classList.remove('fade-in'); void active.offsetWidth; active.classList.add('fade-in');
+    if(screen!=='today') document.querySelector('.phone').scrollTop = 0;
+  }
+
+  /* ---- chat ---- */
+  const answers = {
+    'Why a run and not lifting today?':
+      "Because running is where you're losing the race, not strength. Your stations <b>hold under fatigue</b> — that box is ticked. But at <b>214 lb with a 5k of 25:45</b> against the ~22:00 a 1:10 needs, the time is in your run pace and bodyweight. A quality run moves that; another heavy lift doesn't.",
+    'Am I on track for 1:10?':
+      "Getting there, with a clear lever. Strength is <b>race-ready</b> and your base held (drift 3.2%). The gap is the run: you're <b>~25:45 vs ~22:00</b>, and every kg toward 200 lb buys free seconds. Hold the deficit and the run work and 1:10 is on for Sept 4.",
+    'Why am I capping strength work?':
+      "Because you don't need more strength — you need less weight and more pace. Heavy lifting adds fatigue and a bit of mass that fights both. We keep <b>one capped maintenance lift</b> to hold what you've got, and spend the rest of your energy on running and the deficit.",
+    'What if I drop to 195 lb and run a 22:30 5k?':
+      "At <b>195 lb with a 22:30 5k</b> you'd cross into <b>Good at everything</b> — running stops being the limiter. The work would shift to integration: race-pace simulation and holding output under fatigue. (Start the coach proxy with <b>node server.mjs</b> to watch the quadrant move live.)"
+  };
+
+  function append(html, cls){
+    const log = document.getElementById('chatlog');
+    const b = document.createElement('div');
+    b.className = 'bubble ' + cls;
+    b.innerHTML = html;
+    log.appendChild(b);
+    b.scrollIntoView({behavior:'smooth', block:'nearest'});
+    return b;
+  }
+
+  function typing(){
+    const log = document.getElementById('chatlog');
+    const t = document.createElement('div');
+    t.className = 'typing'; t.id='typing';
+    t.innerHTML = '<span></span><span></span><span></span>';
+    log.appendChild(t);
+    t.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  /* ---- live coach: real Claude via the local proxy, with canned fallback ---- */
+  const COACH_PROXY = 'http://localhost:8788';   // run: node server.mjs
+  const coachState = { stale: false };
+  const convo = [];                              // {role, content} turns sent to the model
+
+  // The freshness-stamped snapshot the app "captured this turn" (fake HealthKit).
+  function buildContext(){
+    const stale = coachState.stale;
+    return {
+      freshness: {
+        checked: stale ? '26 hours ago' : '2 minutes ago',
+        stale_or_missing: stale ? ['HRV','resting HR','sleep','last run','readiness score'] : [],
+        note: stale ? 'Apple Health has not synced recently — recovery metrics are stale.' : 'All metrics synced this morning.'
+      },
+      readiness: stale ? null : 82,
+      metrics: {
+        hrv_ms: stale ? null : 68, resting_hr: stale ? null : 48, sleep_hrs: stale ? null : 7.4,
+        bodyweight_lb: 214, body_fat_pct: 16, vo2max: 48, recent_5k: '25:45', avg_z2_pace: '5:18/km',
+        stations_hold: true
+      },
+      diagnosis: { profile: 'Profile 1 — Heavy & slow, strong enough', limiter: 'running economy + power-to-weight',
+                   focus: 'lose weight toward 200 lb, improve 5k pace; lifting capped' },
+      todays_session: 'Tempo run + strides — 8 km, RPE 7'
+    };
+  }
+
+  function toggleData(){
+    coachState.stale = !coachState.stale;
+    const chip = document.getElementById('dataToggle');
+    chip.classList.toggle('stale', coachState.stale);
+    chip.innerHTML = coachState.stale
+      ? '<span class="tick" style="color:var(--yellow)">⚠</span> Data STALE · tap'
+      : '<span class="tick">✓</span> Data 2 min fresh';
+  }
+
+  // Agent acting on the app: write the re-diagnosis into the Athlete quadrant.
+  function applyDiagnosis(d){
+    const root = document.getElementById('screen-athlete');
+    if(!root || !d || !d.marker) return;
+    root.querySelector('.profile').textContent = d.profile;
+    root.querySelector('.tag').textContent = 'PROFILE ' + d.profileIndex + '/4';
+    const cellByIdx = {1:'tl', 2:'br', 3:'tr', 4:'bl'};
+    root.querySelectorAll('.qc-cell').forEach(c=>c.classList.remove('active'));
+    const cell = root.querySelector('.qc-cell.' + cellByIdx[d.profileIndex]); if(cell) cell.classList.add('active');
+    const you = root.querySelector('.qc-you'); if(you){ you.style.left = d.marker.x + '%'; you.style.top = d.marker.y + '%'; }
+    const cap = d.limiter.charAt(0).toUpperCase() + d.limiter.slice(1);
+    root.querySelector('.limiter .lv').innerHTML = cap + '. <b>' + d.evidence + '</b>. Focus: ' + d.focus + '.';
+  }
+
+  async function streamLive(q){
+    convo.push({ role:'user', content:q });
+    const resp = await fetch(COACH_PROXY + '/api/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ messages: convo, context: buildContext() })
+    });
+    if(!resp.ok || !resp.body) throw new Error('no stream');
+    const reader = resp.body.getReader(); const dec = new TextDecoder();
+    const log = document.getElementById('chatlog');
+    let buf='', bubble=null, full='', firstSeen=false;
+    for(;;){
+      const {done,value} = await reader.read(); if(done) break;
+      buf += dec.decode(value,{stream:true});
+      let i;
+      while((i=buf.indexOf('\n\n'))>=0){
+        const line = buf.slice(0,i); buf=buf.slice(i+2);
+        if(!line.startsWith('data:')) continue;
+        let j; try{ j = JSON.parse(line.slice(5).trim()); }catch{ continue; }
+        if(!firstSeen){ const t=document.getElementById('typing'); if(t) t.remove(); firstSeen=true; }
+        if(j.type==='text'){
+          if(!bubble){ bubble=document.createElement('div'); bubble.className='bubble ai-b'; log.appendChild(bubble); }
+          full += j.text; bubble.textContent = full; bubble.scrollIntoView({block:'nearest'});
+        } else if(j.type==='tool'){
+          append('⚙ Recomputing diagnosis…', 'cite'); bubble=null; full='';
+        } else if(j.type==='diagnosis'){
+          applyDiagnosis(j.data);
+          append('✓ Re-diagnosed → <b>'+j.data.profile+'</b> · Athlete tab updated', 'cite');
+          bubble=null; full='';
+        }
+      }
+    }
+    convo.push({ role:'assistant', content: full || '(diagnosis updated)' });
+  }
+
+  async function respond(q){
+    const ctx = buildContext();
+    append(`<b>📊 Sent to coach:</b> ${ctx.readiness!=null?'readiness '+ctx.readiness+' · ':''}5k 25:45 · 214 lb · ${coachState.stale?'<span style="color:var(--yellow)">DATA STALE ⚠</span>':'data 2 min fresh'}`, 'cite');
+    typing();
+    try {
+      await streamLive(q);                          // real Claude + agent tools
+      const t = document.getElementById('typing'); if(t) t.remove();
+    } catch(e) {
+      const t = document.getElementById('typing'); if(t) t.remove();
+      const a = answers[q] || "I'd reason from your live numbers here — but the coach proxy isn't running, so this is demo mode. Start it with <b>node server.mjs</b> to talk to the real model.";
+      append(a, 'ai-b');
+    }
+  }
+
+  function ask(btn, q){
+    document.getElementById('suggest').style.display='none';
+    append(q, 'me');
+    respond(q);
+  }
+
+  function freeAsk(){
+    const input = document.getElementById('chatInput');
+    const q = input.value.trim();
+    if(!q) return;
+    input.value='';
+    document.getElementById('suggest').style.display='none';
+    append(q, 'me');
+    respond(q);
+  }
+
+  /* ---- onboarding: baseline assessment -> quadrant placement ---- */
+  // client mirror of the proxy's diagnostic engine
+  function computeDiagnosis(inp){
+    const sec = t => { const [a,b]=String(t).split(':').map(Number); return a*60+(b||0); };
+    const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+    const w = +inp.bodyweight_lb || 214;
+    const fk = sec(inp.recent_5k || '25:45');
+    const sh = !!inp.stations_hold;
+    const goal = sec('22:00');
+    const ps = clamp(1-(fk-goal)/(sec('28:00')-goal),0,1);
+    const ws = clamp(1-(w-185)/(225-185),0,1);
+    const run = ps*0.6 + ws*0.4;
+    const str = sh ? 0.78 : 0.3;
+    const strong = str>=0.5, fast = run>=0.5;
+    let profile, profileIndex, limiter, focus;
+    if(strong && !fast){ profile='Heavy & slow — strong enough'; profileIndex=1; limiter='running economy + power-to-weight'; focus='lose weight toward 200 lb, improve 5k pace; lifting capped'; }
+    else if(!strong && fast){ profile='Light & fast — not strong enough'; profileIndex=2; limiter='strength + station capacity'; focus='build strength + station work; hold run volume steady'; }
+    else if(strong && fast){ profile='Good at everything'; profileIndex=3; limiter='integration + fatigue resistance'; focus='race simulation, pacing, compromised running'; }
+    else { profile='Weak at everything'; profileIndex=4; limiter='general base'; focus='fix the biggest deficit first, then re-diagnose'; }
+    return { profile, profileIndex, limiter, focus,
+      marker:{ x:Math.round((0.12+run*0.76)*100), y:Math.round((0.12+(1-str)*0.76)*100) },
+      evidence:`${inp.recent_5k} 5k, ${w} lb, stations ${sh?'hold':'fade'} vs 22:00 goal` };
+  }
+
+  const OB = { step:0, connected:false, result:null,
+    data:{ target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true } };
+  const OB_LAST = 6;
+  const obVal = id => { const el=document.getElementById(id); return el?el.value.trim():''; };
+
+  function obShow(i){
+    OB.step = i;
+    document.querySelectorAll('.ob-panel').forEach(p=>p.classList.toggle('active', +p.dataset.step===i));
+    document.getElementById('obBar').style.width = (i/OB_LAST*100)+'%';
+    document.getElementById('obStepLabel').textContent = i===0 ? 'Welcome' : i===OB_LAST ? 'Your result' : ('Step '+i+' of 5');
+    const back=document.querySelector('.ob-back'), next=document.querySelector('.ob-next');
+    back.hidden = (i===0 || i===OB_LAST);
+    next.onclick = obNext;
+    if(i===0){ next.textContent='Start'; next.style.display=''; }
+    else if(i===OB_LAST){ next.style.display='none'; obRunReveal(); }
+    else { next.textContent='Continue'; next.style.display=''; }
+    document.querySelector('.ob-body').scrollTop = 0;
+  }
+  function obCollect(i){
+    if(i===1) OB.data.target = obVal('obTarget') || OB.data.target;
+    if(i===3) OB.data.recent_5k = obVal('obFiveK') || OB.data.recent_5k;
+    if(i===4){ OB.data.bodyweight_lb = +obVal('obWeight') || OB.data.bodyweight_lb; OB.data.body_fat = +obVal('obBodyFat') || OB.data.body_fat; }
+  }
+  function obNext(){ obCollect(OB.step); if(OB.step<OB_LAST) obShow(OB.step+1); }
+  function obBack(){ if(OB.step>0) obShow(OB.step-1); }
+
+  function obConnectHealth(btn){
+    btn.disabled = true; btn.innerHTML = 'Syncing Apple Health…';
+    setTimeout(function(){
+      OB.connected = true;
+      document.getElementById('obPulled').style.display = 'flex';
+      btn.innerHTML = '✓ Connected · synced just now';
+    }, 1500);
+  }
+  function obChoose(el, hold){
+    el.parentNode.querySelectorAll('.ob-choice').forEach(c=>c.classList.remove('sel'));
+    el.classList.add('sel');
+    OB.data.stations_hold = hold;
+  }
+
+  function obRunReveal(){
+    document.getElementById('obComputing').style.display = 'block';
+    document.getElementById('obReveal').style.display = 'none';
+    setTimeout(function(){
+      const d = computeDiagnosis(OB.data); OB.result = d;
+      document.getElementById('obComputing').style.display = 'none';
+      document.getElementById('obReveal').style.display = 'block';
+      document.getElementById('obProfile').textContent = d.profile;
+      document.getElementById('obLimiter').innerHTML = 'Your binding constraint is <b>'+d.limiter+'</b> — '+d.evidence+'.';
+      document.getElementById('obFocus').textContent = 'Focus from here: '+d.focus+'.';
+      const rev = document.getElementById('obReveal');
+      const cellByIdx = {1:'tl',2:'br',3:'tr',4:'bl'};
+      rev.querySelectorAll('.qc-cell').forEach(c=>c.classList.remove('active'));
+      const cell = rev.querySelector('.qc-cell.'+cellByIdx[d.profileIndex]); if(cell) cell.classList.add('active');
+      const you = document.getElementById('obYou');
+      you.style.display='flex'; you.style.left='50%'; you.style.top='50%';
+      void you.offsetWidth;                          // force reflow so the transition runs
+      you.style.left=d.marker.x+'%'; you.style.top=d.marker.y+'%';
+      const next=document.querySelector('.ob-next'); next.style.display=''; next.textContent='Enter app'; next.onclick = obFinish;
+    }, 1600);
+  }
+
+  function obFinish(){
+    try { localStorage.setItem('hyrox_onboarded','1'); } catch(e){}
+    if(OB.result) applyDiagnosis(OB.result);     // write the result into the Athlete tab
+    document.getElementById('onboarding').classList.remove('show');
+    startTour();                                  // introduce the tabs
+  }
+
+  /* ---- post-onboarding tab tour ---- */
+  const TOUR = [
+    { screen:'today',   title:'Today',    body:'Your daily verdict — train hard or back off. Readiness, what to eat, your last-workout read, and today’s session, all in one glance.' },
+    { screen:'athlete', title:'Athlete',  body:'Who you are right now: your diagnosis quadrant, fitness score, training status, and the metrics arcing toward race day. Re-run your baseline here anytime.' },
+    { screen:'train',   title:'Plan',     body:'Your week, built to move your limiter. Every session says why it exists — and shifts as your diagnosis changes.' },
+    { screen:'coach',   title:'AI Coach', body:'A coach that already holds today’s data and proves it — it cites your own numbers and refuses to reason off stale data.' },
+  ];
+  let tourStep = 0;
+  function startTour(){ tourStep = 0; document.getElementById('tour').classList.add('show'); document.querySelector('.tabbar').classList.add('touring'); tourRender(); }
+  function tourRender(){
+    const t = TOUR[tourStep];
+    go(t.screen);
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('tour-hi'));
+    const at = document.querySelector('.tab.active'); if(at){ at.classList.add('tour-hi'); tourArrowTo(at); }
+    document.getElementById('tourStep').textContent = (tourStep+1) + ' / ' + TOUR.length;
+    document.getElementById('tourTitle').textContent = t.title;
+    document.getElementById('tourBody').textContent = t.body;
+    document.querySelector('.tour-next').textContent = tourStep === TOUR.length-1 ? 'Got it' : 'Next';
+  }
+  function tourArrowTo(tab){
+    const card = document.querySelector('.tour-card');
+    const arrow = document.querySelector('.tour-arrow');
+    if(!card || !arrow || !tab) return;
+    const cr = card.getBoundingClientRect();
+    const tr = tab.getBoundingClientRect();
+    let lx = (tr.left + tr.width/2) - (cr.left + 3) - 7.5;   // tab centre, in the card's coordinate space
+    lx = Math.max(8, Math.min(cr.width - 26, lx));            // keep it under the card
+    arrow.style.left = lx + 'px';
+  }
+  function tourNext(){ if(tourStep < TOUR.length-1){ tourStep++; tourRender(); } else endTour(); }
+  function endTour(){
+    document.getElementById('tour').classList.remove('show');
+    document.querySelector('.tabbar').classList.remove('touring');
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('tour-hi'));
+    go('today');
+  }
+
+  function startOnboarding(){
+    OB.step=0; OB.connected=false; OB.result=null;
+    OB.data = { target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true };
+    const pulled=document.getElementById('obPulled'); if(pulled) pulled.style.display='none';
+    const cb=document.querySelector('.ob-connect'); if(cb){ cb.disabled=false; cb.innerHTML='<span>♥</span> Connect Apple Health'; }
+    document.getElementById('onboarding').classList.add('show');
+    obShow(0);
+  }
+  function maybeOnboard(){ try { if(!localStorage.getItem('hyrox_onboarded')) startOnboarding(); } catch(e){} }
+</script>
+</body>
+</html>
