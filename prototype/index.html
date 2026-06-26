@@ -661,6 +661,21 @@
   .ob-pill.sel { border-color: var(--mint); background: rgba(199,240,227,.10); color: var(--mint); }
   .ob-pill.idk { color: var(--text-faint); }
   .ob-pill.idk.sel { color: var(--mint); border-color: var(--mint); }
+  /* goal-setting step */
+  .ob-goals { display: flex; flex-direction: column; gap: 10px; }
+  .ob-goalcard { background: var(--surface); border: 1px solid var(--surface-line); border-left: 3px solid var(--mint); border-radius: 0 14px 14px 0; padding: 12px 14px; }
+  .ob-goalhead { display: flex; align-items: center; justify-content: space-between; }
+  .ob-goallabel { font-family: var(--mono); font-size: 11px; letter-spacing: 1px; color: var(--text); font-weight: 700; }
+  .ob-goalx { background: none; border: none; color: var(--text-faint); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; }
+  .ob-goalx:hover { color: var(--red); }
+  .ob-goalrow { display: flex; align-items: center; gap: 9px; margin-top: 9px; }
+  .ob-goalcur { font-size: 12px; color: var(--text-muted); }
+  .ob-goalarrow { color: var(--mint); }
+  .ob-goalinput { width: 90px; box-sizing: border-box; background: var(--bg); border: 1px solid var(--surface-line); border-radius: 9px; padding: 8px 10px; color: var(--mint); font-size: 15px; font-weight: 700; font-family: var(--font); outline: none; }
+  .ob-goalinput:focus { border-color: var(--mint); }
+  .ob-goalunit { font-size: 12px; color: var(--text-faint); }
+  .ob-addrow { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 6px; }
+  .ob-addlabel { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; color: var(--text-faint); margin-right: 2px; }
   .ob-foot { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 22px 30px; }
   .ob-back { background: none; border: none; color: var(--text-muted); font-size: 14px; font-family: var(--font); cursor: pointer; padding: 10px 4px; }
   .ob-back[hidden] { visibility: hidden; }
@@ -952,6 +967,12 @@
             </div>
             <div class="ob-focus" id="obFocus">—</div>
           </div>
+        </div>
+
+        <div class="ob-panel" data-step="7">
+          <div class="ob-q">Your goals</div>
+          <div class="ob-sub">These are the metrics that move <b>your</b> race time — picked from your profile. Set your targets, and keep <b>3 to 5</b>.</div>
+          <div id="obGoals" class="ob-goals"></div>
         </div>
       </div>
 
@@ -1314,32 +1335,7 @@
       <!-- KEY METRICS · the arc to race day -->
       <div class="card">
         <div class="module-label">Key metrics · the arc to race day</div>
-        <div class="rl-grid" style="margin-top:10px">
-          <div class="rl-colhead">START</div>
-          <div class="rl-colhead">CURRENT</div>
-          <div class="rl-colhead">GOAL</div>
-
-          <div class="rl-cell start"><div class="rl-num">220.0</div><div class="rl-lab">LB WEIGHT</div></div>
-          <div class="rl-cell current"><div class="rl-num"><span class="arr">↓</span>214.2<svg class="spark" width="20" height="13" viewBox="0 0 24 16" fill="none"><polyline points="1,3 9,6 16,11 23,12" stroke="#C7F0E3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="rl-lab">LB WEIGHT</div></div>
-          <div class="rl-cell goal"><div class="rl-num">200</div><div class="rl-lab">LB WEIGHT</div></div>
-
-          <div class="rl-cell start"><div class="rl-num">22.0</div><div class="rl-lab">% BODY FAT</div></div>
-          <div class="rl-cell current"><div class="rl-num"><span class="arr">↓</span>16.0<svg class="spark" width="20" height="13" viewBox="0 0 24 16" fill="none"><polyline points="1,4 9,7 16,11 23,12" stroke="#C7F0E3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="rl-lab">% BODY FAT</div></div>
-          <div class="rl-cell goal"><div class="rl-num">14</div><div class="rl-lab">% BODY FAT</div></div>
-
-          <div class="rl-cell start"><div class="rl-num">26:00</div><div class="rl-lab">5K TIME</div></div>
-          <div class="rl-cell current"><div class="rl-num"><span class="arr">↓</span>25:45<svg class="spark" width="20" height="13" viewBox="0 0 24 16" fill="none"><polyline points="2,4 9,12 22,3" stroke="#C7F0E3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="rl-lab">5K TIME</div></div>
-          <div class="rl-cell goal"><div class="rl-num">22:00</div><div class="rl-lab">5K TIME</div></div>
-
-          <div class="rl-cell start"><div class="rl-num">12:00</div><div class="rl-lab">Z2 PACE /MI</div></div>
-          <div class="rl-cell current"><div class="rl-num"><span class="dash"></span></div><div class="rl-lab">Z2 PACE /MI</div></div>
-          <div class="rl-cell goal"><div class="rl-num">9:30</div><div class="rl-lab">Z2 PACE /MI</div></div>
-        </div>
-        <div class="rl-foot">
-          <div class="f-start">MAY 4</div>
-          <div class="f-current">WEEK OF<br>JUN 22, 2026</div>
-          <div class="f-goal">T-MINUS<br>72 DAYS</div>
-        </div>
+        <div id="keyMetricsGrid"></div>
       </div>
 
       <!-- PLAN SUMMARY -->
@@ -1666,19 +1662,20 @@
 
   const OB = { step:0, connected:false, result:null, str:{},
     data:{ target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true } };
-  const OB_LAST = 6;
+  const OB_LAST = 7;
   const obVal = id => { const el=document.getElementById(id); return el?el.value.trim():''; };
 
   function obShow(i){
     OB.step = i;
     document.querySelectorAll('.ob-panel').forEach(p=>p.classList.toggle('active', +p.dataset.step===i));
     document.getElementById('obBar').style.width = (i/OB_LAST*100)+'%';
-    document.getElementById('obStepLabel').textContent = i===0 ? 'Welcome' : i===OB_LAST ? 'Your result' : ('Step '+i+' of 5');
+    document.getElementById('obStepLabel').textContent = i===0 ? 'Welcome' : i===6 ? 'Your result' : i===7 ? 'Your goals' : ('Step '+i+' of 5');
     const back=document.querySelector('.ob-back'), next=document.querySelector('.ob-next');
-    back.hidden = (i===0 || i===OB_LAST);
+    back.hidden = (i===0);
     next.onclick = obNext;
     if(i===0){ next.textContent='Start'; next.style.display=''; }
-    else if(i===OB_LAST){ next.style.display='none'; obRunReveal(); }
+    else if(i===6){ next.style.display='none'; obRunReveal(); }            // reveal sets its own Continue button
+    else if(i===7){ next.textContent='Enter app'; next.onclick=obFinish; next.style.display=''; obRenderGoals(); }
     else { next.textContent='Continue'; next.style.display=''; }
     document.querySelector('.ob-body').scrollTop = 0;
   }
@@ -1741,13 +1738,14 @@
       you.style.display='flex'; you.style.left='50%'; you.style.top='50%';
       void you.offsetWidth;                          // force reflow so the transition runs
       you.style.left=d.marker.x+'%'; you.style.top=d.marker.y+'%';
-      const next=document.querySelector('.ob-next'); next.style.display=''; next.textContent='Enter app'; next.onclick = obFinish;
+      const next=document.querySelector('.ob-next'); next.style.display=''; next.textContent='Continue'; next.onclick = obNext;
     }, 1600);
   }
 
   function obFinish(){
+    obCollectGoals();                             // save the user's chosen goals → Athlete arc
     try { localStorage.setItem('hyrox_onboarded','1'); } catch(e){}
-    if(OB.result) applyDiagnosis(OB.result);     // write the result into the Athlete tab
+    if(OB.result) applyDiagnosis(OB.result);      // write the diagnosis into the Athlete tab
     document.getElementById('onboarding').classList.remove('show');
     startTour();                                  // introduce the tabs
   }
@@ -1790,7 +1788,7 @@
   }
 
   function startOnboarding(){
-    OB.step=0; OB.connected=false; OB.result=null; OB.str={};
+    OB.step=0; OB.connected=false; OB.result=null; OB.str={}; OB.goals=null;
     OB.data = { target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true };
     document.querySelectorAll('#strGate .ob-choice, .ob-pill').forEach(b=>b.classList.remove('sel'));
     var sh=document.getElementById('strHyrox'); if(sh) sh.style.display='none';
@@ -1802,7 +1800,112 @@
   }
   function maybeOnboard(){ try { if(new URLSearchParams(location.search).has('reset')) localStorage.removeItem('hyrox_onboarded'); if(!localStorage.getItem('hyrox_onboarded')) startOnboarding(); } catch(e){} }
   // Reset: clear the "onboarded" flag and reload → full first-run (splash → onboarding → tour).
-  function resetApp(){ try { localStorage.removeItem('hyrox_onboarded'); } catch(e){} location.href = location.pathname; }
+  function resetApp(){ try { localStorage.removeItem('hyrox_onboarded'); localStorage.removeItem('hyrox_goals'); } catch(e){} location.href = location.pathname; }
+
+  /* ===================== GOALS — profile-driven focus metrics ===================== */
+  // Each metric the diagnosis can point you at. start/current/goal are demo defaults; onboarding
+  // overrides "current" with your baseline, and you set the target.
+  const GOAL_LIBRARY = {
+    fivek:    { label:'5K TIME',     unit:'',     kind:'time', better:'down', start:'26:00', current:'25:45', goal:'22:00' },
+    weight:   { label:'LB WEIGHT',   unit:'lb',   kind:'num',  better:'down', start:220, current:214, goal:200 },
+    bodyfat:  { label:'% BODY FAT',  unit:'%',    kind:'num',  better:'down', start:22, current:16, goal:14 },
+    z2pace:   { label:'Z2 PACE /MI', unit:'',     kind:'time', better:'down', start:'12:00', current:null, goal:'9:30' },
+    squat:    { label:'BACK SQUAT',  unit:'lb',   kind:'num',  better:'up',   start:225, current:275, goal:315 },
+    farmers:  { label:'FARMERS 200M',unit:'kg',   kind:'num',  better:'up',   start:20, current:24, goal:32 },
+    wallballs:{ label:'WALL BALLS',  unit:'reps', kind:'num',  better:'up',   start:30, current:50, goal:100 },
+    simtime:  { label:'HYROX SIM',   unit:'',     kind:'time', better:'down', start:'1:25:00', current:'1:18:00', goal:'1:10:00' },
+  };
+  const PROFILE_GOALS = {
+    1: ['fivek','weight','bodyfat','z2pace'],     // heavy & slow → run + power-to-weight
+    2: ['squat','wallballs','farmers','weight'],  // light & weak → strength + stations
+    3: ['simtime','fivek','z2pace','bodyfat'],    // good everywhere → integration
+    4: ['fivek','squat','weight','bodyfat'],      // weak everywhere → biggest levers
+  };
+  let userGoals = null;
+
+  const goalToNum = v => { if(v==null) return null; if(typeof v==='number') return v; return String(v).split(':').map(Number).reduce((a,b)=>a*60+b,0); };
+  const goalFmt = v => v==null ? null : (typeof v==='number' ? (Number.isInteger(v)?String(v):v.toFixed(1)) : String(v));
+  function goalSpark(dir){
+    const pts = dir==='down' ? '1,3 9,6 16,11 23,12' : '1,12 9,9 16,4 23,3';
+    return `<svg class="spark" width="20" height="13" viewBox="0 0 24 16" fill="none"><polyline points="${pts}" stroke="#C7F0E3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+  function renderKeyMetrics(goals){
+    const grid = document.getElementById('keyMetricsGrid');
+    if(!grid || !goals) return;
+    let cells = '<div class="rl-colhead">START</div><div class="rl-colhead">CURRENT</div><div class="rl-colhead">GOAL</div>';
+    for(const g of goals){
+      const s = goalFmt(g.start), c = goalFmt(g.current), go_ = goalFmt(g.goal);
+      let cur;
+      if(c == null){ cur = '<span class="dash"></span>'; }
+      else {
+        const sn = goalToNum(g.start), cn = goalToNum(g.current);
+        const moved = (sn!=null && cn!=null && cn!==sn);
+        const arrow = moved ? (cn < sn ? '↓' : '↑') : '';
+        cur = (arrow?`<span class="arr">${arrow}</span>`:'') + c + (moved ? goalSpark(cn<sn?'down':'up') : '');
+      }
+      cells += `<div class="rl-cell start"><div class="rl-num">${s ?? '—'}</div><div class="rl-lab">${g.label}</div></div>`;
+      cells += `<div class="rl-cell current"><div class="rl-num">${cur}</div><div class="rl-lab">${g.label}</div></div>`;
+      cells += `<div class="rl-cell goal"><div class="rl-num">${go_ ?? '—'}</div><div class="rl-lab">${g.label}</div></div>`;
+    }
+    grid.innerHTML = `<div class="rl-grid" style="margin-top:10px">${cells}</div>`
+      + `<div class="rl-foot"><div class="f-start">START</div><div class="f-current">WEEK OF<br>JUN 22, 2026</div><div class="f-goal">T-MINUS<br>72 DAYS</div></div>`;
+  }
+
+  // ---- the onboarding goal-setting step ----
+  function makeGoal(k){
+    const g = { key:k, ...GOAL_LIBRARY[k] };
+    if(k==='weight'  && OB.data.bodyweight_lb){ g.current = OB.data.bodyweight_lb; }
+    if(k==='bodyfat' && OB.data.body_fat){ g.current = OB.data.body_fat; }
+    if(k==='fivek'   && OB.data.recent_5k){ g.current = OB.data.recent_5k; }
+    return g;
+  }
+  function obRenderGoals(){
+    const pi = (OB.result && OB.result.profileIndex) || 1;
+    if(!OB.goals) OB.goals = (PROFILE_GOALS[pi] || PROFILE_GOALS[1]).map(makeGoal);
+    drawGoals();
+  }
+  function drawGoals(){
+    const box = document.getElementById('obGoals');
+    box.innerHTML = OB.goals.map(g=>{
+      const cur = g.current==null ? '—' : g.current + (g.unit?(' '+g.unit):'');
+      return `<div class="ob-goalcard">
+        <div class="ob-goalhead"><span class="ob-goallabel">${g.label}</span>
+          <button class="ob-goalx" onclick="obDropGoal('${g.key}')" title="remove">×</button></div>
+        <div class="ob-goalrow"><span class="ob-goalcur">now ${cur}</span>
+          <span class="ob-goalarrow">→</span>
+          <input class="ob-goalinput" data-key="${g.key}" value="${g.goal==null?'':g.goal}">
+          <span class="ob-goalunit">${g.unit||''}</span></div>
+      </div>`;
+    }).join('');
+    const have = new Set(OB.goals.map(g=>g.key));
+    const rem = Object.keys(GOAL_LIBRARY).filter(k=>!have.has(k));
+    if(OB.goals.length < 5 && rem.length){
+      box.innerHTML += '<div class="ob-addrow"><span class="ob-addlabel">ADD</span>'
+        + rem.map(k=>`<button class="ob-pill" onclick="obAddGoal('${k}')">+ ${GOAL_LIBRARY[k].label}</button>`).join('') + '</div>';
+    }
+  }
+  function readGoalInputs(){
+    document.querySelectorAll('#obGoals .ob-goalinput').forEach(inp=>{
+      const g = OB.goals.find(x=>x.key===inp.dataset.key); if(!g) return;
+      const v = inp.value.trim(); g.goal = (g.kind==='num') ? (parseFloat(v)||g.goal) : (v||g.goal);
+    });
+  }
+  function obDropGoal(k){ if(OB.goals.length<=3) return; readGoalInputs(); OB.goals = OB.goals.filter(g=>g.key!==k); drawGoals(); }
+  function obAddGoal(k){ if(OB.goals.length>=5) return; readGoalInputs(); OB.goals.push(makeGoal(k)); drawGoals(); }
+  function obCollectGoals(){
+    if(!OB.goals || !OB.goals.length) return;
+    readGoalInputs();
+    userGoals = OB.goals.map(g=>({ ...g }));
+    try { localStorage.setItem('hyrox_goals', JSON.stringify(userGoals)); } catch(e){}
+    renderKeyMetrics(userGoals);
+  }
+
+  // initial Athlete-table render (saved goals, else the demo Profile-1 set)
+  (function initGoals(){
+    try { const saved = JSON.parse(localStorage.getItem('hyrox_goals')||'null'); if(saved && saved.length) userGoals = saved; } catch(e){}
+    if(!userGoals) userGoals = PROFILE_GOALS[1].map(k=>({ key:k, ...GOAL_LIBRARY[k] }));
+    renderKeyMetrics(userGoals);
+  })();
 </script>
 </body>
 </html>
