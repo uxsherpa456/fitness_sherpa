@@ -14,6 +14,8 @@ before it tells you what to do.
   [`prototype/README.md`](prototype/README.md).
 - **[`ios/`](ios/)** — the native iOS app (SwiftUI + HealthKit + SwiftData). In progress.
 
+Built across two machines (Windows + Mac) sharing this repo — see [`WORKFLOW.md`](WORKFLOW.md).
+
 ## Status
 
 The prototype is complete and serves as the working spec. The native build starts now that
