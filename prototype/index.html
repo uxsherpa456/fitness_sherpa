@@ -1029,16 +1029,16 @@
           What to eat today
         </div>
         <div class="fuel-head">
-          <div class="fuel-cal"><b>2,300</b><small>kcal</small></div>
-          <div class="fuel-tag">RUN DAY · LEAN DEFICIT</div>
+          <div class="fuel-cal"><b>2,820</b><small>kcal</small></div>
+          <div class="fuel-tag">QUALITY DAY · DEFICIT</div>
         </div>
-        <div class="fuel-why">You're in a deliberate deficit to drop toward <b>200 lb</b> — but fuel today's quality run: carbs before, protein after. Keep <b>protein high</b> to hold the strength you've already built while the weight comes off.</div>
+        <div class="fuel-why">A ~500 kcal deficit to drop toward <b>200 lb</b> — but fuel today's quality run: carbs before, protein after. Keep <b>protein high</b> to hold the strength you've already built while the weight comes off.</div>
         <div class="metgrid" style="grid-template-columns:1fr 1fr 1fr">
-          <div class="mtile"><div class="mk">PROTEIN</div><div class="mv">200 <small>g</small></div></div>
-          <div class="mtile"><div class="mk">CARBS</div><div class="mv">230 <small>g</small></div></div>
-          <div class="mtile"><div class="mk">FAT</div><div class="mv">65 <small>g</small></div></div>
+          <div class="mtile"><div class="mk">PROTEIN</div><div class="mv">203 <small>g</small></div></div>
+          <div class="mtile"><div class="mk">CARBS</div><div class="mv">349 <small>g</small></div></div>
+          <div class="mtile"><div class="mk">FAT</div><div class="mv">68 <small>g</small></div></div>
         </div>
-        <div class="fuel-ask" onclick="go('coach')">Ask the coach what to eat around the session
+        <div class="fuel-ask" onclick="askFuel()">Ask the coach what to eat around the session
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#C7F0E3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
       </div>
@@ -1516,7 +1516,12 @@
       },
       diagnosis: { profile: 'Profile 1 — Heavy & slow, strong enough', limiter: 'running economy + power-to-weight',
                    focus: 'lose weight toward 200 lb, improve 5k pace; lifting capped' },
-      todays_session: 'Tempo run + strides — 8 km, RPE 7'
+      todays_session: 'Tempo run + strides — 8 km, RPE 7',
+      nutrition: {
+        goal: 'lose', goal_weight_lb: 200, training_day: 'quality',
+        body_fat_pct: stale ? null : 16,
+        fuel_target: { calories: 2820, protein_g: 203, carbs_g: 349, fat_g: 68 }
+      }
     };
   }
 
@@ -1541,6 +1546,18 @@
     const you = root.querySelector('.qc-you'); if(you){ you.style.left = d.marker.x + '%'; you.style.top = d.marker.y + '%'; }
     const cap = d.limiter.charAt(0).toUpperCase() + d.limiter.slice(1);
     root.querySelector('.limiter .lv').innerHTML = cap + '. <b>' + d.evidence + '</b>. Focus: ' + d.focus + '.';
+  }
+
+  // Agent acting on the app: write the fuel targets into the Today "what to eat" card.
+  function applyFuel(d){
+    const root = document.getElementById('screen-today');
+    if(!root || !d || d.calories == null) return;
+    const cal = root.querySelector('.fuel-cal b'); if(cal) cal.textContent = Number(d.calories).toLocaleString();
+    const mvs = root.querySelectorAll('.metgrid .mtile .mv');
+    const vals = [d.protein_g, d.carbs_g, d.fat_g];
+    mvs.forEach((mv, i) => { if(vals[i] != null) mv.innerHTML = vals[i] + ' <small>g</small>'; });
+    const tag = root.querySelector('.fuel-tag');
+    if(tag) tag.textContent = (d.training_day ? d.training_day.toUpperCase() + ' DAY · ' : '') + (d.deficit < 0 ? 'DEFICIT' : d.deficit > 0 ? 'SURPLUS' : 'MAINTENANCE');
   }
 
   async function streamLive(q){
@@ -1568,10 +1585,14 @@
           if(!bubble){ bubble=document.createElement('div'); bubble.className='bubble ai-b'; log.appendChild(bubble); }
           full += j.text; bubble.innerHTML = mdToHtml(full); bubble.scrollIntoView({block:'nearest'});
         } else if(j.type==='tool'){
-          append('⚙ Recomputing diagnosis…', 'cite'); bubble=null; full='';
+          append('⚙ ' + (j.name==='compute_fuel' ? 'Computing fuel targets…' : 'Recomputing diagnosis…'), 'cite'); bubble=null; full='';
         } else if(j.type==='diagnosis'){
           applyDiagnosis(j.data);
           append('✓ Re-diagnosed → <b>'+j.data.profile+'</b> · Athlete tab updated', 'cite');
+          bubble=null; full='';
+        } else if(j.type==='fuel'){
+          applyFuel(j.data);
+          append('🍴 Fuel → <b>'+Number(j.data.calories).toLocaleString()+' kcal</b> · P'+j.data.protein_g+' / C'+j.data.carbs_g+' / F'+j.data.fat_g+' · Today card updated', 'cite');
           bubble=null; full='';
         }
       }
@@ -1608,6 +1629,9 @@
     append(q, 'me');
     respond(q);
   }
+
+  // From the Today fuel card → open the coach with a primed nutrition question.
+  function askFuel(){ go('coach'); ask(null, 'What should I eat today, and around my session?'); }
 
   /* ---- onboarding: baseline assessment -> quadrant placement ---- */
   // client mirror of the proxy's diagnostic engine

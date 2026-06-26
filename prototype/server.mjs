@@ -53,6 +53,24 @@ function recomputeDiagnosis(overrides, base) {
   };
 }
 
+// ---- the fuel engine (calorie + macro targets) -----------------------------
+function computeFuel(o, base) {
+  const w = o.bodyweight_lb ?? base.bodyweight_lb;
+  const goal = o.goal ?? base.goal;
+  const day = o.training_day ?? base.training_day;
+  const dayFactor = { rest: 13.5, easy: 14.5, quality: 15.5, long: 16.5 }[day] ?? 15;
+  const maintenance = Math.round(w * dayFactor);
+  const adj = goal === 'lose' ? -500 : goal === 'gain' ? 300 : 0;
+  const calories = Math.round((maintenance + adj) / 10) * 10;
+  const protein_g = Math.round(w * 0.95);
+  const fat_g = Math.round(w * 0.32);
+  const carbs_g = Math.max(0, Math.round((calories - protein_g * 4 - fat_g * 9) / 4));
+  return {
+    calories, protein_g, carbs_g, fat_g, deficit: adj, maintenance, training_day: day, goal,
+    rationale: `${goal === 'lose' ? Math.abs(adj) + ' kcal deficit' : goal === 'gain' ? 'surplus' : 'maintenance'} on a ${day} day; protein held at ${protein_g} g (~1 g/lb) to protect strength`,
+  };
+}
+
 const TOOLS = [{
   name: 'recompute_diagnosis',
   description: "Re-run the athlete's HYROX profile diagnosis from their data. Pass hypothetical values to answer 'what if' questions (e.g. what would my profile be at 195 lb running 22:30). Omit a field to use the athlete's current value. Returns profile, limiter, focus, and the position on the strength x running quadrant — the app uses this to update the Athlete tab.",
@@ -66,6 +84,18 @@ const TOOLS = [{
     },
     required: [],
   },
+}, {
+  name: 'compute_fuel',
+  description: "Compute the athlete's calorie + macro targets for the day (calories, protein, carbs, fat) from bodyweight, goal direction (lose/maintain/gain), and training day (rest/easy/quality/long). Call this for ANY quantitative nutrition question — how much to eat, protein, the deficit, fueling a session. Returns numbers the app also shows on the Today fuel card.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      bodyweight_lb: { type: 'number' },
+      goal: { type: 'string', enum: ['lose', 'maintain', 'gain'] },
+      training_day: { type: 'string', enum: ['rest', 'easy', 'quality', 'long'] },
+    },
+    required: [],
+  },
 }];
 
 function systemPrompt(ctx) {
@@ -75,6 +105,8 @@ ATHLETE SNAPSHOT (the only data you may use — do not assume anything beyond it
 ${JSON.stringify(ctx, null, 2)}
 
 You have a tool, recompute_diagnosis. Call it when the athlete asks to re-diagnose, asks why their profile is what it is and wants it refreshed, or asks a "what if" about different weight/pace. After the tool returns, explain the result in 2-3 sentences citing the numbers.
+
+NUTRITION — you also coach food, in service of the goal. You have a compute_fuel tool: call it for ANY quantitative food question (how much to eat, protein, the deficit, fueling a session) and cite the numbers it returns — never invent macros. Tie advice to the diagnosis: a weight-limited Profile 1 athlete runs a moderate deficit with high protein to protect strength, carbs around quality sessions. The freshness guardrail applies to food too — don't give precise targets off a stale bodyweight or body-fat reading; say what's stale first.
 
 HARD RULES (the whole point of this app):
 1. FRESHNESS GUARDRAIL — the snapshot's "freshness" field says how long ago Apple Health was checked and lists stale/missing metrics. Do NOT diagnose, prescribe, or assert a number that depends on a stale or missing metric. If the question needs stale data, say which metric is stale and that you won't reason off it until it syncs. State how fresh the data is.
@@ -142,6 +174,8 @@ const server = http.createServer(async (req, res) => {
           bodyweight_lb: context.metrics?.bodyweight_lb ?? 214,
           recent_5k: context.metrics?.recent_5k ?? '25:45',
           stations_hold: context.metrics?.stations_hold ?? true,
+          goal: context.nutrition?.goal ?? 'lose',
+          training_day: context.nutrition?.training_day ?? 'quality',
         };
         const convo = messages.slice();
         let model = CHAT_MODEL;
@@ -149,8 +183,11 @@ const server = http.createServer(async (req, res) => {
           const { content, toolUse } = await streamTurn(convo, context, emit, model);
           if (!toolUse) break;
           emit({ type: 'tool', name: toolUse.name, input: toolUse.input });
-          const result = toolUse.name === 'recompute_diagnosis' ? recomputeDiagnosis(toolUse.input || {}, base) : { error: 'unknown tool' };
-          emit({ type: 'diagnosis', data: result });
+          let result, evType = 'diagnosis';
+          if (toolUse.name === 'recompute_diagnosis') { result = recomputeDiagnosis(toolUse.input || {}, base); evType = 'diagnosis'; }
+          else if (toolUse.name === 'compute_fuel') { result = computeFuel(toolUse.input || {}, base); evType = 'fuel'; }
+          else { result = { error: 'unknown tool' }; }
+          emit({ type: evType, data: result });
           if (toolUse.name === 'recompute_diagnosis') model = DIAGNOSIS_MODEL;  // escalate the explanation to Opus
           convo.push({ role: 'assistant', content });
           convo.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: toolUse.id, content: JSON.stringify(result) }] });
