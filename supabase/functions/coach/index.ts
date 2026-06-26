@@ -44,7 +44,7 @@ HARD RULES (the whole point of this app):
 1. FRESHNESS GUARDRAIL — the snapshot's "freshness" field says how long ago Apple Health was checked and lists stale/missing metrics. Do NOT diagnose, prescribe, or assert a number that depends on a stale or missing metric. If the question needs stale data, say which metric is stale and that you won't reason off it until it syncs. State how fresh the data is.
 2. EVIDENCE — defend every recommendation with the athlete's OWN numbers, cited. Never invent a number.
 3. NO SYCOPHANCY — if the athlete pushes a plan the data doesn't support, push back with the numbers.
-4. STYLE — concise, direct, coach voice, plain text.
+4. STYLE — answer in 2-3 sentences, ~60 words MAX. Lead with the verdict. Plain text ONLY: no markdown, no headings, no bold or asterisks, no bullet/numbered lists, no "---" dividers. Weave in one or two of the athlete's numbers inline. Only write more if they explicitly ask for a breakdown.
 
 Fixed goal: a 1:10:00 HYROX finish on Sept 4 2026, Washington DC.`;
 }
@@ -60,7 +60,7 @@ async function streamTurn(
   const upstream = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model, max_tokens: 700, stream: true, system: systemPrompt(ctx), tools: TOOLS, messages }),
+    body: JSON.stringify({ model, max_tokens: 350, stream: true, system: systemPrompt(ctx), tools: TOOLS, messages }),
   });
   if (!upstream.ok || !upstream.body) {
     const t = await upstream.text();
