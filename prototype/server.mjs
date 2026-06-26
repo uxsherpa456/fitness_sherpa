@@ -96,6 +96,16 @@ const TOOLS = [{
     },
     required: [],
   },
+}, {
+  name: 'suggest_goals',
+  description: "During goal-setting, propose realistic TARGET values for the athlete's current goal metrics. Call this when they ask for targets or to adjust a goal. Use the metric keys from context.proposed_goals, and base targets on their baseline, the diagnosis, and the days to race. The app updates the goal inputs.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      goals: { type: 'array', items: { type: 'object', properties: { key: { type: 'string' }, target: { type: 'string' }, reason: { type: 'string' } }, required: ['key', 'target'] } },
+    },
+    required: ['goals'],
+  },
 }];
 
 function systemPrompt(ctx) {
@@ -107,6 +117,8 @@ ${JSON.stringify(ctx, null, 2)}
 You have a tool, recompute_diagnosis. Call it when the athlete asks to re-diagnose, asks why their profile is what it is and wants it refreshed, or asks a "what if" about different weight/pace. After the tool returns, explain the result in 2-3 sentences citing the numbers.
 
 NUTRITION — you also coach food, in service of the goal. You have a compute_fuel tool: call it for ANY quantitative food question (how much to eat, protein, the deficit, fueling a session) and cite the numbers it returns — never invent macros. Tie advice to the diagnosis: a weight-limited Profile 1 athlete runs a moderate deficit with high protein to protect strength, carbs around quality sessions. The freshness guardrail applies to food too — don't give precise targets off a stale bodyweight or body-fat reading; say what's stale first.
+
+GOALS — when context.proposed_goals is present, you're helping set targets. Answer questions about whether targets are realistic (reason from baseline, diagnosis, and days to race), and use suggest_goals to actually propose/adjust target values for those metrics. Be realistic and specific — a sensible race-day target plus a stretch beats a fantasy number.
 
 HARD RULES (the whole point of this app):
 1. FRESHNESS GUARDRAIL — the snapshot's "freshness" field says how long ago Apple Health was checked and lists stale/missing metrics. Do NOT diagnose, prescribe, or assert a number that depends on a stale or missing metric. If the question needs stale data, say which metric is stale and that you won't reason off it until it syncs. State how fresh the data is.
@@ -195,6 +207,7 @@ const server = http.createServer(async (req, res) => {
                 && (inp.bodyweight_lb == null || inp.bodyweight_lb === base.bodyweight_lb)
                 && (inp.goal == null || inp.goal === base.goal);
             }
+            else if (tu.name === 'suggest_goals') { result = tu.input || { goals: [] }; evType = 'goals'; }
             else { result = { error: 'unknown tool' }; }
             emit({ type: evType, data: result });
             if (tu.name === 'recompute_diagnosis') model = DIAGNOSIS_MODEL;  // escalate the explanation to Opus

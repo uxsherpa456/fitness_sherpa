@@ -676,6 +676,17 @@
   .ob-goalunit { font-size: 12px; color: var(--text-faint); }
   .ob-addrow { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 6px; }
   .ob-addlabel { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; color: var(--text-faint); margin-right: 2px; }
+  .ob-goalcoach { margin-top: 18px; border-top: 1px solid var(--surface-line); padding-top: 14px; }
+  .gc-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; color: var(--mint); margin-bottom: 9px; }
+  .gc-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+  .gc-out { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin-bottom: 10px; }
+  .gc-out:empty { display: none; }
+  .gc-out strong, .gc-out .md-h { color: var(--mint); font-weight: 700; }
+  .gc-out .md-li { padding-left: 13px; position: relative; }
+  .gc-out .md-li::before { content: '•'; position: absolute; left: 2px; color: var(--mint); }
+  .gc-input { margin: 0; }
+  .ob-goalinput.flash { animation: gflash 1.1s ease; }
+  @keyframes gflash { 0% { background: rgba(199,240,227,.28); border-color: var(--mint); } 100% { background: var(--bg); } }
   .ob-foot { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 22px 30px; }
   .ob-back { background: none; border: none; color: var(--text-muted); font-size: 14px; font-family: var(--font); cursor: pointer; padding: 10px 4px; }
   .ob-back[hidden] { visibility: hidden; }
@@ -973,6 +984,18 @@
           <div class="ob-q">Your goals</div>
           <div class="ob-sub">These are the metrics that move <b>your</b> race time — picked from your profile. Set your targets, and keep <b>3 to 5</b>.</div>
           <div id="obGoals" class="ob-goals"></div>
+          <div class="ob-goalcoach">
+            <div class="gc-label">🤖 NOT SURE? ASK YOUR COACH</div>
+            <div class="gc-chips">
+              <button class="ob-pill" onclick="askGoalCoach('Suggest realistic targets for me')">Suggest targets</button>
+              <button class="ob-pill" onclick="askGoalCoach('Is a 1:10 finish realistic by Sept 4?')">Is 1:10 realistic?</button>
+            </div>
+            <div class="gc-out" id="gcOut"></div>
+            <div class="ai-input gc-input">
+              <input id="gcInput" placeholder="Ask about your goals…" onkeydown="if(event.key==='Enter')askGoalCoach()" />
+              <button class="sendbtn" onclick="askGoalCoach()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#0E0F11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1898,6 +1921,55 @@
     userGoals = OB.goals.map(g=>({ ...g }));
     try { localStorage.setItem('hyrox_goals', JSON.stringify(userGoals)); } catch(e){}
     renderKeyMetrics(userGoals);
+  }
+
+  // ---- the coach, inside goal-setting (ask + tweak via the suggest_goals tool) ----
+  function goalsCoachContext(){
+    return {
+      mode: 'goal_setting',
+      days_to_race: 71,
+      goal_time: OB.data.target,
+      baseline: { bodyweight_lb: OB.data.bodyweight_lb, body_fat_pct: OB.data.body_fat, recent_5k: OB.data.recent_5k },
+      diagnosis: OB.result ? { profile: OB.result.profile, limiter: OB.result.limiter } : null,
+      proposed_goals: (OB.goals||[]).map(g=>({ key:g.key, label:g.label, current:g.current, target:g.goal, unit:g.unit, better:g.better }))
+    };
+  }
+  function applyGoalSuggestions(arr){
+    if(!arr || !arr.length || !OB.goals) return;
+    let changed = false;
+    arr.forEach(s=>{ const g = OB.goals.find(x=>x.key===s.key); if(!g) return;
+      g.goal = (g.kind==='num') ? (parseFloat(s.target)||g.goal) : s.target; changed = true; });
+    if(!changed) return;
+    drawGoals();
+    arr.forEach(s=>{ const inp = document.querySelector('#obGoals .ob-goalinput[data-key="'+s.key+'"]'); if(inp) inp.classList.add('flash'); });
+  }
+  async function askGoalCoach(q){
+    q = q || document.getElementById('gcInput').value.trim();
+    if(!q) return;
+    document.getElementById('gcInput').value = '';
+    readGoalInputs();   // capture manual edits before asking
+    const out = document.getElementById('gcOut');
+    out.innerHTML = '<span style="color:var(--text-faint)">thinking…</span>';
+    try {
+      const headers = { 'Content-Type':'application/json' };
+      if(COACH_KEY) headers['Authorization'] = 'Bearer ' + COACH_KEY;
+      const resp = await fetch(COACH_ENDPOINT, { method:'POST', headers,
+        body: JSON.stringify({ messages:[{ role:'user', content:q }], context: goalsCoachContext() }) });
+      if(!resp.ok || !resp.body) throw new Error('no stream');
+      const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf='', full='', first=true;
+      for(;;){ const {done,value} = await reader.read(); if(done) break;
+        buf += dec.decode(value,{stream:true}); let i;
+        while((i=buf.indexOf('\n\n'))>=0){ const line = buf.slice(0,i); buf=buf.slice(i+2);
+          if(!line.startsWith('data:')) continue;
+          let j; try{ j = JSON.parse(line.slice(5).trim()); }catch{ continue; }
+          if(j.type==='text'){ if(first){ out.innerHTML=''; first=false; } full += j.text; out.innerHTML = mdToHtml(full); }
+          else if(j.type==='goals'){ applyGoalSuggestions(j.data.goals); }
+        }
+      }
+      if(first) out.innerHTML = '<span style="color:var(--text-faint)">(no response)</span>';
+    } catch(e){
+      out.innerHTML = 'Coach unavailable right now — make sure the coach endpoint is reachable.';
+    }
   }
 
   // initial Athlete-table render (saved goals, else the demo Profile-1 set)
