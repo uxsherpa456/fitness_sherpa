@@ -146,17 +146,22 @@ Deno.serve(async (req: Request) => {
         const convo = [...messages];
         let model = CHAT_MODEL;
         for (let step = 0; step < 4; step++) {
-          const { content, toolUse } = await streamTurn(apiKey, convo, context, send, model);
-          if (!toolUse) break;
-          send({ type: "tool", name: toolUse.name, input: toolUse.input });
-          let result: any, evType = "diagnosis";
-          if (toolUse.name === "recompute_diagnosis") { result = recomputeDiagnosis(toolUse.input ?? {}, base); evType = "diagnosis"; }
-          else if (toolUse.name === "compute_fuel") { result = computeFuel(toolUse.input ?? {}, base); evType = "fuel"; }
-          else { result = { error: "unknown tool" }; }
-          send({ type: evType, data: result });
-          if (toolUse.name === "recompute_diagnosis") model = DIAGNOSIS_MODEL;  // escalate the explanation to Opus
+          const { content } = await streamTurn(apiKey, convo, context, send, model);
+          const toolUses = content.filter((b: any) => b.type === "tool_use");
+          if (!toolUses.length) break;
+          const toolResults: any[] = [];
+          for (const tu of toolUses) {                       // handle every tool_use this turn (parallel calls)
+            send({ type: "tool", name: tu.name, input: tu.input });
+            let result: any, evType = "diagnosis";
+            if (tu.name === "recompute_diagnosis") { result = recomputeDiagnosis(tu.input ?? {}, base); evType = "diagnosis"; }
+            else if (tu.name === "compute_fuel") { result = computeFuel(tu.input ?? {}, base); evType = "fuel"; }
+            else { result = { error: "unknown tool" }; }
+            send({ type: evType, data: result });
+            if (tu.name === "recompute_diagnosis") model = DIAGNOSIS_MODEL;  // escalate the explanation to Opus
+            toolResults.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(result) });
+          }
           convo.push({ role: "assistant", content });
-          convo.push({ role: "user", content: [{ type: "tool_result", tool_use_id: toolUse.id, content: JSON.stringify(result) }] });
+          convo.push({ role: "user", content: toolResults });
         }
         send({ type: "done" });
       } catch (e) {
