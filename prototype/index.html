@@ -649,6 +649,12 @@
   .ob-choice { text-align: left; background: var(--surface); border: 1px solid var(--surface-line); border-left: 3px solid var(--surface-line); border-radius: 0 14px 14px 0; padding: 14px 15px; cursor: pointer; color: var(--text); font-size: 14px; font-weight: 700; font-family: var(--font); transition: border-color .15s, background .15s; }
   .ob-choice .d { display: block; font-size: 11.5px; color: var(--text-muted); font-weight: 500; margin-top: 3px; }
   .ob-choice.sel { border-color: var(--mint); border-left-color: var(--mint); background: rgba(199,240,227,.06); }
+  .ob-branch-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; color: var(--text-faint); margin: 16px 0 8px; }
+  .ob-pills { display: flex; flex-wrap: wrap; gap: 7px; }
+  .ob-pill { background: var(--surface); border: 1px solid var(--surface-line); color: var(--text); font-size: 12.5px; font-weight: 600; font-family: var(--font); padding: 9px 13px; border-radius: var(--r-pill); cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+  .ob-pill.sel { border-color: var(--mint); background: rgba(199,240,227,.10); color: var(--mint); }
+  .ob-pill.idk { color: var(--text-faint); }
+  .ob-pill.idk.sel { color: var(--mint); border-color: var(--mint); }
   .ob-foot { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 22px 30px; }
   .ob-back { background: none; border: none; color: var(--text-muted); font-size: 14px; font-family: var(--font); cursor: pointer; padding: 10px 4px; }
   .ob-back[hidden] { visibility: hidden; }
@@ -850,12 +856,65 @@
         </div>
 
         <div class="ob-panel" data-step="5">
-          <div class="ob-q">Your stations</div>
-          <div class="ob-sub">Under race fatigue, how do your functional stations (wall balls, sled, lunges) hold up? This sets your <b>strength axis</b> — what Apple Health can't see.</div>
-          <div class="ob-opt">
-            <button class="ob-choice sel" onclick="obChoose(this,true)">Hold strong<span class="d">Output barely drops late in the race</span></button>
-            <button class="ob-choice" onclick="obChoose(this,true)">Slip a bit<span class="d">Some fade, but manageable</span></button>
-            <button class="ob-choice" onclick="obChoose(this,false)">Blow up<span class="d">Stations wreck my time under fatigue</span></button>
+          <div class="ob-q">Your strength</div>
+          <div class="ob-sub">First — how much HYROX have you actually done? It picks questions you can answer. This sets your <b>strength axis</b>, the thing Apple Health can't see.</div>
+          <div class="ob-opt" id="strGate">
+            <button class="ob-choice" onclick="strSetExp(this,true)">Experienced<span class="d">I've raced HYROX or train the stations</span></button>
+            <button class="ob-choice" onclick="strSetExp(this,false)">New to it<span class="d">Haven't really trained the stations yet</span></button>
+          </div>
+
+          <div id="strHyrox" style="display:none">
+            <div class="ob-branch-label">WALL BALLS — UNBROKEN, FRESH</div>
+            <div class="ob-pills" data-q="wallballs">
+              <button class="ob-pill" onclick="strPick(this,0.2)">&lt;20</button>
+              <button class="ob-pill" onclick="strPick(this,0.5)">20–40</button>
+              <button class="ob-pill" onclick="strPick(this,0.75)">40–70</button>
+              <button class="ob-pill" onclick="strPick(this,0.95)">70+</button>
+              <button class="ob-pill idk" onclick="strPick(this,null)">not sure</button>
+            </div>
+            <div class="ob-branch-label">RACE-WEIGHT SLED PUSH · 50 M</div>
+            <div class="ob-pills" data-q="sled">
+              <button class="ob-pill" onclick="strPick(this,0.15)">can't / long breaks</button>
+              <button class="ob-pill" onclick="strPick(this,0.5)">unbroken, grindy</button>
+              <button class="ob-pill" onclick="strPick(this,0.8)">unbroken, steady</button>
+              <button class="ob-pill" onclick="strPick(this,0.95)">unbroken, fast</button>
+              <button class="ob-pill idk" onclick="strPick(this,null)">not sure</button>
+            </div>
+            <div class="ob-branch-label">STATIONS AFTER A HARD RUN</div>
+            <div class="ob-pills" data-q="fatigue">
+              <button class="ob-pill" onclick="strPick(this,0.2)">fall apart</button>
+              <button class="ob-pill" onclick="strPick(this,0.45)">drop a lot</button>
+              <button class="ob-pill" onclick="strPick(this,0.75)">dip a little</button>
+              <button class="ob-pill" onclick="strPick(this,0.95)">barely change</button>
+              <button class="ob-pill idk" onclick="strPick(this,null)">not sure</button>
+            </div>
+          </div>
+
+          <div id="strGeneral" style="display:none">
+            <div class="ob-branch-label">MAX PUSH-UPS · UNBROKEN</div>
+            <div class="ob-pills" data-q="pushups">
+              <button class="ob-pill" onclick="strPick(this,0.2)">&lt;10</button>
+              <button class="ob-pill" onclick="strPick(this,0.5)">10–25</button>
+              <button class="ob-pill" onclick="strPick(this,0.75)">25–40</button>
+              <button class="ob-pill" onclick="strPick(this,0.95)">40+</button>
+              <button class="ob-pill idk" onclick="strPick(this,null)">not sure</button>
+            </div>
+            <div class="ob-branch-label">BACK SQUAT vs BODYWEIGHT</div>
+            <div class="ob-pills" data-q="squat">
+              <button class="ob-pill" onclick="strPick(this,0.2)">under bodyweight</button>
+              <button class="ob-pill" onclick="strPick(this,0.5)">~bodyweight</button>
+              <button class="ob-pill" onclick="strPick(this,0.75)">1.25× BW</button>
+              <button class="ob-pill" onclick="strPick(this,0.95)">1.5×+ BW</button>
+              <button class="ob-pill idk" onclick="strPick(this,null)">not sure</button>
+            </div>
+            <div class="ob-branch-label">STRICT PULL-UPS · UNBROKEN</div>
+            <div class="ob-pills" data-q="pullups">
+              <button class="ob-pill" onclick="strPick(this,0.2)">0–2</button>
+              <button class="ob-pill" onclick="strPick(this,0.5)">3–8</button>
+              <button class="ob-pill" onclick="strPick(this,0.8)">9–15</button>
+              <button class="ob-pill" onclick="strPick(this,0.95)">15+</button>
+              <button class="ob-pill idk" onclick="strPick(this,null)">not sure</button>
+            </div>
           </div>
         </div>
 
@@ -1528,12 +1587,12 @@
     const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
     const w = +inp.bodyweight_lb || 214;
     const fk = sec(inp.recent_5k || '25:45');
-    const sh = !!inp.stations_hold;
     const goal = sec('22:00');
     const ps = clamp(1-(fk-goal)/(sec('28:00')-goal),0,1);
     const ws = clamp(1-(w-185)/(225-185),0,1);
     const run = ps*0.6 + ws*0.4;
-    const str = sh ? 0.78 : 0.3;
+    const str = inp.strengthAxis != null ? clamp(inp.strengthAxis,0,1) : (inp.stations_hold ? 0.78 : 0.3);
+    const sh = str >= 0.5;
     const strong = str>=0.5, fast = run>=0.5;
     let profile, profileIndex, limiter, focus;
     if(strong && !fast){ profile='Heavy & slow — strong enough'; profileIndex=1; limiter='running economy + power-to-weight'; focus='lose weight toward 200 lb, improve 5k pace; lifting capped'; }
@@ -1545,7 +1604,7 @@
       evidence:`${inp.recent_5k} 5k, ${w} lb, stations ${sh?'hold':'fade'} vs 22:00 goal` };
   }
 
-  const OB = { step:0, connected:false, result:null,
+  const OB = { step:0, connected:false, result:null, str:{},
     data:{ target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true } };
   const OB_LAST = 6;
   const obVal = id => { const el=document.getElementById(id); return el?el.value.trim():''; };
@@ -1579,22 +1638,41 @@
       btn.innerHTML = '✓ Connected · synced just now';
     }, 1500);
   }
-  function obChoose(el, hold){
+  function strSetExp(el, experienced){
     el.parentNode.querySelectorAll('.ob-choice').forEach(c=>c.classList.remove('sel'));
     el.classList.add('sel');
-    OB.data.stations_hold = hold;
+    OB.data.experienced = experienced;
+    document.getElementById('strHyrox').style.display = experienced ? 'block' : 'none';
+    document.getElementById('strGeneral').style.display = experienced ? 'none' : 'block';
+  }
+  function strPick(el, score){
+    const group = el.closest('.ob-pills');
+    group.querySelectorAll('.ob-pill').forEach(p=>p.classList.remove('sel'));
+    el.classList.add('sel');
+    OB.str[group.dataset.q] = score;   // null = "not sure"
+  }
+  // Combine the answered benchmarks into a 0..1 strength axis.
+  function strengthScore(){
+    const keys = OB.data.experienced ? ['wallballs','sled','fatigue'] : ['pushups','squat','pullups'];
+    const vals = keys.map(k=>OB.str[k]).filter(v=>typeof v==='number');
+    if(!vals.length) return { score:0.5, prescribe:true };
+    return { score: vals.reduce((a,b)=>a+b,0)/vals.length, prescribe: vals.length < keys.length };
   }
 
   function obRunReveal(){
     document.getElementById('obComputing').style.display = 'block';
     document.getElementById('obReveal').style.display = 'none';
     setTimeout(function(){
+      const ss = strengthScore();
+      OB.data.strengthAxis = ss.score;
+      OB.data.stations_hold = ss.score >= 0.5;
       const d = computeDiagnosis(OB.data); OB.result = d;
       document.getElementById('obComputing').style.display = 'none';
       document.getElementById('obReveal').style.display = 'block';
       document.getElementById('obProfile').textContent = d.profile;
       document.getElementById('obLimiter').innerHTML = 'Your binding constraint is <b>'+d.limiter+'</b> — '+d.evidence+'.';
-      document.getElementById('obFocus').textContent = 'Focus from here: '+d.focus+'.';
+      document.getElementById('obFocus').textContent = 'Focus from here: '+d.focus+'.'
+        + (ss.prescribe ? ' Some strength benchmarks were estimated — we’ll prescribe a quick test to confirm.' : '');
       const rev = document.getElementById('obReveal');
       const cellByIdx = {1:'tl',2:'br',3:'tr',4:'bl'};
       rev.querySelectorAll('.qc-cell').forEach(c=>c.classList.remove('active'));
@@ -1652,8 +1730,11 @@
   }
 
   function startOnboarding(){
-    OB.step=0; OB.connected=false; OB.result=null;
+    OB.step=0; OB.connected=false; OB.result=null; OB.str={};
     OB.data = { target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true };
+    document.querySelectorAll('#strGate .ob-choice, .ob-pill').forEach(b=>b.classList.remove('sel'));
+    var sh=document.getElementById('strHyrox'); if(sh) sh.style.display='none';
+    var sg=document.getElementById('strGeneral'); if(sg) sg.style.display='none';
     const pulled=document.getElementById('obPulled'); if(pulled) pulled.style.display='none';
     const cb=document.querySelector('.ob-connect'); if(cb){ cb.disabled=false; cb.innerHTML='<span>♥</span> Connect Apple Health'; }
     document.getElementById('onboarding').classList.add('show');
