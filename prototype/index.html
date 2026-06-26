@@ -687,6 +687,10 @@
   .tour-skip { background: none; border: none; color: var(--text-faint); font-size: 12px; font-family: var(--font); cursor: pointer; }
   .tour-next { background: var(--mint); color: var(--ink); border: none; border-radius: var(--r-pill); padding: 9px 22px; font-size: 13px; font-weight: 700; font-family: var(--font); cursor: pointer; }
 
+  /* dev affordance: reset onboarding */
+  .dev-reset { position: fixed; bottom: 16px; right: 16px; z-index: 300; background: var(--surface); color: var(--text-muted); border: 1px solid var(--surface-line); border-radius: var(--r-pill); padding: 8px 14px; font-size: 12px; font-family: var(--font); cursor: pointer; opacity: .6; transition: opacity .15s, color .15s, border-color .15s; }
+  .dev-reset:hover { opacity: 1; color: var(--mint); border-color: #3a5b52; }
+
   /* ============================================================
      SPLASH / LAUNCH SCREEN
      ============================================================ */
@@ -1382,6 +1386,7 @@
     </div>
   </div>
 
+  <button class="dev-reset" onclick="resetApp()" title="Clear onboarding + replay first-run">↺ reset onboarding</button>
 
 <script>
   /* ---- splash / launch screen ---- */
@@ -1740,7 +1745,9 @@
     document.getElementById('onboarding').classList.add('show');
     obShow(0);
   }
-  function maybeOnboard(){ try { if(!localStorage.getItem('hyrox_onboarded')) startOnboarding(); } catch(e){} }
+  function maybeOnboard(){ try { if(new URLSearchParams(location.search).has('reset')) localStorage.removeItem('hyrox_onboarded'); if(!localStorage.getItem('hyrox_onboarded')) startOnboarding(); } catch(e){} }
+  // Reset: clear the "onboarded" flag and reload → full first-run (splash → onboarding → tour).
+  function resetApp(){ try { localStorage.removeItem('hyrox_onboarded'); } catch(e){} location.href = location.pathname; }
 </script>
 </body>
 </html>
