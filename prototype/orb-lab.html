@@ -8,140 +8,142 @@
   :root{
     --bg:#0E0F11; --bg-deep:#08090A; --surface:#1A1B1E; --surface-2:#232427; --line:#2A2C30;
     --text:#F4F5F4; --muted:#8A8E95; --faint:#5A5E65;
-    --mint:#C7F0E3; --mono:"SF Mono","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+    --mint:#C7F0E3; --accent:#C7F0E3; --mono:"SF Mono","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
     --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter","Segoe UI",system-ui,sans-serif;
   }
+  /* registered so the rim-light can animate (charge / state changes interpolate) */
+  @property --ly{ syntax:'<percentage>'; inherits:true; initial-value:88%; }
+  @property --spread{ syntax:'<percentage>'; inherits:true; initial-value:50%; }
+  @property --lop{ syntax:'<number>'; inherits:true; initial-value:.8; }
+  @property --rim{ syntax:'<color>'; inherits:true; initial-value:rgba(199,240,227,.6); }
+  @property --glowc{ syntax:'<color>'; inherits:true; initial-value:rgba(199,240,227,.3); }
+
   *{box-sizing:border-box;margin:0;padding:0}
-  body{ background:radial-gradient(900px 500px at 50% 0%,#15171a,var(--bg-deep)); color:var(--text);
-    font-family:var(--font); min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:38px 20px 60px; }
+  body{ background:radial-gradient(900px 500px at 50% 0%,#101319,var(--bg-deep)); color:var(--text);
+    font-family:var(--font); min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:34px 20px 60px; }
   h1{ font-size:15px; font-weight:700; letter-spacing:-.3px; }
   .sub{ font-family:var(--mono); font-size:10px; letter-spacing:2px; color:var(--faint); margin-top:6px; }
 
-  /* ---------- THE ORB ---------- */
-  .stage{ margin:40px 0 30px; position:relative; width:260px; height:260px; display:grid; place-items:center; }
-  .orb{ --c:var(--mint); --glowc:rgba(199,240,227,.5); position:relative; width:240px; height:240px; display:grid; place-items:center; }
-  .orb.red{ --c:#F0917B; --glowc:rgba(240,145,123,.5); }
-  .orb.amber{ --c:#F2D484; --glowc:rgba(242,212,132,.5); }
+  /* ---------- THE ORB — a dark planet, rim-lit by readiness ---------- */
+  .stage{ margin:44px 0 30px; position:relative; width:260px; height:260px; display:grid; place-items:center; }
+  .orb{ position:relative; width:230px; height:230px; display:grid; place-items:center; }
 
-  .glow{ position:absolute; inset:18%; border-radius:50%;
-    background:radial-gradient(circle, var(--glowc) 0%, transparent 68%);
-    filter:blur(6px); animation:glowP 4s ease-in-out infinite; }
+  .core{ position:relative; width:210px; height:210px; border-radius:50%; overflow:hidden;
+    background:radial-gradient(circle at 38% 30%, #0c1814, #05090b 78%);
+    box-shadow:0 16px 46px -8px var(--glowc),                  /* light bleeds straight off the bottom limb */
+               inset 0 0 0 1px rgba(160,230,210,.05);
+    transition:--glowc .95s ease; }
+  .mini .core{ width:42px; height:42px; box-shadow:0 5px 16px -4px var(--glowc), inset 0 0 0 1px rgba(160,230,210,.05); }
+  .lwrap{ position:absolute; inset:0; animation:breathe 5.6s ease-in-out infinite; }
+  /* the rim light: a glow seated at the BOTTOM that climbs + brightens with readiness */
+  .light{ position:absolute; inset:-18%; border-radius:50%;
+    background:radial-gradient(circle at 50% var(--ly), var(--rim) 0%, transparent var(--spread));
+    opacity:var(--lop);
+    transition:--ly .95s cubic-bezier(.22,.7,.2,1), --spread .95s, --lop .95s, --rim .95s; }
+  /* a crisp atmospheric edge right at the lit limb (bottom) */
+  .rim{ position:absolute; inset:0; border-radius:50%; pointer-events:none;
+    box-shadow:inset 0 -13px 22px -8px var(--rim), inset 0 -6px 13px -6px var(--rim); transition:--rim .95s; }
+  .pct{ position:absolute; inset:0; display:grid; place-items:center; z-index:3;
+    font-size:30px; font-weight:800; color:rgba(2,6,5,.85); }
+  .mini .pct{ display:none; }
 
-  .rings{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
-  .ring{ fill:none; stroke:var(--c); transform-box:fill-box; transform-origin:center; }
-  .r1{ stroke-width:1.5; opacity:.5; stroke-dasharray:3 9; animation:spin 22s linear infinite; }
-  .r2{ stroke-width:1.5; opacity:.8; stroke-dasharray:60 400; stroke-linecap:round; animation:spinR 14s linear infinite; }
-  .r3{ stroke-width:1; opacity:.35; animation:spin 30s linear infinite; }
-  .sweep{ fill:none; stroke:var(--c); stroke-width:2; stroke-linecap:round; stroke-dasharray:90 380;
-    transform-box:fill-box; transform-origin:center; opacity:0; transition:opacity .3s; animation:spin 3s linear infinite; }
-  .orbit{ transform-box:fill-box; transform-origin:center; animation:spin 9s linear infinite; }
-  .dot{ fill:var(--c); }
+  @keyframes breathe{ 0%,100%{ transform:scale(1); opacity:1 } 50%{ transform:scale(1.035); opacity:.94 } }
+  @keyframes flicker{ 0%,100%{ transform:scale(1); opacity:1 } 30%{ transform:scale(1.02); opacity:.85 } 65%{ transform:scale(.995); opacity:.97 } }
 
-  .core{ position:relative; z-index:2; color:var(--c); display:grid; place-items:center;
-    animation:breathe 4s ease-in-out infinite; filter:drop-shadow(0 0 10px var(--glowc)); }
-  .core svg{ display:block; }
-
-  @keyframes spin{ to{ transform:rotate(360deg); } }
-  @keyframes spinR{ to{ transform:rotate(-360deg); } }
-  @keyframes breathe{ 0%,100%{ transform:scale(1); opacity:.92 } 50%{ transform:scale(1.1); opacity:1 } }
-  @keyframes glowP{ 0%,100%{ opacity:.4; transform:scale(1) } 50%{ opacity:.65; transform:scale(1.12) } }
-  @keyframes speak{ 0%,100%{ transform:scale(1) } 22%{ transform:scale(1.16) } 48%{ transform:scale(.97) } 72%{ transform:scale(1.09) } }
-
-  /* THINKING — faster spin, scanning sweep, quicker breath */
-  .orb.thinking .r1{ animation-duration:7s; }
-  .orb.thinking .r2{ animation-duration:4.5s; }
-  .orb.thinking .orbit{ animation-duration:3s; }
-  .orb.thinking .sweep{ opacity:.9; }
-  .orb.thinking .core{ animation-duration:1s; }
-  .orb.thinking .glow{ animation-duration:1.4s; }
-
-  /* SPEAKING — core pulses in rhythm */
-  .orb.speaking .core{ animation:speak .62s ease-in-out infinite; }
-  .orb.speaking .glow{ animation-duration:.62s; }
-  .orb.speaking .r2{ animation-duration:9s; }
-
-  /* RED mood — tighter, edgier */
-  .orb.red .core{ animation-duration:2.6s; }
-  .orb.red .r1{ animation-duration:16s; }
+  .orb.thinking .lwrap{ animation:flicker 1.3s ease-in-out infinite; }
+  .orb.speaking .lwrap{ animation:breathe 1.35s ease-in-out infinite; }
 
   /* ---------- controls ---------- */
-  .panel{ display:flex; flex-direction:column; gap:14px; align-items:center; }
+  .panel{ display:flex; flex-direction:column; gap:13px; align-items:center; }
   .group{ display:flex; align-items:center; gap:8px; }
-  .glabel{ font-family:var(--mono); font-size:9px; letter-spacing:1.5px; color:var(--faint); width:64px; text-align:right; }
+  .glabel{ font-family:var(--mono); font-size:9px; letter-spacing:1.5px; color:var(--faint); width:74px; text-align:right; }
   .btn{ background:var(--surface); border:1px solid var(--line); color:var(--text); font-family:var(--font);
-    font-size:12.5px; font-weight:600; padding:9px 15px; border-radius:999px; cursor:pointer; transition:.15s; }
+    font-size:12.5px; font-weight:600; padding:9px 14px; border-radius:999px; cursor:pointer; transition:.15s; }
   .btn:hover{ border-color:#3a5b52; }
-  .btn.on{ background:rgba(199,240,227,.12); border-color:var(--mint); color:var(--mint); }
-  .btn.on.red{ background:rgba(240,145,123,.12); border-color:#F0917B; color:#F0917B; }
+  .btn.on{ background:rgba(199,240,227,.12); border-color:var(--accent); color:var(--mint); }
+  .slider{ -webkit-appearance:none; width:150px; height:4px; border-radius:3px; background:var(--surface-2); outline:none; }
+  .slider::-webkit-slider-thumb{ -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--accent); cursor:pointer; }
+  .slider::-moz-range-thumb{ width:16px; height:16px; border:none; border-radius:50%; background:var(--accent); cursor:pointer; }
 
-  /* in-context preview */
-  .ctx{ margin-top:34px; display:flex; gap:14px; align-items:center; }
+  .ctx{ margin-top:32px; display:flex; gap:14px; align-items:center; }
   .ctx-card{ display:flex; align-items:center; gap:11px; background:var(--surface); border:1px solid var(--line);
-    border-left:3px solid var(--mint); border-radius:0 16px 16px 0; padding:12px 15px; }
-  .mini{ width:40px; height:40px; }
+    border-left:3px solid var(--accent); border-radius:0 16px 16px 0; padding:12px 15px; }
   .ctx-card .t{ font-size:13px; font-weight:700; } .ctx-card .s{ font-size:11px; color:var(--muted); margin-top:2px; }
   .note{ font-family:var(--mono); font-size:9px; letter-spacing:1px; color:var(--faint); margin-top:26px; text-align:center; line-height:1.7; }
 </style>
 </head>
 <body>
   <h1>Orb Lab</h1>
-  <div class="sub">FITNESS SHERPA · COACH CHARACTER · v1</div>
+  <div class="sub">FITNESS SHERPA · COACH CHARACTER · v4 · RIM-LIT PLANET</div>
 
   <div class="stage">
     <div class="orb idle" id="orb">
-      <div class="glow"></div>
-      <svg class="rings" viewBox="0 0 240 240" aria-hidden="true">
-        <circle class="ring r1" cx="120" cy="120" r="104"/>
-        <circle class="ring r3" cx="120" cy="120" r="84"/>
-        <circle class="ring r2" cx="120" cy="120" r="72"/>
-        <circle class="sweep" cx="120" cy="120" r="58"/>
-        <g class="orbit"><circle class="dot" cx="120" cy="16" r="4.5"/><circle class="dot" cx="120" cy="224" r="3" opacity=".6"/></g>
-      </svg>
       <div class="core">
-        <svg width="56" height="56" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.6 6.8L21 11l-6.4 2.2L12 22l-2.6-8.8L3 11l6.4-2.2z" fill="currentColor"/></svg>
+        <div class="lwrap"><div class="light"></div></div>
+        <div class="rim"></div>
+        <div class="pct" id="pct">82</div>
       </div>
     </div>
   </div>
 
   <div class="panel">
-    <div class="group">
-      <span class="glabel">STATE</span>
-      <button class="btn on" data-act="idle"     onclick="setAct(this,'idle')">Idle</button>
-      <button class="btn"    data-act="thinking" onclick="setAct(this,'thinking')">Thinking</button>
-      <button class="btn"    data-act="speaking" onclick="setAct(this,'speaking')">Speaking</button>
+    <div class="group"><span class="glabel">STATE</span>
+      <button class="btn on" data-act="idle" onclick="setAct(this,'idle')">Idle</button>
+      <button class="btn" data-act="thinking" onclick="setAct(this,'thinking')">Thinking</button>
+      <button class="btn" data-act="speaking" onclick="setAct(this,'speaking')">Speaking</button>
     </div>
-    <div class="group">
-      <span class="glabel">RECOVERY</span>
-      <button class="btn on" data-mood="green" onclick="setMood(this,'green')">Recovered</button>
-      <button class="btn"    data-mood="amber" onclick="setMood(this,'amber')">Borderline</button>
-      <button class="btn"    data-mood="red"   onclick="setMood(this,'red')">Under-recovered</button>
+    <div class="group"><span class="glabel">READINESS</span>
+      <button class="btn on" data-mood="green" onclick="setMood(this,85)">Recovered</button>
+      <button class="btn" data-mood="amber" onclick="setMood(this,55)">Borderline</button>
+      <button class="btn" data-mood="red" onclick="setMood(this,25)">Under</button>
+    </div>
+    <div class="group"><span class="glabel">LIGHT</span>
+      <input class="slider" id="fillSlider" type="range" min="0" max="100" value="82" oninput="setFill(this.value,false)">
+      <button class="btn" onclick="charge()">⚡ Charge</button>
     </div>
   </div>
 
   <div class="ctx">
     <div class="ctx-card">
-      <div class="orb mini idle" id="mini" style="width:40px;height:40px">
-        <div class="glow"></div>
-        <svg class="rings" viewBox="0 0 240 240"><circle class="ring r1" cx="120" cy="120" r="104"/><circle class="ring r2" cx="120" cy="120" r="72"/><g class="orbit"><circle class="dot" cx="120" cy="16" r="6"/></g></svg>
-        <div class="core"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.6 6.8L21 11l-6.4 2.2L12 22l-2.6-8.8L3 11l6.4-2.2z" fill="currentColor"/></svg></div>
+      <div class="orb mini idle" id="mini">
+        <div class="core"><div class="lwrap"><div class="light"></div></div><div class="rim"></div></div>
       </div>
-      <div><div class="t">AI Coach</div><div class="s">primed with today's data</div></div>
+      <div><div class="t">AI Coach</div><div class="s">readiness 82 · primed</div></div>
     </div>
   </div>
 
-  <div class="note">how it'd sit in the app (small) →<br>idle breathes · thinking scans · speaking pulses · colour follows your readiness</div>
+  <div class="note">a dark planet, rim-lit by readiness — the light climbs + wraps the limb as you charge<br>recovered = bright light high on the sphere · drained = a thin dim sliver at the base</div>
 
 <script>
+  const pct=document.getElementById('pct'), slider=document.getElementById('fillSlider');
+  const orbs=[document.getElementById('orb'), document.getElementById('mini')];
+  let fillVal=82;
+  const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+  function setFill(p, animate){
+    fillVal=Math.max(0,Math.min(100,Math.round(+p)));
+    const f=fillVal/100;
+    const [r,g,b]=mix([72,146,126],[199,240,227],f);   // richer mint (drained) -> bright mint (charged)
+    orbs.forEach(o=>{
+      o.querySelectorAll('.light,.rim,.core').forEach(el=>el.style.transition = animate ? '' : 'none');
+      o.style.setProperty('--ly',(92-26*f).toFixed(1)+'%');        // light climbs the limb
+      o.style.setProperty('--spread',(42+24*f).toFixed(1)+'%');    // glow reaches higher up the sphere
+      o.style.setProperty('--lop',(0.5+0.5*f).toFixed(2));
+      o.style.setProperty('--rim',`rgba(${r},${g},${b},${(0.45+0.45*f).toFixed(2)})`);
+      o.style.setProperty('--glowc',`rgba(${r},${g},${b},${(0.12+0.45*f).toFixed(2)})`);
+    });
+    if(pct) pct.textContent=fillVal;
+    if(slider && +slider.value!==fillVal) slider.value=fillVal;
+  }
+  function charge(){ const target=+slider.value; setFill(0,false); setTimeout(()=>setFill(target,true),40); }
   function setAct(btn, act){
-    document.querySelectorAll('[data-act]').forEach(b=>b.classList.remove('on'));
-    btn.classList.add('on');
-    ['orb','mini'].forEach(id=>{ const o=document.getElementById(id); o.classList.remove('idle','thinking','speaking'); o.classList.add(act); });
+    document.querySelectorAll('[data-act]').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
+    orbs.forEach(o=>{ o.classList.remove('idle','thinking','speaking'); o.classList.add(act); });
   }
-  function setMood(btn, mood){
-    document.querySelectorAll('[data-mood]').forEach(b=>b.classList.remove('on','red'));
-    btn.classList.add('on'); if(mood==='red') btn.classList.add('red');
-    ['orb','mini'].forEach(id=>{ const o=document.getElementById(id); o.classList.remove('red','amber'); if(mood!=='green') o.classList.add(mood); });
+  function setMood(btn, fill){
+    document.querySelectorAll('[data-mood]').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
+    setFill(fill,true);
   }
+  setFill(82,false);
 </script>
 </body>
 </html>

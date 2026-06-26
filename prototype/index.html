@@ -1499,7 +1499,7 @@
   /* ---- splash / launch screen ---- */
   function hideSplash(){ var s=document.getElementById('splash'); if(!s)return; s.classList.add('hide'); setTimeout(function(){ s.style.display='none'; }, 650); }
   function showSplash(){ var s=document.getElementById('splash'); s.style.display='flex'; s.style.opacity=''; s.classList.remove('hide'); }
-  setTimeout(function(){ hideSplash(); maybeOnboard(); }, 2200);
+  setTimeout(async function(){ try { await (window.cloudReady || Promise.resolve()); } catch(e){} hideSplash(); maybeOnboard(); }, 2200);
 
   /* ---- HR drift chart (rises slightly = low drift, base held) ---- */
   (function(){
@@ -1602,6 +1602,51 @@
   const COACH_KEY = localStorage.getItem('coach_key') || '';
   const coachState = { stale: false };
   const convo = [];                              // {role, content} turns sent to the model
+
+  /* ---- cloud persistence: mirror local state into Supabase so it carries across devices + into
+         the native app. localStorage stays the instant/offline cache; the cloud is the durable copy.
+         Override the endpoint with ?state=<url>; single-user prototype so the key is fixed. ---- */
+  (function(){ const p = new URLSearchParams(location.search); if(p.has('state')) localStorage.setItem('state_endpoint', p.get('state')); })();
+  const STATE_ENDPOINT = localStorage.getItem('state_endpoint')
+    || 'https://rcbjfjgffzadagndxthp.supabase.co/functions/v1/state';
+  const USER_KEY = 'ryan';
+  function fullState(){
+    let profile = {}, goals = [], settings = {};
+    try { profile  = JSON.parse(localStorage.getItem('hyrox_profile')  || '{}'); } catch(e){}
+    try { goals    = JSON.parse(localStorage.getItem('hyrox_goals')    || '[]'); } catch(e){}
+    try { settings = JSON.parse(localStorage.getItem('hyrox_settings') || '{}'); } catch(e){}
+    return { onboarded: localStorage.getItem('hyrox_onboarded') === '1', profile, goals, settings };
+  }
+  function syncToCloud(){                         // fire-and-forget; keepalive survives a reload/close
+    try { fetch(STATE_ENDPOINT, { method:'POST', keepalive:true, headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'save', user_key: USER_KEY, ...fullState() }) }).catch(()=>{}); } catch(e){}
+  }
+  function hydrateUI(){                            // re-apply state into the live UI after a cloud pull
+    try { const g = JSON.parse(localStorage.getItem('hyrox_goals')||'null'); if(g && g.length){ userGoals = g; renderKeyMetrics(userGoals); } } catch(e){}
+    try { const p = JSON.parse(localStorage.getItem('hyrox_profile')||'null'); if(p){ appSettings.sex = p.sex||appSettings.sex; appSettings.age = p.age||appSettings.age; applyDemographics(p); } } catch(e){}
+    try { const s = JSON.parse(localStorage.getItem('hyrox_settings')||'null'); if(s){ appSettings = Object.assign(appSettings, s); } } catch(e){}
+    applySettings();
+  }
+  async function syncFromCloud(){                 // pull the durable copy on launch; cloud wins if it has data
+    if(new URLSearchParams(location.search).has('reset')) return;     // let ?reset replay onboarding
+    try {
+      const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 2500);
+      const resp = await fetch(STATE_ENDPOINT, { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'load', user_key: USER_KEY }), signal: ctrl.signal });
+      clearTimeout(t);
+      if(!resp.ok) return;
+      const s = await resp.json();
+      const hasCloud = s && (s.onboarded || (Array.isArray(s.goals)&&s.goals.length)
+        || (s.settings&&Object.keys(s.settings).length) || (s.profile&&Object.keys(s.profile).length));
+      if(!hasCloud) return;                        // empty cloud → leave local/demo data, first save seeds it
+      if(s.onboarded) localStorage.setItem('hyrox_onboarded','1');
+      if(s.profile  && Object.keys(s.profile).length)  localStorage.setItem('hyrox_profile',  JSON.stringify(s.profile));
+      if(Array.isArray(s.goals) && s.goals.length)     localStorage.setItem('hyrox_goals',    JSON.stringify(s.goals));
+      if(s.settings && Object.keys(s.settings).length) localStorage.setItem('hyrox_settings', JSON.stringify(s.settings));
+      hydrateUI();
+    } catch(e){ /* offline → the localStorage cache stands */ }
+  }
+  window.cloudReady = syncFromCloud();             // kick off during the splash so it's usually ready by maybeOnboard()
 
   // The freshness-stamped snapshot the app "captured this turn" (fake HealthKit).
   function buildContext(){
@@ -1856,6 +1901,7 @@
     obCollectGoals();                             // save the user's chosen goals → Athlete arc
     applyDemographics({ sex: OB.data.sex, age: OB.data.age });   // sex + age → Athlete division
     try { localStorage.setItem('hyrox_onboarded','1'); localStorage.setItem('hyrox_profile', JSON.stringify(userProfile)); } catch(e){}
+    syncToCloud();                                // mirror onboarding result to the cloud
     if(OB.result) applyDiagnosis(OB.result);      // write the diagnosis into the Athlete tab
     document.getElementById('onboarding').classList.remove('show');
     startTour();                                  // introduce the tabs
@@ -1912,7 +1958,12 @@
   }
   function maybeOnboard(){ try { if(new URLSearchParams(location.search).has('reset')) localStorage.removeItem('hyrox_onboarded'); if(!localStorage.getItem('hyrox_onboarded')) startOnboarding(); } catch(e){} }
   // Reset: clear the "onboarded" flag and reload → full first-run (splash → onboarding → tour).
-  function resetApp(){ try { localStorage.removeItem('hyrox_onboarded'); localStorage.removeItem('hyrox_goals'); } catch(e){} location.href = location.pathname; }
+  function resetApp(){
+    try { ['hyrox_onboarded','hyrox_goals','hyrox_settings','hyrox_profile'].forEach(k=>localStorage.removeItem(k)); } catch(e){}
+    try { fetch(STATE_ENDPOINT, { method:'POST', keepalive:true, headers:{'Content-Type':'application/json'},   // clear the cloud too, so reset truly replays first-run
+      body: JSON.stringify({ action:'save', user_key:USER_KEY, onboarded:false, profile:{}, goals:[], settings:{} }) }); } catch(e){}
+    location.href = location.pathname;
+  }
 
   /* ===================== GOALS — profile-driven focus metrics ===================== */
   // Each metric the diagnosis can point you at. start/current/goal are demo defaults; onboarding
@@ -2017,6 +2068,7 @@
     readGoalInputs();
     userGoals = OB.goals.map(g=>({ ...g }));
     try { localStorage.setItem('hyrox_goals', JSON.stringify(userGoals)); } catch(e){}
+    syncToCloud();
     renderKeyMetrics(userGoals);
   }
 
@@ -2111,6 +2163,7 @@
     appSettings.raceDate = document.getElementById('setRaceDate').value.trim() || appSettings.raceDate;
     appSettings.raceLoc = document.getElementById('setRaceLoc').value.trim() || appSettings.raceLoc;
     try { localStorage.setItem('hyrox_settings', JSON.stringify(appSettings)); localStorage.setItem('hyrox_profile', JSON.stringify({ sex: appSettings.sex, age: appSettings.age })); } catch(e){}
+    syncToCloud();
     applySettings();
     closeSettings();
   }
