@@ -52,8 +52,10 @@ Content-Type: application/json
   "context": { /* freshness-stamped snapshot */ } }
 ```
 
-- **Prototype:** set `COACH_PROXY` in `prototype/index.html` to the function URL (and add the
-  `Authorization` header in the `fetch`) to test against the cloud instead of the local proxy.
+- **Prototype:** just open it with the endpoint in the URL — no edit needed:
+  `…/index.html?coach=https://<ref>.supabase.co/functions/v1/coach&coachkey=<anon key>`
+  (the choice is remembered in localStorage; reload without params to keep using it, or
+  `?coach=http://localhost:8788/api/chat` to switch back to the local proxy).
 - **iOS app:** point the coach client at the function URL; the anon key ships in the app, the
   Anthropic key never does.
 

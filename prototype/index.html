@@ -1398,8 +1398,16 @@
     t.scrollIntoView({behavior:'smooth', block:'nearest'});
   }
 
-  /* ---- live coach: real Claude via the local proxy, with canned fallback ---- */
-  const COACH_PROXY = 'http://localhost:8788';   // run: node server.mjs
+  /* ---- live coach: real Claude via the local proxy or the deployed Supabase function ---- */
+  // Default = local proxy. Override to the cloud function with
+  //   ?coach=https://<ref>.supabase.co/functions/v1/coach   (and ?coachkey=<anon key> if it verifies JWT).
+  // The choice is remembered in localStorage.
+  (function(){ const p = new URLSearchParams(location.search);
+    if(p.has('coach'))    localStorage.setItem('coach_endpoint', p.get('coach'));
+    if(p.has('coachkey')) localStorage.setItem('coach_key', p.get('coachkey'));
+  })();
+  const COACH_ENDPOINT = localStorage.getItem('coach_endpoint') || 'http://localhost:8788/api/chat';
+  const COACH_KEY = localStorage.getItem('coach_key') || '';
   const coachState = { stale: false };
   const convo = [];                              // {role, content} turns sent to the model
 
@@ -1449,8 +1457,10 @@
 
   async function streamLive(q){
     convo.push({ role:'user', content:q });
-    const resp = await fetch(COACH_PROXY + '/api/chat', {
-      method:'POST', headers:{'Content-Type':'application/json'},
+    const headers = { 'Content-Type':'application/json' };
+    if(COACH_KEY) headers['Authorization'] = 'Bearer ' + COACH_KEY;
+    const resp = await fetch(COACH_ENDPOINT, {
+      method:'POST', headers,
       body: JSON.stringify({ messages: convo, context: buildContext() })
     });
     if(!resp.ok || !resp.body) throw new Error('no stream');
