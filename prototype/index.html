@@ -879,8 +879,22 @@
         </div>
 
         <div class="ob-panel" data-step="4">
-          <div class="ob-q">Your body</div>
-          <div class="ob-sub">Power-to-weight is the other half of the run equation.</div>
+          <div class="ob-q">About you</div>
+          <div class="ob-sub">Sets your HYROX division — and power-to-weight, the other half of the run equation.</div>
+          <div class="ob-field">
+            <div class="ob-label">SEX</div>
+            <div class="ob-pills" id="obSex">
+              <button class="ob-pill sel" onclick="obSetSex(this,'male')">Male</button>
+              <button class="ob-pill" onclick="obSetSex(this,'female')">Female</button>
+              <button class="ob-pill" onclick="obSetSex(this,'intersex')">Intersex</button>
+              <button class="ob-pill" onclick="obSetSex(this,'nonbinary')">Non-binary</button>
+              <button class="ob-pill" onclick="obSetSex(this,'na')">Prefer not to say</button>
+            </div>
+          </div>
+          <div class="ob-field">
+            <div class="ob-label">AGE</div>
+            <input class="ob-input" id="obAge" value="37" inputmode="numeric">
+          </div>
           <div class="ob-field">
             <div class="ob-label">BODYWEIGHT (LB)</div>
             <input class="ob-input" id="obWeight" value="214">
@@ -1528,6 +1542,7 @@
         note: stale ? 'Apple Health has not synced recently — recovery metrics are stale.' : 'All metrics synced this morning.'
       },
       readiness: stale ? null : 82,
+      demographics: { sex: userProfile.sex, age: userProfile.age, division: divisionLabel(userProfile.sex) + ' ' + ageBand(userProfile.age) },
       metrics: {
         hrv_ms: stale ? null : 68, resting_hr: stale ? null : 48, sleep_hrs: stale ? null : 7.4,
         bodyweight_lb: 214, body_fat_pct: 16, vo2max: 48, recent_5k: '25:45', avg_z2_pace: '5:18/km',
@@ -1684,7 +1699,7 @@
   }
 
   const OB = { step:0, connected:false, result:null, str:{},
-    data:{ target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true } };
+    data:{ target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true, sex:'male', age:37 } };
   const OB_LAST = 7;
   const obVal = id => { const el=document.getElementById(id); return el?el.value.trim():''; };
 
@@ -1705,8 +1720,9 @@
   function obCollect(i){
     if(i===1) OB.data.target = obVal('obTarget') || OB.data.target;
     if(i===3) OB.data.recent_5k = obVal('obFiveK') || OB.data.recent_5k;
-    if(i===4){ OB.data.bodyweight_lb = +obVal('obWeight') || OB.data.bodyweight_lb; OB.data.body_fat = +obVal('obBodyFat') || OB.data.body_fat; }
+    if(i===4){ OB.data.age = +obVal('obAge') || OB.data.age; OB.data.bodyweight_lb = +obVal('obWeight') || OB.data.bodyweight_lb; OB.data.body_fat = +obVal('obBodyFat') || OB.data.body_fat; }
   }
+  function obSetSex(el, sex){ el.parentNode.querySelectorAll('.ob-pill').forEach(p=>p.classList.remove('sel')); el.classList.add('sel'); OB.data.sex = sex; }
   function obNext(){ obCollect(OB.step); if(OB.step<OB_LAST) obShow(OB.step+1); }
   function obBack(){ if(OB.step>0) obShow(OB.step-1); }
 
@@ -1767,7 +1783,8 @@
 
   function obFinish(){
     obCollectGoals();                             // save the user's chosen goals → Athlete arc
-    try { localStorage.setItem('hyrox_onboarded','1'); } catch(e){}
+    applyDemographics({ sex: OB.data.sex, age: OB.data.age });   // sex + age → Athlete division
+    try { localStorage.setItem('hyrox_onboarded','1'); localStorage.setItem('hyrox_profile', JSON.stringify(userProfile)); } catch(e){}
     if(OB.result) applyDiagnosis(OB.result);      // write the diagnosis into the Athlete tab
     document.getElementById('onboarding').classList.remove('show');
     startTour();                                  // introduce the tabs
@@ -1812,8 +1829,9 @@
 
   function startOnboarding(){
     OB.step=0; OB.connected=false; OB.result=null; OB.str={}; OB.goals=null;
-    OB.data = { target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true };
+    OB.data = { target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true, sex:'male', age:37 };
     document.querySelectorAll('#strGate .ob-choice, .ob-pill').forEach(b=>b.classList.remove('sel'));
+    var sexFirst=document.querySelector('#obSex .ob-pill'); if(sexFirst) sexFirst.classList.add('sel');
     var sh=document.getElementById('strHyrox'); if(sh) sh.style.display='none';
     var sg=document.getElementById('strGeneral'); if(sg) sg.style.display='none';
     const pulled=document.getElementById('obPulled'); if(pulled) pulled.style.display='none';
@@ -1845,6 +1863,14 @@
     4: ['fivek','squat','weight','bodyfat'],      // weak everywhere → biggest levers
   };
   let userGoals = null;
+  let userProfile = { sex:'male', age:37 };
+  function divisionLabel(sex){ return sex==='male' ? 'MEN' : sex==='female' ? 'WOMEN' : 'OPEN'; }
+  function ageBand(age){ if(!age) return ''; if(age < 25) return 'U24'; const lo = Math.floor(age/5)*5; return lo+'–'+(lo+4); }
+  function applyDemographics(p){
+    userProfile = { sex: p.sex||'male', age: p.age||37 };
+    const g = document.querySelector('#screen-athlete .greeting');
+    if(g) g.textContent = 'HYROX SINGLES · ' + divisionLabel(userProfile.sex) + (userProfile.age ? (' ' + ageBand(userProfile.age)) : '');
+  }
 
   const goalToNum = v => { if(v==null) return null; if(typeof v==='number') return v; return String(v).split(':').map(Number).reduce((a,b)=>a*60+b,0); };
   const goalFmt = v => v==null ? null : (typeof v==='number' ? (Number.isInteger(v)?String(v):v.toFixed(1)) : String(v));
@@ -1929,6 +1955,7 @@
       mode: 'goal_setting',
       days_to_race: 71,
       goal_time: OB.data.target,
+      demographics: { sex: OB.data.sex, age: OB.data.age, division: divisionLabel(OB.data.sex) + ' ' + ageBand(OB.data.age) },
       baseline: { bodyweight_lb: OB.data.bodyweight_lb, body_fat_pct: OB.data.body_fat, recent_5k: OB.data.recent_5k },
       diagnosis: OB.result ? { profile: OB.result.profile, limiter: OB.result.limiter } : null,
       proposed_goals: (OB.goals||[]).map(g=>({ key:g.key, label:g.label, current:g.current, target:g.goal, unit:g.unit, better:g.better }))
@@ -1977,6 +2004,7 @@
     try { const saved = JSON.parse(localStorage.getItem('hyrox_goals')||'null'); if(saved && saved.length) userGoals = saved; } catch(e){}
     if(!userGoals) userGoals = PROFILE_GOALS[1].map(k=>({ key:k, ...GOAL_LIBRARY[k] }));
     renderKeyMetrics(userGoals);
+    try { const p = JSON.parse(localStorage.getItem('hyrox_profile')||'null'); applyDemographics(p || userProfile); } catch(e){ applyDemographics(userProfile); }
   })();
 </script>
 </body>
