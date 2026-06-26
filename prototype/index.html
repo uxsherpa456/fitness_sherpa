@@ -1986,6 +1986,8 @@
   };
   let userGoals = null;
   let userProfile = { sex:'male', age:37 };
+  // declared up here (not in the SETTINGS block) so convGoal/renderKeyMetrics can read units at first render
+  let appSettings = { location:'Washington, DC', sex:'male', age:37, goalTime:'1:10:00', raceDate:'Sept 4, 2026', raceLoc:'Washington DC', weightUnit:'lb', distUnit:'mi' };
   function divisionLabel(sex){ return sex==='male' ? 'MEN' : sex==='female' ? 'WOMEN' : 'OPEN'; }
   function ageBand(age){ if(!age) return ''; if(age < 25) return 'U24'; const lo = Math.floor(age/5)*5; return lo+'–'+(lo+4); }
   function applyDemographics(p){
@@ -2000,11 +2002,31 @@
     const pts = dir==='down' ? '1,3 9,6 16,11 23,12' : '1,12 9,9 16,4 23,3';
     return `<svg class="spark" width="20" height="13" viewBox="0 0 24 16" fill="none"><polyline points="${pts}" stroke="#C7F0E3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   }
+  // ---- unit conversion (display-only; stored values stay canonical lb / min-per-mi) ----
+  const lbToKg = lb => Math.round(lb * 0.453592);
+  function paceMiToKm(mmss){                          // min/mile -> min/km
+    if(mmss==null || typeof mmss!=='string' || !mmss.includes(':')) return mmss;
+    const sec = mmss.split(':').map(Number).reduce((a,b)=>a*60+b,0) / 1.60934;
+    return Math.floor(sec/60) + ':' + String(Math.round(sec%60)).padStart(2,'0');
+  }
+  function convGoal(g){                               // return a display copy converted to the chosen units
+    const o = { ...g };
+    if((g.key==='weight' || g.key==='squat') && appSettings.weightUnit==='kg'){
+      ['start','current','goal'].forEach(k=>{ if(typeof g[k]==='number') o[k] = lbToKg(g[k]); });
+      if(g.label) o.label = g.label.replace(/\bLB\b/, 'KG');
+    }
+    if(g.key==='z2pace' && appSettings.distUnit==='km'){
+      ['start','current','goal'].forEach(k=>{ o[k] = paceMiToKm(g[k]); });
+      if(g.label) o.label = g.label.replace('/MI', '/KM');
+    }
+    return o;
+  }
   function renderKeyMetrics(goals){
     const grid = document.getElementById('keyMetricsGrid');
     if(!grid || !goals) return;
     let cells = '<div class="rl-colhead">START</div><div class="rl-colhead">CURRENT</div><div class="rl-colhead">GOAL</div>';
-    for(const g of goals){
+    for(const raw of goals){
+      const g = convGoal(raw);
       const s = goalFmt(g.start), c = goalFmt(g.current), go_ = goalFmt(g.goal);
       let cur;
       if(c == null){ cur = '<span class="dash"></span>'; }
@@ -2131,7 +2153,6 @@
   })();
 
   /* ===================== SETTINGS ===================== */
-  let appSettings = { location:'Washington, DC', sex:'male', age:37, goalTime:'1:10:00', raceDate:'Sept 4, 2026', raceLoc:'Washington DC', weightUnit:'lb', distUnit:'mi' };
   const sexOrder = ['male','female','intersex','nonbinary','na'];
   function openSettings(){ loadSettingsForm(); document.getElementById('settings').classList.add('show'); }
   function closeSettings(){ document.getElementById('settings').classList.remove('show'); }
@@ -2155,6 +2176,7 @@
     document.querySelectorAll('#screen-today .countdown .loc').forEach(e=>e.textContent = appSettings.raceLoc + ' · ' + appSettings.raceDate);
     const pc = document.querySelector('#screen-athlete .prof-chip');
     if(pc) pc.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:var(--mint);display:inline-block"></span> 72 DAYS TO RACE · GOAL ' + appSettings.goalTime;
+    if(userGoals) renderKeyMetrics(userGoals);   // re-render metrics so the unit toggles flip live
   }
   function saveSettings(){
     appSettings.location = document.getElementById('setLocation').value.trim() || appSettings.location;

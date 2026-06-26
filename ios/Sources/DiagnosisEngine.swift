@@ -92,6 +92,10 @@ enum DiagnosisEngine {
         case (false, false): profile = .weakAtEverything
         }
 
+        // NOTE: keep in sync with the canonical engine in supabase/functions/_shared/diagnosis.ts.
+        // Two intentional differences vs that TS port: (1) markerX/Y here are 0...1, but diagnosis.ts
+        // returns them ×100 (0–100 ints) — scale when sharing fixtures; (2) `evidence` there uses the
+        // raw 5k input string while this reformats via format5k() — equal for canonical inputs.
         let markerX = 0.12 + runAxis * 0.76
         let markerY = 0.12 + (1 - strengthAxis) * 0.76
         let evidence = "\(format5k(input.recent5k)) 5k, \(Int(input.bodyweightLb)) lb, "
