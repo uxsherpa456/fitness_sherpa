@@ -10,6 +10,10 @@ the reply (SSE). This is what the **iOS app** calls in production — no laptop 
 https://rcbjfjgffzadagndxthp.supabase.co/functions/v1/coach
 ```
 
+**Status: ✅ deployed + verified live** — streams real Claude responses, cites the athlete's
+numbers, enforces the freshness guardrail, and runs the `recompute_diagnosis` tool. The
+`ANTHROPIC_API_KEY` secret is set. The iOS app can call this URL directly.
+
 Deployed with `--no-verify-jwt` (callable without an anon key for now). Set the key once with
 `supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref rcbjfjgffzadagndxthp`.
 Test from the browser prototype: append
