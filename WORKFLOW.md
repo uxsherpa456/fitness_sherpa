@@ -30,6 +30,8 @@ fitness_sherpa/
 ├── README.md            overview
 ├── WORKFLOW.md          this file
 ├── prototype/           the HTML prototype = the living spec  (Windows)
+├── supabase/            coach backend — Edge Function         (Windows)
+│   └── functions/coach  POST /functions/v1/coach (chat + agent, streamed)
 └── ios/                 native SwiftUI app                    (Mac)
     ├── SETUP.md         Saturday: zero → running on device
     ├── DATA_MAP.md      HealthKit metric map + auth
@@ -69,7 +71,8 @@ environment (`ANTHROPIC_API_KEY`). `.gitignore` blocks `.env`. Same rule on both
 
 - [x] Prototype complete (the spec)
 - [x] `ios/` prepped: SETUP, DATA_MAP, DiagnosisEngine, Models
+- [x] Coach backend ported to a Supabase Edge Function (`supabase/functions/coach`) — written + logic verified; **needs `supabase functions deploy`**
 - [ ] Mac set up, Xcode installed, project created in `ios/`
 - [ ] HealthKit read layer → freshness-stamped snapshot
 - [ ] SwiftUI tabs ported from the prototype
-- [ ] Backend moved to Supabase Edge Function
+- [ ] Deploy the Edge Function + point the iOS app at it
