@@ -26,7 +26,9 @@ struct AppState: Codable {
 }
 
 struct ProfileData: Codable {
-    var sex: String? = nil
+    var format: String? = nil     // "singles" | "doubles" | "relay" | "elite15"
+    var gender: String? = nil     // "mens" | "womens" | "mixed" (mixed only for doubles/relay)
+    var tier: String? = nil       // "open" | "pro"  (singles only; Pro = heavier stations)
     var age: Int? = nil
 }
 
@@ -77,7 +79,9 @@ struct AppSettings: Codable {
     var raceLoc: String? = nil
     var weightUnit: String? = nil   // "lb" | "kg"
     var distUnit: String? = nil     // "mi" | "km"
-    var sex: String? = nil
+    var format: String? = nil       // "singles" | "doubles" | "relay" | "elite15"
+    var gender: String? = nil       // "mens" | "womens" | "mixed"
+    var tier: String? = nil         // "open" | "pro"
     var age: Int? = nil
 }
 

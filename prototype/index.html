@@ -906,16 +906,27 @@
 
         <div class="ob-panel" data-step="4">
           <div class="ob-q">About you</div>
-          <div class="ob-sub">Sets your HYROX division — and power-to-weight, the other half of the run equation.</div>
+          <div class="ob-sub">Sets your HYROX division and standards — and power-to-weight, the other half of the run equation.</div>
           <div class="ob-field">
-            <div class="ob-label">SEX</div>
-            <div class="ob-pills" id="obSex">
-              <button class="ob-pill sel" onclick="obSetSex(this,'male')">Male</button>
-              <button class="ob-pill" onclick="obSetSex(this,'female')">Female</button>
-              <button class="ob-pill" onclick="obSetSex(this,'intersex')">Intersex</button>
-              <button class="ob-pill" onclick="obSetSex(this,'nonbinary')">Non-binary</button>
-              <button class="ob-pill" onclick="obSetSex(this,'na')">Prefer not to say</button>
+            <div class="ob-label">FORMAT</div>
+            <div class="ob-pills" id="obFormat">
+              <button class="ob-pill sel" data-fmt="singles" onclick="obSetFormat('singles')">Singles</button>
+              <button class="ob-pill" data-fmt="doubles" onclick="obSetFormat('doubles')">Doubles</button>
+              <button class="ob-pill" data-fmt="relay" onclick="obSetFormat('relay')">Relay</button>
+              <button class="ob-pill" data-fmt="elite15" onclick="obSetFormat('elite15')">Elite 15</button>
             </div>
+          </div>
+          <div class="ob-field" id="obGenderField">
+            <div class="ob-label">DIVISION</div>
+            <div class="ob-pills" id="obGender"></div>
+          </div>
+          <div class="ob-field" id="obTierField">
+            <div class="ob-label">WEIGHTS</div>
+            <div class="ob-pills" id="obTier">
+              <button class="ob-pill sel" data-tier="open" onclick="obSetTier('open')">Open</button>
+              <button class="ob-pill" data-tier="pro" onclick="obSetTier('pro')">Pro</button>
+            </div>
+            <div style="font-size:11px;color:var(--text-faint);margin-top:6px">Pro carries heavier — sled, sandbag, wall ball, farmers all step up.</div>
           </div>
           <div class="ob-field">
             <div class="ob-label">AGE</div>
@@ -1439,13 +1450,21 @@
       <div class="set-body">
         <div class="set-glabel first">PROFILE</div>
         <div class="set-field"><div class="set-label">HOME LOCATION</div><input class="set-input" id="setLocation" placeholder="e.g. Washington, DC"></div>
-        <div class="set-field stack"><div class="set-label">SEX</div>
-          <div class="ob-pills" id="setSex">
-            <button class="ob-pill" onclick="setPickSex(this,'male')">Male</button>
-            <button class="ob-pill" onclick="setPickSex(this,'female')">Female</button>
-            <button class="ob-pill" onclick="setPickSex(this,'intersex')">Intersex</button>
-            <button class="ob-pill" onclick="setPickSex(this,'nonbinary')">Non-binary</button>
-            <button class="ob-pill" onclick="setPickSex(this,'na')">Prefer not to say</button>
+        <div class="set-field stack"><div class="set-label">FORMAT</div>
+          <div class="ob-pills" id="setFormat">
+            <button class="ob-pill" data-fmt="singles" onclick="setSetFormat('singles')">Singles</button>
+            <button class="ob-pill" data-fmt="doubles" onclick="setSetFormat('doubles')">Doubles</button>
+            <button class="ob-pill" data-fmt="relay" onclick="setSetFormat('relay')">Relay</button>
+            <button class="ob-pill" data-fmt="elite15" onclick="setSetFormat('elite15')">Elite 15</button>
+          </div>
+        </div>
+        <div class="set-field stack" id="setGenderField"><div class="set-label">DIVISION</div>
+          <div class="ob-pills" id="setGender"></div>
+        </div>
+        <div class="set-field stack" id="setTierField"><div class="set-label">WEIGHTS</div>
+          <div class="ob-pills" id="setTier">
+            <button class="ob-pill" data-tier="open" onclick="setSetTier('open')">Open</button>
+            <button class="ob-pill" data-tier="pro" onclick="setSetTier('pro')">Pro</button>
           </div>
         </div>
         <div class="set-field"><div class="set-label">AGE</div><input class="set-input" id="setAge" inputmode="numeric"></div>
@@ -1623,7 +1642,7 @@
   }
   function hydrateUI(){                            // re-apply state into the live UI after a cloud pull
     try { const g = JSON.parse(localStorage.getItem('hyrox_goals')||'null'); if(g && g.length){ userGoals = g; renderKeyMetrics(userGoals); } } catch(e){}
-    try { const p = JSON.parse(localStorage.getItem('hyrox_profile')||'null'); if(p){ appSettings.sex = p.sex||appSettings.sex; appSettings.age = p.age||appSettings.age; applyDemographics(p); } } catch(e){}
+    try { const p = JSON.parse(localStorage.getItem('hyrox_profile')||'null'); if(p){ appSettings.format = toFormat(p); appSettings.gender = toGender(p); appSettings.tier = p.tier||appSettings.tier; appSettings.age = p.age||appSettings.age; applyDemographics(p); } } catch(e){}
     try { const s = JSON.parse(localStorage.getItem('hyrox_settings')||'null'); if(s){ appSettings = Object.assign(appSettings, s); } } catch(e){}
     applySettings();
   }
@@ -1658,7 +1677,7 @@
         note: stale ? 'Apple Health has not synced recently — recovery metrics are stale.' : 'All metrics synced this morning.'
       },
       readiness: stale ? null : 82,
-      demographics: { sex: userProfile.sex, age: userProfile.age, division: divisionLabel(userProfile.sex) + ' ' + ageBand(userProfile.age) },
+      demographics: { category: categoryLabel(userProfile), format: userProfile.format, gender: genderWord(userProfile.gender).toLowerCase(), tier: userProfile.tier||null, age: userProfile.age, age_group: ageBand(userProfile.age), format_note: FORMAT_NOTE[userProfile.format||'singles'] },
       metrics: {
         hrv_ms: stale ? null : 68, resting_hr: stale ? null : 48, sleep_hrs: stale ? null : 7.4,
         bodyweight_lb: 214, body_fat_pct: 16, vo2max: 48, recent_5k: '25:45', avg_z2_pace: '5:18/km',
@@ -1815,7 +1834,7 @@
   }
 
   const OB = { step:0, connected:false, result:null, str:{},
-    data:{ target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true, sex:'male', age:37 } };
+    data:{ target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true, format:'singles', gender:'mens', tier:'open', age:37 } };
   const OB_LAST = 7;
   const obVal = id => { const el=document.getElementById(id); return el?el.value.trim():''; };
 
@@ -1838,7 +1857,6 @@
     if(i===3) OB.data.recent_5k = obVal('obFiveK') || OB.data.recent_5k;
     if(i===4){ OB.data.age = +obVal('obAge') || OB.data.age; OB.data.bodyweight_lb = +obVal('obWeight') || OB.data.bodyweight_lb; OB.data.body_fat = +obVal('obBodyFat') || OB.data.body_fat; }
   }
-  function obSetSex(el, sex){ el.parentNode.querySelectorAll('.ob-pill').forEach(p=>p.classList.remove('sel')); el.classList.add('sel'); OB.data.sex = sex; }
   function obNext(){ obCollect(OB.step); if(OB.step<OB_LAST) obShow(OB.step+1); }
   function obBack(){ if(OB.step>0) obShow(OB.step-1); }
 
@@ -1899,7 +1917,7 @@
 
   function obFinish(){
     obCollectGoals();                             // save the user's chosen goals → Athlete arc
-    applyDemographics({ sex: OB.data.sex, age: OB.data.age });   // sex + age → Athlete division
+    applyDemographics({ format: OB.data.format, gender: OB.data.gender, tier: OB.data.tier, age: OB.data.age });   // format + age → Athlete header
     try { localStorage.setItem('hyrox_onboarded','1'); localStorage.setItem('hyrox_profile', JSON.stringify(userProfile)); } catch(e){}
     syncToCloud();                                // mirror onboarding result to the cloud
     if(OB.result) applyDiagnosis(OB.result);      // write the diagnosis into the Athlete tab
@@ -1946,9 +1964,9 @@
 
   function startOnboarding(){
     OB.step=0; OB.connected=false; OB.result=null; OB.str={}; OB.goals=null;
-    OB.data = { target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true, sex:'male', age:37 };
+    OB.data = { target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true, format:'singles', gender:'mens', tier:'open', age:37 };
     document.querySelectorAll('#strGate .ob-choice, .ob-pill').forEach(b=>b.classList.remove('sel'));
-    var sexFirst=document.querySelector('#obSex .ob-pill'); if(sexFirst) sexFirst.classList.add('sel');
+    renderFmtPicker('ob', OB.data);   // build the format → division/weights cascade with defaults
     var sh=document.getElementById('strHyrox'); if(sh) sh.style.display='none';
     var sg=document.getElementById('strGeneral'); if(sg) sg.style.display='none';
     const pulled=document.getElementById('obPulled'); if(pulled) pulled.style.display='none';
@@ -1985,16 +2003,62 @@
     4: ['fivek','squat','weight','bodyfat'],      // weak everywhere → biggest levers
   };
   let userGoals = null;
-  let userProfile = { sex:'male', age:37 };
+  let userProfile = { format:'singles', gender:'mens', tier:'open', age:37 };
   // declared up here (not in the SETTINGS block) so convGoal/renderKeyMetrics can read units at first render
-  let appSettings = { location:'Washington, DC', sex:'male', age:37, goalTime:'1:10:00', raceDate:'Sept 4, 2026', raceLoc:'Washington DC', weightUnit:'lb', distUnit:'mi' };
-  function divisionLabel(sex){ return sex==='male' ? 'MEN' : sex==='female' ? 'WOMEN' : 'OPEN'; }
+  let appSettings = { location:'Washington, DC', format:'singles', gender:'mens', tier:'open', age:37, goalTime:'1:10:00', raceDate:'Sept 4, 2026', raceLoc:'Washington DC', weightUnit:'lb', distUnit:'mi' };
   function ageBand(age){ if(!age) return ''; if(age < 25) return 'U24'; const lo = Math.floor(age/5)*5; return lo+'–'+(lo+4); }
-  function applyDemographics(p){
-    userProfile = { sex: p.sex||'male', age: p.age||37 };
-    const g = document.querySelector('#screen-athlete .greeting');
-    if(g) g.textContent = 'HYROX SINGLES · ' + divisionLabel(userProfile.sex) + (userProfile.age ? (' ' + ageBand(userProfile.age)) : '');
+  // HYROX race formats this individual can be training for. The app stays single-player:
+  // it tailors recommendations to the athlete's role in the format, it never coaches a team.
+  const FMT = {
+    singles: { label:'Singles', mixed:false, tier:true,  solo:false },
+    doubles: { label:'Doubles', mixed:true,  tier:false, solo:false },
+    relay:   { label:'Relay',   mixed:true,  tier:false, solo:false },
+    elite15: { label:'Elite 15',mixed:false, tier:false, solo:true  },
+  };
+  const FORMAT_NOTE = {
+    singles: 'Singles: you run all 8×1km and complete every station yourself — full-distance pacing + station endurance.',
+    doubles: 'Doubles (this athlete is ONE partner): both partners run every 1km together, then split the station reps. Train full 8km running volume; rehearse who does which station and fast hand-offs. Coach THIS individual, never the partner.',
+    relay:   'Relay (this athlete is ONE of four): your leg is ~2 runs + 2 stations — short, near-maximal efforts and fast transitions, not full-distance aerobic pacing. Coach THIS individual leg, never the team.',
+    elite15: 'Elite 15: invite-only elite individual wave — full singles format (all 8 runs + 8 stations) at championship pace.',
+  };
+  function genderWord(g){ return g==='womens' ? 'WOMEN' : g==='mixed' ? 'MIXED' : 'MEN'; }
+  function categoryLabel(p){
+    const f = p.format || 'singles';
+    if(f==='elite15') return 'ELITE 15';
+    if(f==='doubles') return genderWord(p.gender) + ' DOUBLES';
+    if(f==='relay')   return genderWord(p.gender) + ' RELAY';
+    return (p.tier==='pro' ? 'PRO ' : 'OPEN ') + genderWord(p.gender);   // singles
   }
+  // back-compat: older saves used `sex`, then `division`/`tier`
+  function toFormat(p){ return p.format || 'singles'; }
+  function toGender(p){ return p.gender || p.division || (p.sex==='female' ? 'womens' : 'mens'); }
+  function applyDemographics(p){
+    userProfile = { format: toFormat(p), gender: toGender(p), tier: p.tier||'open', age: p.age||37 };
+    const g = document.querySelector('#screen-athlete .greeting');
+    if(g) g.textContent = 'HYROX · ' + categoryLabel(userProfile) + (userProfile.age ? (' · ' + ageBand(userProfile.age)) : '');
+  }
+  // Cascading format picker — shared by onboarding (prefix 'ob', state OB.data) and Settings ('set', appSettings).
+  function renderFmtPicker(prefix, st){
+    const cfg = FMT[st.format] || FMT.singles;
+    document.querySelectorAll('#'+prefix+'Format .ob-pill').forEach(b=>b.classList.toggle('sel', b.dataset.fmt===st.format));
+    const gField = document.getElementById(prefix+'GenderField'), tField = document.getElementById(prefix+'TierField');
+    if(cfg.solo){ gField.style.display='none'; tField.style.display='none'; st.gender=''; st.tier=''; return; }
+    gField.style.display='';
+    const opts = cfg.mixed ? [['mens',"Men's"],['womens',"Women's"],['mixed','Mixed']] : [['mens',"Men's"],['womens',"Women's"]];
+    if(!opts.some(o=>o[0]===st.gender)) st.gender='mens';
+    const h = prefix==='ob' ? 'obSetGender' : 'setSetGender';
+    document.getElementById(prefix+'Gender').innerHTML = opts.map(([v,l])=>
+      `<button class="ob-pill ${st.gender===v?'sel':''}" onclick="${h}('${v}')">${l}</button>`).join('');
+    if(cfg.tier){ tField.style.display=''; if(!st.tier) st.tier='open';
+      document.querySelectorAll('#'+prefix+'Tier .ob-pill').forEach(b=>b.classList.toggle('sel', b.dataset.tier===st.tier));
+    } else { tField.style.display='none'; st.tier=''; }
+  }
+  function obSetFormat(v){ OB.data.format=v; renderFmtPicker('ob', OB.data); }
+  function obSetGender(v){ OB.data.gender=v; renderFmtPicker('ob', OB.data); }
+  function obSetTier(v){ OB.data.tier=v; renderFmtPicker('ob', OB.data); }
+  function setSetFormat(v){ appSettings.format=v; renderFmtPicker('set', appSettings); }
+  function setSetGender(v){ appSettings.gender=v; renderFmtPicker('set', appSettings); }
+  function setSetTier(v){ appSettings.tier=v; renderFmtPicker('set', appSettings); }
 
   const goalToNum = v => { if(v==null) return null; if(typeof v==='number') return v; return String(v).split(':').map(Number).reduce((a,b)=>a*60+b,0); };
   const goalFmt = v => v==null ? null : (typeof v==='number' ? (Number.isInteger(v)?String(v):v.toFixed(1)) : String(v));
@@ -2100,7 +2164,7 @@
       mode: 'goal_setting',
       days_to_race: 71,
       goal_time: OB.data.target,
-      demographics: { sex: OB.data.sex, age: OB.data.age, division: divisionLabel(OB.data.sex) + ' ' + ageBand(OB.data.age) },
+      demographics: { category: categoryLabel(OB.data), format: OB.data.format, gender: genderWord(OB.data.gender).toLowerCase(), tier: OB.data.tier||null, age: OB.data.age, age_group: ageBand(OB.data.age), format_note: FORMAT_NOTE[OB.data.format||'singles'] },
       baseline: { bodyweight_lb: OB.data.bodyweight_lb, body_fat_pct: OB.data.body_fat, recent_5k: OB.data.recent_5k },
       diagnosis: OB.result ? { profile: OB.result.profile, limiter: OB.result.limiter } : null,
       proposed_goals: (OB.goals||[]).map(g=>({ key:g.key, label:g.label, current:g.current, target:g.goal, unit:g.unit, better:g.better }))
@@ -2153,11 +2217,9 @@
   })();
 
   /* ===================== SETTINGS ===================== */
-  const sexOrder = ['male','female','intersex','nonbinary','na'];
   function openSettings(){ loadSettingsForm(); document.getElementById('settings').classList.add('show'); }
   function closeSettings(){ document.getElementById('settings').classList.remove('show'); }
   function setSegOn(id, idx){ document.querySelectorAll('#'+id+' button').forEach((b,i)=>b.classList.toggle('on', i===idx)); }
-  function setPickSex(el, sex){ el.parentNode.querySelectorAll('.ob-pill').forEach(p=>p.classList.remove('sel')); el.classList.add('sel'); appSettings.sex = sex; }
   function setPickUnit(el, kind, val){ el.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on')); el.classList.add('on'); appSettings[kind==='weight'?'weightUnit':'distUnit'] = val; }
   function loadSettingsForm(){
     document.getElementById('setLocation').value = appSettings.location;
@@ -2165,13 +2227,12 @@
     document.getElementById('setGoalTime').value = appSettings.goalTime;
     document.getElementById('setRaceDate').value = appSettings.raceDate;
     document.getElementById('setRaceLoc').value = appSettings.raceLoc;
-    document.querySelectorAll('#setSex .ob-pill').forEach(b=>b.classList.remove('sel'));
-    const sb = document.querySelectorAll('#setSex .ob-pill')[sexOrder.indexOf(appSettings.sex)]; if(sb) sb.classList.add('sel');
+    renderFmtPicker('set', appSettings);
     setSegOn('setWeight', appSettings.weightUnit==='lb'?0:1);
     setSegOn('setDist', appSettings.distUnit==='mi'?0:1);
   }
   function applySettings(){
-    applyDemographics({ sex: appSettings.sex, age: appSettings.age });   // → Athlete division
+    applyDemographics({ format: appSettings.format, gender: appSettings.gender, tier: appSettings.tier, age: appSettings.age });   // → Athlete header
     document.querySelectorAll('#screen-today .countdown .race').forEach(e=>e.textContent = 'HYROX · Goal ' + appSettings.goalTime);
     document.querySelectorAll('#screen-today .countdown .loc').forEach(e=>e.textContent = appSettings.raceLoc + ' · ' + appSettings.raceDate);
     const pc = document.querySelector('#screen-athlete .prof-chip');
@@ -2184,13 +2245,13 @@
     appSettings.goalTime = document.getElementById('setGoalTime').value.trim() || appSettings.goalTime;
     appSettings.raceDate = document.getElementById('setRaceDate').value.trim() || appSettings.raceDate;
     appSettings.raceLoc = document.getElementById('setRaceLoc').value.trim() || appSettings.raceLoc;
-    try { localStorage.setItem('hyrox_settings', JSON.stringify(appSettings)); localStorage.setItem('hyrox_profile', JSON.stringify({ sex: appSettings.sex, age: appSettings.age })); } catch(e){}
+    try { localStorage.setItem('hyrox_settings', JSON.stringify(appSettings)); localStorage.setItem('hyrox_profile', JSON.stringify({ format: appSettings.format, gender: appSettings.gender, tier: appSettings.tier, age: appSettings.age })); } catch(e){}
     syncToCloud();
     applySettings();
     closeSettings();
   }
   (function initSettings(){
-    try { const p = JSON.parse(localStorage.getItem('hyrox_profile')||'null'); if(p){ appSettings.sex = p.sex || appSettings.sex; appSettings.age = p.age || appSettings.age; } } catch(e){}
+    try { const p = JSON.parse(localStorage.getItem('hyrox_profile')||'null'); if(p){ appSettings.format = toFormat(p); appSettings.gender = toGender(p); appSettings.tier = p.tier || appSettings.tier; appSettings.age = p.age || appSettings.age; } } catch(e){}
     try { const s = JSON.parse(localStorage.getItem('hyrox_settings')||'null'); if(s) appSettings = Object.assign(appSettings, s); } catch(e){}
     applySettings();
   })();
