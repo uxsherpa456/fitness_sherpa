@@ -1527,7 +1527,10 @@
     if(p.has('coach'))    localStorage.setItem('coach_endpoint', p.get('coach'));
     if(p.has('coachkey')) localStorage.setItem('coach_key', p.get('coachkey'));
   })();
-  const COACH_ENDPOINT = localStorage.getItem('coach_endpoint') || 'http://localhost:8788/api/chat';
+  const COACH_ENDPOINT = localStorage.getItem('coach_endpoint')
+    || ((location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        ? 'http://localhost:8788/api/chat'                                          // local dev → local proxy
+        : 'https://rcbjfjgffzadagndxthp.supabase.co/functions/v1/coach');           // public → cloud function
   const COACH_KEY = localStorage.getItem('coach_key') || '';
   const coachState = { stale: false };
   const convo = [];                              // {role, content} turns sent to the model
