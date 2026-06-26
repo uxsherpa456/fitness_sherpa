@@ -719,6 +719,32 @@
   .tour-skip { background: none; border: none; color: var(--text-faint); font-size: 12px; font-family: var(--font); cursor: pointer; }
   .tour-next { background: var(--mint); color: var(--ink); border: none; border-radius: var(--r-pill); padding: 9px 22px; font-size: 13px; font-weight: 700; font-family: var(--font); cursor: pointer; }
 
+  /* ============================================================
+     SETTINGS
+     ============================================================ */
+  #settings { position: absolute; inset: 0; z-index: 115; background: var(--bg); display: none; flex-direction: column; }
+  #settings.show { display: flex; }
+  .set-head { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 54px 18px 14px; border-bottom: 1px solid var(--surface-line); }
+  .set-close { width: 38px; height: 38px; border-radius: 50%; background: var(--surface); border: 1px solid var(--surface-line); display: grid; place-items: center; cursor: pointer; flex: 0 0 auto; }
+  .set-title { font-size: 22px; font-weight: 700; letter-spacing: -.5px; }
+  .set-body { flex: 1 1 auto; overflow-y: auto; padding: 16px 18px 40px; scrollbar-width: none; }
+  .set-body::-webkit-scrollbar { display: none; }
+  .set-glabel { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; color: var(--mint); margin: 20px 0 6px; }
+  .set-glabel.first { margin-top: 4px; }
+  .set-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+  .set-field.stack { flex-direction: column; align-items: stretch; gap: 9px; }
+  .set-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; color: var(--text-faint); flex: 0 0 auto; }
+  .set-input { flex: 1; min-width: 0; text-align: right; background: transparent; border: none; color: var(--text); font-size: 15px; font-weight: 600; font-family: var(--font); outline: none; }
+  .set-input:focus { color: var(--mint); }
+  .set-field.stack .ob-pills { justify-content: flex-start; }
+  .seg { display: flex; border: 1px solid var(--surface-line); border-radius: var(--r-pill); overflow: hidden; flex: 0 0 auto; }
+  .seg button { background: transparent; border: none; color: var(--text-muted); font-family: var(--mono); font-size: 11px; letter-spacing: 1px; padding: 7px 15px; cursor: pointer; transition: .12s; }
+  .seg button.on { background: var(--mint); color: var(--ink); }
+  .set-link { display: block; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--surface-line); border-left: 3px solid var(--mint); border-radius: 0 12px 12px 0; padding: 13px 15px; color: var(--text); font-size: 13px; font-weight: 600; font-family: var(--font); cursor: pointer; margin-top: 8px; }
+  .set-link:hover { border-color: #3a5b52; }
+  .set-version { font-family: var(--mono); font-size: 10px; color: var(--text-faint); margin-top: 16px; text-align: center; }
+  .set-save { width: 100%; background: var(--mint); color: var(--ink); border: none; border-radius: 14px; padding: 15px; font-size: 14px; font-weight: 700; font-family: var(--font); cursor: pointer; margin-top: 24px; }
+
   /* dev affordance: reset onboarding */
   .dev-reset { position: fixed; bottom: 16px; right: 16px; z-index: 300; background: var(--surface); color: var(--text-muted); border: 1px solid var(--surface-line); border-radius: var(--r-pill); padding: 8px 14px; font-size: 12px; font-family: var(--font); cursor: pointer; opacity: .6; transition: opacity .15s, color .15s, border-color .15s; }
   .dev-reset:hover { opacity: 1; color: var(--mint); border-color: #3a5b52; }
@@ -1036,7 +1062,7 @@
           <div class="greeting">Tuesday · 72 days out</div>
           <div class="title">Today</div>
         </div>
-        <div class="avatar" title="Athlete" onclick="go('athlete')">
+        <div class="avatar" title="Settings" onclick="openSettings()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="#F4F5F4" stroke-width="1.7"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6" stroke="#F4F5F4" stroke-width="1.7" stroke-linecap="round"/></svg>
         </div>
       </div>
@@ -1295,7 +1321,7 @@
           <div class="greeting">HYROX SINGLES · MEN 35–39</div>
           <div class="title">Athlete</div>
         </div>
-        <div class="avatar" title="Profile">
+        <div class="avatar" title="Settings" onclick="openSettings()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="#F4F5F4" stroke-width="1.7"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6" stroke="#F4F5F4" stroke-width="1.7" stroke-linecap="round"/></svg>
         </div>
       </div>
@@ -1399,6 +1425,48 @@
           <button class="tour-next" onclick="tourNext()">Next</button>
         </div>
         <div class="tour-arrow"></div>
+      </div>
+    </div>
+
+    <!-- ===================== SETTINGS ===================== -->
+    <div id="settings">
+      <div class="set-head">
+        <button class="set-close" onclick="closeSettings()" aria-label="Close">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="#F4F5F4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="set-title">Settings</div>
+      </div>
+      <div class="set-body">
+        <div class="set-glabel first">PROFILE</div>
+        <div class="set-field"><div class="set-label">HOME LOCATION</div><input class="set-input" id="setLocation" placeholder="e.g. Washington, DC"></div>
+        <div class="set-field stack"><div class="set-label">SEX</div>
+          <div class="ob-pills" id="setSex">
+            <button class="ob-pill" onclick="setPickSex(this,'male')">Male</button>
+            <button class="ob-pill" onclick="setPickSex(this,'female')">Female</button>
+            <button class="ob-pill" onclick="setPickSex(this,'intersex')">Intersex</button>
+            <button class="ob-pill" onclick="setPickSex(this,'nonbinary')">Non-binary</button>
+            <button class="ob-pill" onclick="setPickSex(this,'na')">Prefer not to say</button>
+          </div>
+        </div>
+        <div class="set-field"><div class="set-label">AGE</div><input class="set-input" id="setAge" inputmode="numeric"></div>
+
+        <div class="set-glabel">THE RACE</div>
+        <div class="set-field"><div class="set-label">GOAL FINISH TIME</div><input class="set-input" id="setGoalTime"></div>
+        <div class="set-field"><div class="set-label">RACE DATE</div><input class="set-input" id="setRaceDate"></div>
+        <div class="set-field"><div class="set-label">RACE LOCATION</div><input class="set-input" id="setRaceLoc"></div>
+
+        <div class="set-glabel">UNITS</div>
+        <div class="set-field"><div class="set-label">WEIGHT</div><div class="seg" id="setWeight"><button onclick="setPickUnit(this,'weight','lb')">LB</button><button onclick="setPickUnit(this,'weight','kg')">KG</button></div></div>
+        <div class="set-field"><div class="set-label">DISTANCE</div><div class="seg" id="setDist"><button onclick="setPickUnit(this,'dist','mi')">MI</button><button onclick="setPickUnit(this,'dist','km')">KM</button></div></div>
+
+        <div class="set-glabel">METRICS &amp; ASSESSMENT</div>
+        <button class="set-link" onclick="closeSettings(); startOnboarding();">↻ Re-run baseline assessment &amp; goals</button>
+
+        <div class="set-glabel">APP</div>
+        <button class="set-link" onclick="resetApp()">Reset app · replay first-run</button>
+        <div class="set-version">Fitness Sherpa · prototype</div>
+
+        <button class="set-save" onclick="saveSettings()">Save changes</button>
       </div>
     </div>
 
@@ -2008,6 +2076,48 @@
     if(!userGoals) userGoals = PROFILE_GOALS[1].map(k=>({ key:k, ...GOAL_LIBRARY[k] }));
     renderKeyMetrics(userGoals);
     try { const p = JSON.parse(localStorage.getItem('hyrox_profile')||'null'); applyDemographics(p || userProfile); } catch(e){ applyDemographics(userProfile); }
+  })();
+
+  /* ===================== SETTINGS ===================== */
+  let appSettings = { location:'Washington, DC', sex:'male', age:37, goalTime:'1:10:00', raceDate:'Sept 4, 2026', raceLoc:'Washington DC', weightUnit:'lb', distUnit:'mi' };
+  const sexOrder = ['male','female','intersex','nonbinary','na'];
+  function openSettings(){ loadSettingsForm(); document.getElementById('settings').classList.add('show'); }
+  function closeSettings(){ document.getElementById('settings').classList.remove('show'); }
+  function setSegOn(id, idx){ document.querySelectorAll('#'+id+' button').forEach((b,i)=>b.classList.toggle('on', i===idx)); }
+  function setPickSex(el, sex){ el.parentNode.querySelectorAll('.ob-pill').forEach(p=>p.classList.remove('sel')); el.classList.add('sel'); appSettings.sex = sex; }
+  function setPickUnit(el, kind, val){ el.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on')); el.classList.add('on'); appSettings[kind==='weight'?'weightUnit':'distUnit'] = val; }
+  function loadSettingsForm(){
+    document.getElementById('setLocation').value = appSettings.location;
+    document.getElementById('setAge').value = appSettings.age;
+    document.getElementById('setGoalTime').value = appSettings.goalTime;
+    document.getElementById('setRaceDate').value = appSettings.raceDate;
+    document.getElementById('setRaceLoc').value = appSettings.raceLoc;
+    document.querySelectorAll('#setSex .ob-pill').forEach(b=>b.classList.remove('sel'));
+    const sb = document.querySelectorAll('#setSex .ob-pill')[sexOrder.indexOf(appSettings.sex)]; if(sb) sb.classList.add('sel');
+    setSegOn('setWeight', appSettings.weightUnit==='lb'?0:1);
+    setSegOn('setDist', appSettings.distUnit==='mi'?0:1);
+  }
+  function applySettings(){
+    applyDemographics({ sex: appSettings.sex, age: appSettings.age });   // → Athlete division
+    document.querySelectorAll('#screen-today .countdown .race').forEach(e=>e.textContent = 'HYROX · Goal ' + appSettings.goalTime);
+    document.querySelectorAll('#screen-today .countdown .loc').forEach(e=>e.textContent = appSettings.raceLoc + ' · ' + appSettings.raceDate);
+    const pc = document.querySelector('#screen-athlete .prof-chip');
+    if(pc) pc.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:var(--mint);display:inline-block"></span> 72 DAYS TO RACE · GOAL ' + appSettings.goalTime;
+  }
+  function saveSettings(){
+    appSettings.location = document.getElementById('setLocation').value.trim() || appSettings.location;
+    appSettings.age = +document.getElementById('setAge').value || appSettings.age;
+    appSettings.goalTime = document.getElementById('setGoalTime').value.trim() || appSettings.goalTime;
+    appSettings.raceDate = document.getElementById('setRaceDate').value.trim() || appSettings.raceDate;
+    appSettings.raceLoc = document.getElementById('setRaceLoc').value.trim() || appSettings.raceLoc;
+    try { localStorage.setItem('hyrox_settings', JSON.stringify(appSettings)); localStorage.setItem('hyrox_profile', JSON.stringify({ sex: appSettings.sex, age: appSettings.age })); } catch(e){}
+    applySettings();
+    closeSettings();
+  }
+  (function initSettings(){
+    try { const p = JSON.parse(localStorage.getItem('hyrox_profile')||'null'); if(p){ appSettings.sex = p.sex || appSettings.sex; appSettings.age = p.age || appSettings.age; } } catch(e){}
+    try { const s = JSON.parse(localStorage.getItem('hyrox_settings')||'null'); if(s) appSettings = Object.assign(appSettings, s); } catch(e){}
+    applySettings();
   })();
 </script>
 </body>
