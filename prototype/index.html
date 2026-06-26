@@ -1591,8 +1591,15 @@
           append('✓ Re-diagnosed → <b>'+j.data.profile+'</b> · Athlete tab updated', 'cite');
           bubble=null; full='';
         } else if(j.type==='fuel'){
-          applyFuel(j.data);
-          append('🍴 Fuel → <b>'+Number(j.data.calories).toLocaleString()+' kcal</b> · P'+j.data.protein_g+' / C'+j.data.carbs_g+' / F'+j.data.fat_g+' · Today card updated', 'cite');
+          const f = j.data;
+          const macros = 'P'+f.protein_g+' / C'+f.carbs_g+' / F'+f.fat_g;
+          if(f.apply){
+            applyFuel(f);
+            append('🍴 Fuel → <b>'+Number(f.calories).toLocaleString()+' kcal</b> · '+macros+' · Today card updated', 'cite');
+          } else {
+            const lbl = f.training_day ? f.training_day.charAt(0).toUpperCase()+f.training_day.slice(1)+' day' : 'Scenario';
+            append('🍴 '+lbl+' → <b>'+Number(f.calories).toLocaleString()+' kcal</b> · '+macros, 'cite');
+          }
           bubble=null; full='';
         }
       }

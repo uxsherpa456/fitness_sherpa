@@ -188,7 +188,13 @@ const server = http.createServer(async (req, res) => {
             emit({ type: 'tool', name: tu.name, input: tu.input });
             let result, evType = 'diagnosis';
             if (tu.name === 'recompute_diagnosis') { result = recomputeDiagnosis(tu.input || {}, base); evType = 'diagnosis'; }
-            else if (tu.name === 'compute_fuel') { result = computeFuel(tu.input || {}, base); evType = 'fuel'; }
+            else if (tu.name === 'compute_fuel') {
+              result = computeFuel(tu.input || {}, base); evType = 'fuel';
+              const inp = tu.input || {};   // only the live "today" target (no hypothetical overrides) updates the card
+              result.apply = (inp.training_day == null || inp.training_day === base.training_day)
+                && (inp.bodyweight_lb == null || inp.bodyweight_lb === base.bodyweight_lb)
+                && (inp.goal == null || inp.goal === base.goal);
+            }
             else { result = { error: 'unknown tool' }; }
             emit({ type: evType, data: result });
             if (tu.name === 'recompute_diagnosis') model = DIAGNOSIS_MODEL;  // escalate the explanation to Opus
