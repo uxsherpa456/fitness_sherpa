@@ -351,7 +351,13 @@
     max-width: 88%; padding: 11px 13px; border-radius: 16px; font-size: 12.5px; line-height: 1.5;
   }
   .bubble.ai-b { background: var(--surface-2); color: var(--text); border-bottom-left-radius: 5px; align-self: flex-start; }
-  .bubble.ai-b b { color: var(--mint); }
+  .bubble.ai-b b, .bubble.ai-b strong, .bubble.ai-b .md-h { color: var(--mint); font-weight: 700; }
+  .bubble.ai-b > div { line-height: 1.5; }
+  .bubble.ai-b .md-h { margin: 7px 0 2px; }
+  .bubble.ai-b .md-sp { height: 6px; }
+  .bubble.ai-b .md-li { padding-left: 14px; position: relative; margin: 3px 0; }
+  .bubble.ai-b .md-li::before { content: '•'; position: absolute; left: 2px; color: var(--mint); }
+  .bubble.ai-b hr { border: none; border-top: 1px solid rgba(255,255,255,.12); margin: 9px 0; }
   .bubble.me { background: var(--mint); color: var(--ink); border-bottom-right-radius: 5px; align-self: flex-end; font-weight: 500; }
   .bubble.cite {
     font-size: 11px; color: var(--text-muted);
@@ -1443,6 +1449,24 @@
       "At <b>195 lb with a 22:30 5k</b> you'd cross into <b>Good at everything</b> — running stops being the limiter. The work would shift to integration: race-pace simulation and holding output under fatigue. (Start the coach proxy with <b>node server.mjs</b> to watch the quadrant move live.)"
   };
 
+  // tiny markdown -> html so the coach's richer answers render clean (not literal ** and ---)
+  function mdToHtml(s){
+    const esc = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const inline = t => esc(t).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    let html = '';
+    for(const raw of s.split('\n')){
+      const line = raw.trim();
+      if(line === ''){ html += '<div class="md-sp"></div>'; continue; }
+      if(/^-{3,}$/.test(line)){ html += '<hr>'; continue; }
+      const h = line.match(/^#{1,6}\s*(.+)$/);
+      if(h){ html += '<div class="md-h">'+inline(h[1])+'</div>'; continue; }
+      const b = line.match(/^[-*•]\s+(.+)$/);
+      if(b){ html += '<div class="md-li">'+inline(b[1])+'</div>'; continue; }
+      html += '<div>'+inline(line)+'</div>';
+    }
+    return html;
+  }
+
   function append(html, cls){
     const log = document.getElementById('chatlog');
     const b = document.createElement('div');
@@ -1542,7 +1566,7 @@
         if(!firstSeen){ const t=document.getElementById('typing'); if(t) t.remove(); firstSeen=true; }
         if(j.type==='text'){
           if(!bubble){ bubble=document.createElement('div'); bubble.className='bubble ai-b'; log.appendChild(bubble); }
-          full += j.text; bubble.textContent = full; bubble.scrollIntoView({block:'nearest'});
+          full += j.text; bubble.innerHTML = mdToHtml(full); bubble.scrollIntoView({block:'nearest'});
         } else if(j.type==='tool'){
           append('⚙ Recomputing diagnosis…', 'cite'); bubble=null; full='';
         } else if(j.type==='diagnosis'){
