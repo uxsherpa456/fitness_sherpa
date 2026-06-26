@@ -71,8 +71,9 @@ environment (`ANTHROPIC_API_KEY`). `.gitignore` blocks `.env`. Same rule on both
 
 - [x] Prototype complete (the spec)
 - [x] `ios/` prepped: SETUP, DATA_MAP, DiagnosisEngine, Models
-- [x] Coach backend ported to a Supabase Edge Function (`supabase/functions/coach`) — written + logic verified; **needs `supabase functions deploy`**
+- [x] Coach backend ported to a Supabase Edge Function and **deployed** →
+  `https://rcbjfjgffzadagndxthp.supabase.co/functions/v1/coach` (set `ANTHROPIC_API_KEY` secret to go live)
 - [ ] Mac set up, Xcode installed, project created in `ios/`
 - [ ] HealthKit read layer → freshness-stamped snapshot
 - [ ] SwiftUI tabs ported from the prototype
-- [ ] Deploy the Edge Function + point the iOS app at it
+- [ ] Point the iOS app's coach client at the deployed function URL

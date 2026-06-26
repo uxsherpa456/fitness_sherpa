@@ -26,8 +26,10 @@ target → paste the auth snippet from `DATA_MAP.md` → start reading Ultra 2 d
 - **SwiftData** — local source of truth + trends (offline-first)
 - **Diagnostic engine** — strength × running quadrant; a direct port of the prototype's
   `recompute_diagnosis`
-- **AI coach** — via a backend (Supabase Edge Function) that holds the API key and runs the
-  agent loop; evidence + freshness guardrails are core, not cosmetic
+- **AI coach** — calls the deployed Supabase Edge Function (already live):
+  `https://rcbjfjgffzadagndxthp.supabase.co/functions/v1/coach`. It holds the API key and runs
+  the agent loop; evidence + freshness guardrails are core, not cosmetic. The app sends
+  `{ messages, context }` and reads the SSE stream (`text` / `tool` / `diagnosis` / `done`).
 
 ## Requirements
 

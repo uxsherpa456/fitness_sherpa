@@ -4,6 +4,17 @@ Cloud port of `prototype/server.mjs`. Holds the Anthropic key as a secret, appli
 freshness + evidence guardrails, runs the agent loop (`recompute_diagnosis` tool), and streams
 the reply (SSE). This is what the **iOS app** calls in production — no laptop required.
 
+## Live endpoint (deployed)
+
+```
+https://rcbjfjgffzadagndxthp.supabase.co/functions/v1/coach
+```
+
+Deployed with `--no-verify-jwt` (callable without an anon key for now). Set the key once with
+`supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref rcbjfjgffzadagndxthp`.
+Test from the browser prototype: append
+`?coach=https://rcbjfjgffzadagndxthp.supabase.co/functions/v1/coach` to the URL.
+
 ```
 supabase/functions/
 ├── _shared/
