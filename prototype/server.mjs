@@ -14,7 +14,8 @@ import path from 'node:path';
 
 const PORT = process.env.PORT || 8788;
 const API_KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.COACH_MODEL || 'claude-sonnet-4-6';
+const CHAT_MODEL = process.env.COACH_MODEL || 'claude-sonnet-4-6';        // chat = fast + cheap
+const DIAGNOSIS_MODEL = process.env.DIAGNOSIS_MODEL || 'claude-opus-4-8'; // re-diagnosis = deep reasoning
 const ROOT = path.resolve('.');
 
 const CORS = {
@@ -87,11 +88,11 @@ Fixed goal: a 1:10:00 HYROX finish on Sept 4 2026, Washington DC.`;
 const sse = (res, obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
 
 // One streaming turn. Emits text deltas; returns the assistant content array and any tool_use.
-async function streamTurn(messages, ctx, emit) {
+async function streamTurn(messages, ctx, emit, model) {
   const upstream = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 700, stream: true, system: systemPrompt(ctx), tools: TOOLS, messages }),
+    body: JSON.stringify({ model, max_tokens: 700, stream: true, system: systemPrompt(ctx), tools: TOOLS, messages }),
   });
   if (!upstream.ok) { const t = await upstream.text(); throw new Error(`Claude API ${upstream.status}: ${t.slice(0, 240)}`); }
 
@@ -143,12 +144,14 @@ const server = http.createServer(async (req, res) => {
           stations_hold: context.metrics?.stations_hold ?? true,
         };
         const convo = messages.slice();
+        let model = CHAT_MODEL;
         for (let step = 0; step < 4; step++) {
-          const { content, toolUse } = await streamTurn(convo, context, emit);
+          const { content, toolUse } = await streamTurn(convo, context, emit, model);
           if (!toolUse) break;
           emit({ type: 'tool', name: toolUse.name, input: toolUse.input });
           const result = toolUse.name === 'recompute_diagnosis' ? recomputeDiagnosis(toolUse.input || {}, base) : { error: 'unknown tool' };
           emit({ type: 'diagnosis', data: result });
+          if (toolUse.name === 'recompute_diagnosis') model = DIAGNOSIS_MODEL;  // escalate the explanation to Opus
           convo.push({ role: 'assistant', content });
           convo.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: toolUse.id, content: JSON.stringify(result) }] });
         }
@@ -172,5 +175,5 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`HYROX coach proxy + app  ->  http://localhost:${PORT}`);
-  console.log(API_KEY ? `Model: ${MODEL}  (key detected) · tools: recompute_diagnosis` : 'No ANTHROPIC_API_KEY set — coach returns a setup notice until you add one.');
+  console.log(API_KEY ? `chat: ${CHAT_MODEL} · diagnosis: ${DIAGNOSIS_MODEL} (key detected)` : 'No ANTHROPIC_API_KEY set — coach returns a setup notice until you add one.');
 });

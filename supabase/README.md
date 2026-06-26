@@ -16,6 +16,10 @@ numbers, enforces the freshness guardrail, and runs the `recompute_diagnosis` to
 
 Deployed with `--no-verify-jwt` (callable without an anon key for now). Set the key once with
 `supabase secrets set ANTHROPIC_API_KEY=sk-ant-... --project-ref rcbjfjgffzadagndxthp`.
+
+**Hybrid models:** chat runs on `claude-sonnet-4-6`; once `recompute_diagnosis` fires, the turn
+that explains the re-diagnosis escalates to `claude-opus-4-8` (deep reasoning where it matters).
+Override with the `COACH_MODEL` / `DIAGNOSIS_MODEL` secrets.
 Test from the browser prototype: append
 `?coach=https://rcbjfjgffzadagndxthp.supabase.co/functions/v1/coach` to the URL.
 

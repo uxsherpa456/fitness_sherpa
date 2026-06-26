@@ -13,7 +13,8 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { recomputeDiagnosis, type DiagnosisInput } from "../_shared/diagnosis.ts";
 
-const MODEL = Deno.env.get("COACH_MODEL") ?? "claude-sonnet-4-6";
+const CHAT_MODEL = Deno.env.get("COACH_MODEL") ?? "claude-sonnet-4-6";        // chat = fast + cheap
+const DIAGNOSIS_MODEL = Deno.env.get("DIAGNOSIS_MODEL") ?? "claude-opus-4-8"; // re-diagnosis = deep reasoning
 
 const TOOLS = [{
   name: "recompute_diagnosis",
@@ -54,11 +55,12 @@ async function streamTurn(
   messages: any[],
   ctx: unknown,
   send: (o: unknown) => void,
+  model: string,
 ): Promise<{ content: any[]; toolUse: any | null }> {
   const upstream = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 700, stream: true, system: systemPrompt(ctx), tools: TOOLS, messages }),
+    body: JSON.stringify({ model, max_tokens: 700, stream: true, system: systemPrompt(ctx), tools: TOOLS, messages }),
   });
   if (!upstream.ok || !upstream.body) {
     const t = await upstream.text();
@@ -124,14 +126,16 @@ Deno.serve(async (req: Request) => {
           stations_hold: context?.metrics?.stations_hold ?? true,
         };
         const convo = [...messages];
+        let model = CHAT_MODEL;
         for (let step = 0; step < 4; step++) {
-          const { content, toolUse } = await streamTurn(apiKey, convo, context, send);
+          const { content, toolUse } = await streamTurn(apiKey, convo, context, send, model);
           if (!toolUse) break;
           send({ type: "tool", name: toolUse.name, input: toolUse.input });
           const result = toolUse.name === "recompute_diagnosis"
             ? recomputeDiagnosis(toolUse.input ?? {}, base)
             : { error: "unknown tool" };
           send({ type: "diagnosis", data: result });
+          if (toolUse.name === "recompute_diagnosis") model = DIAGNOSIS_MODEL;  // escalate the explanation to Opus
           convo.push({ role: "assistant", content });
           convo.push({ role: "user", content: [{ type: "tool_result", tool_use_id: toolUse.id, content: JSON.stringify(result) }] });
         }
