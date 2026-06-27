@@ -643,6 +643,24 @@
   .ob-label { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; color: var(--text-faint); margin-bottom: 7px; }
   .ob-input { width: 100%; box-sizing: border-box; background: var(--surface); border: 1px solid var(--surface-line); border-left: 3px solid var(--mint); border-radius: 0 12px 12px 0; padding: 14px 15px; color: var(--text); font-size: 18px; font-weight: 700; font-family: var(--font); outline: none; }
   .ob-input:focus { border-color: var(--mint); }
+  /* native date picker → dark calendar */
+  input[type="date"].ob-input, input[type="date"].set-input { color-scheme: dark; }
+  input[type="date"].set-input { text-align: right; }
+  /* H:MM:SS duration picker */
+  .timepick { display: flex; align-items: center; gap: 7px; }
+  .timepick.ob { background: var(--surface); border: 1px solid var(--surface-line); border-left: 3px solid var(--mint); border-radius: 0 12px 12px 0; padding: 9px 14px; }
+  .tp-sel { background: var(--surface-2); border: 1px solid var(--surface-line); color: var(--text); border-radius: 9px; padding: 9px 8px; font-size: 16px; font-weight: 700; font-family: var(--font); outline: none; cursor: pointer; color-scheme: dark; }
+  .timepick.ob .tp-sel { font-size: 18px; }
+  .tp-sel:focus { border-color: var(--mint); }
+  .tp-sep { color: var(--text-faint); font-family: var(--mono); font-size: 10px; letter-spacing: 1px; }
+  .set-field .timepick { justify-content: flex-end; flex: 1; }
+  .set-field .tp-sel { padding: 6px 6px; font-size: 14px; font-weight: 600; }
+  /* keyless location autocomplete (Photon / OpenStreetMap) */
+  .ac-wrap { position: relative; }
+  .ac-list { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 5px); z-index: 60; background: var(--surface-2); border: 1px solid var(--surface-line); border-radius: 11px; overflow: hidden; max-height: 220px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,.55); }
+  .ac-item { padding: 11px 13px; font-size: 13px; color: var(--text); cursor: pointer; border-bottom: 1px solid rgba(255,255,255,.04); text-align: left; }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover, .ac-item.on { background: var(--surface-line); color: var(--mint); }
   .ob-fixed { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--surface-line); border-left: 3px solid var(--mint); border-radius: 0 12px 12px 0; padding: 13px 15px; font-size: 13px; color: var(--text); margin-bottom: 14px; }
   .ob-fixed b { color: var(--mint); }
   .ob-connect { width: 100%; background: var(--mint); color: var(--ink); border: none; border-radius: 14px; padding: 15px; font-size: 14px; font-weight: 700; font-family: var(--font); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
@@ -874,39 +892,7 @@
 
         <div class="ob-panel" data-step="1">
           <div class="ob-q">Your race</div>
-          <div class="ob-sub">The fixed point everything reasons against.</div>
-          <div class="ob-fixed"><span>🏁</span> <b>HYROX</b> · Washington DC · Sept 4, 2026</div>
-          <div class="ob-field">
-            <div class="ob-label">TARGET FINISH TIME</div>
-            <input class="ob-input" id="obTarget" value="1:10:00">
-          </div>
-        </div>
-
-        <div class="ob-panel" data-step="2">
-          <div class="ob-q">Connect Apple Health</div>
-          <div class="ob-sub">We read bodyweight, VO₂max, resting HR and recent runs — and always show how fresh it is. Stations &amp; strength you'll enter by hand.</div>
-          <button class="ob-connect" onclick="obConnectHealth(this)"><span>♥</span> Connect Apple Health</button>
-          <div class="ob-pulled" id="obPulled" style="display:none">
-            <div class="row"><span>✓</span> Bodyweight <b>214 lb</b></div>
-            <div class="row"><span>✓</span> VO₂max <b>48</b></div>
-            <div class="row"><span>✓</span> Resting HR <b>48 bpm</b></div>
-            <div class="row"><span>✓</span> Recent 5k <b>25:45</b></div>
-            <div class="row warn"><span>⚠</span> Body fat <b>enter manually</b></div>
-          </div>
-        </div>
-
-        <div class="ob-panel" data-step="3">
-          <div class="ob-q">Your run</div>
-          <div class="ob-sub">Roughly half of a HYROX is running. This sets your <b>run axis</b>.</div>
-          <div class="ob-field">
-            <div class="ob-label">RECENT 5K TIME (MM:SS)</div>
-            <input class="ob-input" id="obFiveK" value="25:45">
-          </div>
-        </div>
-
-        <div class="ob-panel" data-step="4">
-          <div class="ob-q">About you</div>
-          <div class="ob-sub">Sets your HYROX division and standards — and power-to-weight, the other half of the run equation.</div>
+          <div class="ob-sub">The fixed point everything reasons against. Your format sets your division, standards, and station weights.</div>
           <div class="ob-field">
             <div class="ob-label">FORMAT</div>
             <div class="ob-pills" id="obFormat">
@@ -929,16 +915,62 @@
             <div style="font-size:11px;color:var(--text-faint);margin-top:6px">Pro carries heavier — sled, sandbag, wall ball, farmers all step up.</div>
           </div>
           <div class="ob-field">
+            <div class="ob-label">RACE LOCATION</div>
+            <div class="ac-wrap">
+              <input class="ob-input" id="obRaceLoc" placeholder="Start typing a city…" autocomplete="off">
+              <div class="ac-list" id="obRaceLocAC"></div>
+            </div>
+          </div>
+          <div class="ob-field">
+            <div class="ob-label">RACE DATE</div>
+            <input class="ob-input" type="date" id="obRaceDate">
+          </div>
+          <div class="ob-field">
+            <div class="ob-label">TARGET FINISH TIME</div>
+            <div class="timepick ob" id="obTimePick">
+              <select id="obTimeH" class="tp-sel"></select><span class="tp-sep">H</span>
+              <select id="obTimeM" class="tp-sel"></select><span class="tp-sep">M</span>
+              <select id="obTimeS" class="tp-sel"></select><span class="tp-sep">S</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ob-panel" data-step="2">
+          <div class="ob-q">Connect Apple Health</div>
+          <div class="ob-sub">We read bodyweight, VO₂max, resting HR and recent runs — and always show how fresh it is. Stations &amp; strength you'll enter by hand.</div>
+          <button class="ob-connect" onclick="obConnectHealth(this)"><span>♥</span> Connect Apple Health</button>
+          <div class="ob-pulled" id="obPulled" style="display:none">
+            <div class="row"><span>✓</span> Bodyweight <b>214 lb</b></div>
+            <div class="row"><span>✓</span> VO₂max <b>48</b></div>
+            <div class="row"><span>✓</span> Resting HR <b>48 bpm</b></div>
+            <div class="row"><span>✓</span> Recent 5k <b>25:45</b></div>
+            <div class="row warn"><span>⚠</span> Body fat <b>enter manually</b></div>
+          </div>
+        </div>
+
+        <div class="ob-panel" data-step="4">
+          <div class="ob-q">Your run</div>
+          <div class="ob-sub">Roughly half of a HYROX is running. This sets your <b>run axis</b>.</div>
+          <div class="ob-field">
+            <div class="ob-label">RECENT 5K TIME (MM:SS)</div>
+            <input class="ob-input" id="obFiveK" placeholder="e.g. 25:45">
+          </div>
+        </div>
+
+        <div class="ob-panel" data-step="3">
+          <div class="ob-q">About you</div>
+          <div class="ob-sub">Age sets your masters standards; bodyweight is the other half of the run equation — power-to-weight.</div>
+          <div class="ob-field">
             <div class="ob-label">AGE</div>
-            <input class="ob-input" id="obAge" value="37" inputmode="numeric">
+            <input class="ob-input" id="obAge" placeholder="years" inputmode="numeric">
           </div>
           <div class="ob-field">
             <div class="ob-label">BODYWEIGHT (LB)</div>
-            <input class="ob-input" id="obWeight" value="214">
+            <input class="ob-input" id="obWeight" placeholder="lb">
           </div>
           <div class="ob-field">
             <div class="ob-label">BODY FAT (%)</div>
-            <input class="ob-input" id="obBodyFat" value="16">
+            <input class="ob-input" id="obBodyFat" placeholder="% — optional">
           </div>
         </div>
 
@@ -1470,9 +1502,20 @@
         <div class="set-field"><div class="set-label">AGE</div><input class="set-input" id="setAge" inputmode="numeric"></div>
 
         <div class="set-glabel">THE RACE</div>
-        <div class="set-field"><div class="set-label">GOAL FINISH TIME</div><input class="set-input" id="setGoalTime"></div>
-        <div class="set-field"><div class="set-label">RACE DATE</div><input class="set-input" id="setRaceDate"></div>
-        <div class="set-field"><div class="set-label">RACE LOCATION</div><input class="set-input" id="setRaceLoc"></div>
+        <div class="set-field"><div class="set-label">GOAL FINISH TIME</div>
+          <div class="timepick" id="setTimePick">
+            <select id="setTimeH" class="tp-sel"></select><span class="tp-sep">H</span>
+            <select id="setTimeM" class="tp-sel"></select><span class="tp-sep">M</span>
+            <select id="setTimeS" class="tp-sel"></select><span class="tp-sep">S</span>
+          </div>
+        </div>
+        <div class="set-field"><div class="set-label">RACE DATE</div><input class="set-input" type="date" id="setRaceDate"></div>
+        <div class="set-field"><div class="set-label">RACE LOCATION</div>
+          <div class="ac-wrap" style="flex:1">
+            <input class="set-input" id="setRaceLoc" autocomplete="off" style="width:100%">
+            <div class="ac-list" id="setRaceLocAC"></div>
+          </div>
+        </div>
 
         <div class="set-glabel">UNITS</div>
         <div class="set-field"><div class="set-label">WEIGHT</div><div class="seg" id="setWeight"><button onclick="setPickUnit(this,'weight','lb')">LB</button><button onclick="setPickUnit(this,'weight','kg')">KG</button></div></div>
@@ -1833,10 +1876,76 @@
       evidence:`${inp.recent_5k} 5k, ${w} lb, stations ${sh?'hold':'fade'} vs 22:00 goal` };
   }
 
+  // OB.data holds internal fallbacks (used only if a field is left blank); the inputs themselves
+  // start empty so onboarding reads as a true baseline, not remembered data.
   const OB = { step:0, connected:false, result:null, str:{},
-    data:{ target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true, format:'singles', gender:'mens', tier:'open', age:37 } };
+    data:{ target:'1:10:00', raceLoc:'Washington DC', raceDate:'2026-09-04', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true, format:'singles', gender:'mens', tier:'open', age:37 } };
   const OB_LAST = 7;
   const obVal = id => { const el=document.getElementById(id); return el?el.value.trim():''; };
+
+  /* ---- date + duration controls (shared by onboarding 'obTime' and Settings 'setTime') ---- */
+  function fillTimeSelects(prefix){
+    const h=document.getElementById(prefix+'H'), m=document.getElementById(prefix+'M'), s=document.getElementById(prefix+'S');
+    if(h && !h.options.length){ for(let i=0;i<=3;i++) h.add(new Option(i, i)); }
+    if(m && !m.options.length){ for(let i=0;i<60;i++) m.add(new Option(String(i).padStart(2,'0'), i)); }
+    if(s && !s.options.length){ for(let i=0;i<60;i++) s.add(new Option(String(i).padStart(2,'0'), i)); }
+  }
+  function setTimeVal(prefix, str){
+    fillTimeSelects(prefix);
+    const [h,m,sec] = String(str||'1:10:00').split(':').map(n=>parseInt(n,10)||0);
+    document.getElementById(prefix+'H').value = h; document.getElementById(prefix+'M').value = m; document.getElementById(prefix+'S').value = sec;
+  }
+  function getTimeVal(prefix){
+    const h=+document.getElementById(prefix+'H').value, m=+document.getElementById(prefix+'M').value, s=+document.getElementById(prefix+'S').value;
+    return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+  function fmtDate(d){                              // ISO (or legacy free text) → "Sep 4, 2026"
+    if(!d) return '';
+    const dt = new Date(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d+'T00:00:00' : d);
+    return isNaN(dt) ? d : dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  }
+  function toISODate(d){                            // → "2026-09-04" for the native date input ('' if unparseable)
+    if(!d) return '';
+    if(/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    const dt = new Date(d); return isNaN(dt) ? '' : dt.toISOString().slice(0,10);
+  }
+
+  /* ---- keyless location autocomplete (Photon / OpenStreetMap — free, no key, CORS-enabled) ---- */
+  function placeLabel(p){
+    const parts = [];
+    if(p.name) parts.push(p.name);
+    if(p.city && p.city !== p.name) parts.push(p.city);
+    if(p.state && p.state !== p.city && p.state !== p.name) parts.push(p.state);
+    if(p.country) parts.push(p.country);
+    return parts.join(', ');
+  }
+  function attachLocAC(inputId, listId){
+    const inp = document.getElementById(inputId), list = document.getElementById(listId);
+    if(!inp || !list) return;
+    let timer, ctrl;
+    const close = () => { list.style.display='none'; list.innerHTML=''; };
+    inp.addEventListener('input', () => {
+      const q = inp.value.trim(); clearTimeout(timer);
+      if(q.length < 3){ close(); return; }
+      timer = setTimeout(async () => {
+        try {
+          if(ctrl) ctrl.abort(); ctrl = new AbortController();
+          const r = await fetch('https://photon.komoot.io/api/?limit=6&q=' + encodeURIComponent(q), { signal: ctrl.signal });
+          const j = await r.json();
+          const seen = new Set();
+          const items = (j.features||[]).map(f => placeLabel(f.properties)).filter(v => v && !seen.has(v) && seen.add(v)).slice(0,6);
+          if(!items.length){ close(); return; }
+          list.innerHTML = items.map(x => '<div class="ac-item">' + x.replace(/</g,'&lt;') + '</div>').join('');
+          list.style.display = 'block';
+          list.querySelectorAll('.ac-item').forEach(el => el.addEventListener('mousedown', e => { e.preventDefault(); inp.value = el.textContent; close(); }));
+        } catch(e){ /* offline / aborted → silently fall back to free text */ }
+      }, 260);
+    });
+    inp.addEventListener('blur', () => setTimeout(close, 120));
+    inp.addEventListener('keydown', e => { if(e.key === 'Escape') close(); });
+  }
+  attachLocAC('obRaceLoc', 'obRaceLocAC');
+  attachLocAC('setRaceLoc', 'setRaceLocAC');
 
   function obShow(i){
     OB.step = i;
@@ -1853,9 +1962,11 @@
     document.querySelector('.ob-body').scrollTop = 0;
   }
   function obCollect(i){
-    if(i===1) OB.data.target = obVal('obTarget') || OB.data.target;
-    if(i===3) OB.data.recent_5k = obVal('obFiveK') || OB.data.recent_5k;
-    if(i===4){ OB.data.age = +obVal('obAge') || OB.data.age; OB.data.bodyweight_lb = +obVal('obWeight') || OB.data.bodyweight_lb; OB.data.body_fat = +obVal('obBodyFat') || OB.data.body_fat; }
+    if(i===1){ OB.data.target = getTimeVal('obTime');
+               OB.data.raceLoc = obVal('obRaceLoc') || OB.data.raceLoc;
+               OB.data.raceDate = obVal('obRaceDate') || OB.data.raceDate; }
+    if(i===3){ OB.data.age = +obVal('obAge') || OB.data.age; OB.data.bodyweight_lb = +obVal('obWeight') || OB.data.bodyweight_lb; OB.data.body_fat = +obVal('obBodyFat') || OB.data.body_fat; }
+    if(i===4) OB.data.recent_5k = obVal('obFiveK') || OB.data.recent_5k;
   }
   function obNext(){ obCollect(OB.step); if(OB.step<OB_LAST) obShow(OB.step+1); }
   function obBack(){ if(OB.step>0) obShow(OB.step-1); }
@@ -1866,6 +1977,10 @@
       OB.connected = true;
       document.getElementById('obPulled').style.display = 'flex';
       btn.innerHTML = '✓ Connected · synced just now';
+      // pre-fill what Health pulled into the later steps (only if you haven't typed your own)
+      OB.data.bodyweight_lb = 214; OB.data.recent_5k = '25:45';
+      const w = document.getElementById('obWeight'); if(w && !w.value) w.value = '214';
+      const f = document.getElementById('obFiveK');  if(f && !f.value) f.value = '25:45';
     }, 1500);
   }
   function strSetExp(el, experienced){
@@ -1917,9 +2032,17 @@
 
   function obFinish(){
     obCollectGoals();                             // save the user's chosen goals → Athlete arc
-    applyDemographics({ format: OB.data.format, gender: OB.data.gender, tier: OB.data.tier, age: OB.data.age });   // format + age → Athlete header
-    try { localStorage.setItem('hyrox_onboarded','1'); localStorage.setItem('hyrox_profile', JSON.stringify(userProfile)); } catch(e){}
-    syncToCloud();                                // mirror onboarding result to the cloud
+    // onboarding is the single source of truth — write the full baseline into the live model
+    Object.assign(appSettings, {
+      format: OB.data.format, gender: OB.data.gender, tier: OB.data.tier, age: OB.data.age,
+      goalTime: OB.data.target, raceLoc: OB.data.raceLoc, raceDate: OB.data.raceDate });
+    applySettings();                              // sets userProfile + Today countdown + Athlete header/chip from the race
+    try {
+      localStorage.setItem('hyrox_onboarded','1');
+      localStorage.setItem('hyrox_profile', JSON.stringify(userProfile));
+      localStorage.setItem('hyrox_settings', JSON.stringify(appSettings));
+    } catch(e){}
+    syncToCloud();                                // mirror the baseline to the cloud
     if(OB.result) applyDiagnosis(OB.result);      // write the diagnosis into the Athlete tab
     document.getElementById('onboarding').classList.remove('show');
     startTour();                                  // introduce the tabs
@@ -1965,6 +2088,8 @@
   function startOnboarding(){
     OB.step=0; OB.connected=false; OB.result=null; OB.str={}; OB.goals=null;
     OB.data = { target:'1:10:00', recent_5k:'25:45', bodyweight_lb:214, body_fat:16, stations_hold:true, format:'singles', gender:'mens', tier:'open', age:37 };
+    ['obRaceLoc','obRaceDate','obAge','obWeight','obBodyFat','obFiveK'].forEach(id=>{ var el=document.getElementById(id); if(el) el.value=''; });   // blank → true baseline
+    setTimeVal('obTime', '1:10:00');   // the duration picker needs a starting value
     document.querySelectorAll('#strGate .ob-choice, .ob-pill').forEach(b=>b.classList.remove('sel'));
     renderFmtPicker('ob', OB.data);   // build the format → division/weights cascade with defaults
     var sh=document.getElementById('strHyrox'); if(sh) sh.style.display='none';
@@ -2005,7 +2130,7 @@
   let userGoals = null;
   let userProfile = { format:'singles', gender:'mens', tier:'open', age:37 };
   // declared up here (not in the SETTINGS block) so convGoal/renderKeyMetrics can read units at first render
-  let appSettings = { location:'Washington, DC', format:'singles', gender:'mens', tier:'open', age:37, goalTime:'1:10:00', raceDate:'Sept 4, 2026', raceLoc:'Washington DC', weightUnit:'lb', distUnit:'mi' };
+  let appSettings = { location:'Washington, DC', format:'singles', gender:'mens', tier:'open', age:37, goalTime:'1:10:00', raceDate:'2026-09-04', raceLoc:'Washington DC', weightUnit:'lb', distUnit:'mi' };
   function ageBand(age){ if(!age) return ''; if(age < 25) return 'U24'; const lo = Math.floor(age/5)*5; return lo+'–'+(lo+4); }
   // HYROX race formats this individual can be training for. The app stays single-player:
   // it tailors recommendations to the athlete's role in the format, it never coaches a team.
@@ -2033,7 +2158,8 @@
   function toFormat(p){ return p.format || 'singles'; }
   function toGender(p){ return p.gender || p.division || (p.sex==='female' ? 'womens' : 'mens'); }
   function applyDemographics(p){
-    userProfile = { format: toFormat(p), gender: toGender(p), tier: p.tier||'open', age: p.age||37 };
+    const fmt = toFormat(p);
+    userProfile = { format: fmt, gender: toGender(p), tier: (fmt==='singles' ? (p.tier||'open') : ''), age: p.age||37 };
     const g = document.querySelector('#screen-athlete .greeting');
     if(g) g.textContent = 'HYROX · ' + categoryLabel(userProfile) + (userProfile.age ? (' · ' + ageBand(userProfile.age)) : '');
   }
@@ -2224,8 +2350,8 @@
   function loadSettingsForm(){
     document.getElementById('setLocation').value = appSettings.location;
     document.getElementById('setAge').value = appSettings.age;
-    document.getElementById('setGoalTime').value = appSettings.goalTime;
-    document.getElementById('setRaceDate').value = appSettings.raceDate;
+    setTimeVal('setTime', appSettings.goalTime);
+    document.getElementById('setRaceDate').value = toISODate(appSettings.raceDate);
     document.getElementById('setRaceLoc').value = appSettings.raceLoc;
     renderFmtPicker('set', appSettings);
     setSegOn('setWeight', appSettings.weightUnit==='lb'?0:1);
@@ -2234,7 +2360,7 @@
   function applySettings(){
     applyDemographics({ format: appSettings.format, gender: appSettings.gender, tier: appSettings.tier, age: appSettings.age });   // → Athlete header
     document.querySelectorAll('#screen-today .countdown .race').forEach(e=>e.textContent = 'HYROX · Goal ' + appSettings.goalTime);
-    document.querySelectorAll('#screen-today .countdown .loc').forEach(e=>e.textContent = appSettings.raceLoc + ' · ' + appSettings.raceDate);
+    document.querySelectorAll('#screen-today .countdown .loc').forEach(e=>e.textContent = appSettings.raceLoc + ' · ' + fmtDate(appSettings.raceDate));
     const pc = document.querySelector('#screen-athlete .prof-chip');
     if(pc) pc.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:var(--mint);display:inline-block"></span> 72 DAYS TO RACE · GOAL ' + appSettings.goalTime;
     if(userGoals) renderKeyMetrics(userGoals);   // re-render metrics so the unit toggles flip live
@@ -2242,8 +2368,8 @@
   function saveSettings(){
     appSettings.location = document.getElementById('setLocation').value.trim() || appSettings.location;
     appSettings.age = +document.getElementById('setAge').value || appSettings.age;
-    appSettings.goalTime = document.getElementById('setGoalTime').value.trim() || appSettings.goalTime;
-    appSettings.raceDate = document.getElementById('setRaceDate').value.trim() || appSettings.raceDate;
+    appSettings.goalTime = getTimeVal('setTime');
+    appSettings.raceDate = document.getElementById('setRaceDate').value || appSettings.raceDate;
     appSettings.raceLoc = document.getElementById('setRaceLoc').value.trim() || appSettings.raceLoc;
     try { localStorage.setItem('hyrox_settings', JSON.stringify(appSettings)); localStorage.setItem('hyrox_profile', JSON.stringify({ format: appSettings.format, gender: appSettings.gender, tier: appSettings.tier, age: appSettings.age })); } catch(e){}
     syncToCloud();
