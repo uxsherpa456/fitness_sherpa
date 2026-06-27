@@ -6,3 +6,11 @@ Thumbs.db
 .env
 .env.*
 supabase/.temp/
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.xcscmblueprint
+*.xccheckout
