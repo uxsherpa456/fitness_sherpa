@@ -26,8 +26,6 @@ struct CoachView: View {
         GeometryReader { geo in
             let drawerWidth = min(310, geo.size.width * 0.86)
             HStack(spacing: 0) {
-                historyDrawer
-                    .frame(width: drawerWidth, height: geo.size.height)
                 mainContent
                     .frame(width: geo.size.width, height: geo.size.height)
                     .overlay {
@@ -37,9 +35,11 @@ struct CoachView: View {
                                 .onTapGesture { showingHistory = false }
                         }
                     }
+                historyDrawer
+                    .frame(width: drawerWidth, height: geo.size.height)
             }
-            .frame(width: drawerWidth + geo.size.width, alignment: .leading)
-            .offset(x: showingHistory ? 0 : -drawerWidth)
+            .frame(width: geo.size.width + drawerWidth, alignment: .leading)
+            .offset(x: showingHistory ? -drawerWidth : 0)
             .animation(.easeInOut(duration: 0.28), value: showingHistory)
         }
     }
@@ -52,21 +52,23 @@ struct CoachView: View {
                 inputBar
             }
             .background(Palette.bg)
-            .navigationTitle(current?.title ?? "Chat").navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Palette.bg, for: .navigationBar)
+            .appBar(model)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { showingHistory = true } label: { Image(systemName: "list.bullet") }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { startNewChat() } label: { Image(systemName: "square.and.pencil") }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    if inputFocused {
-                        Button("Close") { inputFocused = false }
-                    } else {
-                        Button { startNewChat() } label: { Image(systemName: "square.and.pencil") }
-                    }
+                    Button { showingHistory = true } label: { Image(systemName: "clock.arrow.circlepath") }
                 }
             }
-            .task { if current == nil { current = conversations.first ?? makeConversation() } }
+            .task {
+                if current == nil {
+                    // Clean up empty leftovers, then resume the last real conversation.
+                    for c in conversations where c.isEmpty { context.delete(c) }
+                    try? context.save()
+                    current = conversations.first(where: { !$0.isEmpty }) ?? makeConversation()
+                }
+            }
         }
     }
 
@@ -185,10 +187,12 @@ struct CoachView: View {
             ForEach(starters, id: \.self) { s in
                 Button { input = s; send() } label: {
                     Text(s).font(.footnote).foregroundStyle(Palette.mint)
+                        .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(10)
                         .background(Palette.surface, in: .rect(cornerRadius: 12))
                 }
+                .buttonStyle(.plain)
                 .disabled(sending)
             }
         }
@@ -267,9 +271,12 @@ struct CoachView: View {
     private func startNewChat() {
         inputFocused = false
         streaming = ""
-        // Reuse the current chat if it's already empty instead of piling up blank conversations.
-        if let c = current, c.isEmpty { return }
+        let previous = current
         current = makeConversation()
+        // Discard the prior chat only if it was empty, so blanks don't pile up.
+        if let previous, previous.isEmpty {
+            context.delete(previous); try? context.save()
+        }
     }
 
     // MARK: - Send
