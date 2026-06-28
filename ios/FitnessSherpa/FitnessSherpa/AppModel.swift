@@ -20,7 +20,53 @@ final class AppModel {
     var loading = false
 
     var readinessScore: Int? {
-        Readiness.score(hrv: reading?.hrv?.value, restingHR: reading?.restingHR?.value)
+        Readiness.score(hrv: reading?.hrv?.value,
+                        restingHR: reading?.restingHR?.value,
+                        sleepHrs: reading?.sleep?.value)
+    }
+
+    /// The freshness-stamped snapshot the coach reasons over (matches the Edge Function contract).
+    func coachContext() -> [String: Any] {
+        let iso = ISO8601DateFormatter()
+
+        var metrics: [String: Any] = ["recent_5k": Self.manual5k, "stations_hold": true]
+        if let bw = reading?.bodyMass?.value { metrics["bodyweight_lb"] = Int(bw.rounded()) }
+        if let hrv = reading?.hrv?.value { metrics["hrv_ms"] = Int(hrv.rounded()) }
+        if let rhr = reading?.restingHR?.value { metrics["resting_hr_bpm"] = Int(rhr.rounded()) }
+        if let sleep = reading?.sleep?.value { metrics["sleep_hrs"] = (sleep * 10).rounded() / 10 }
+        if let s = readinessScore { metrics["readiness_score"] = s }
+
+        var ctx: [String: Any] = [
+            "metrics": metrics,
+            "nutrition": ["goal": "lose", "training_day": "quality"],
+        ]
+
+        if let r = reading {
+            let mins = Int(Date().timeIntervalSince(r.queriedAt) / 60)
+            ctx["freshness"] = [
+                "checked": "\(mins)m ago",
+                "checked_at": iso.string(from: r.queriedAt),
+                "readiness_fresh": r.readinessFresh,
+                "stale_or_missing": r.staleMetrics,
+            ]
+            if let date = r.lastRunDate {
+                var lr: [String: Any] = ["when": iso.string(from: date)]
+                if let km = r.lastRunKm { lr["km"] = (km * 100).rounded() / 100 }
+                if let m = r.lastRunMinutes { lr["minutes"] = Int(m.rounded()) }
+                ctx["last_run"] = lr
+            }
+        }
+
+        if let d = diagnosis {
+            ctx["diagnosis"] = [
+                "profile": d.profile.title,
+                "limiter": d.limiter,
+                "focus": d.focus,
+                "marker": ["x": Int((d.markerX * 100).rounded()), "y": Int((d.markerY * 100).rounded())],
+                "evidence": d.evidence,
+            ]
+        }
+        return ctx
     }
 
     /// Read Health, diagnose, persist (deduped). Safe to call repeatedly.
@@ -56,10 +102,12 @@ final class AppModel {
         var snapDesc = FetchDescriptor<HealthSnapshot>(sortBy: [.init(\.capturedAt, order: .reverse)])
         snapDesc.fetchLimit = 1
         let lastSnap = try? context.fetch(snapDesc).first
-        if lastSnap?.hrv != r.hrv?.value || lastSnap?.restingHR != r.restingHR?.value {
+        if lastSnap?.hrv != r.hrv?.value || lastSnap?.restingHR != r.restingHR?.value
+            || lastSnap?.sleepHrs != r.sleep?.value {
             context.insert(HealthSnapshot(capturedAt: r.queriedAt,
                                           hrv: r.hrv?.value,
                                           restingHR: r.restingHR?.value,
+                                          sleepHrs: r.sleep?.value,
                                           staleMetrics: r.staleMetrics))
         }
 

@@ -66,14 +66,6 @@ struct PlanView: View {
     var body: some View { placeholder("Plan", "Weekly training calendar ports next.") }
 }
 
-struct CoachView: View {
-    let model: AppModel
-    var body: some View {
-        placeholder("AI Coach",
-                    "Evidence-gated chat with the deployed Edge Function ports next — it'll open with today's freshness-stamped data.")
-    }
-}
-
 /// Shared placeholder tab body.
 @ViewBuilder
 private func placeholder(_ title: String, _ subtitle: String) -> some View {
