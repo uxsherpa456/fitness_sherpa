@@ -17,7 +17,9 @@ struct TodayView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 12) {
+                    greeting
                     readinessCard
+                    feelingCard
                     sleepCard
                     fuelCard
                     lastWorkoutCard
@@ -31,6 +33,24 @@ struct TodayView: View {
             .refreshable { await model.refresh(context: context) }
             .appBar(model)
         }
+    }
+
+    // MARK: - Greeting (race countdown)
+
+    private var greeting: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(Date().formatted(.dateTime.weekday(.wide).month().day()))
+                .font(.title3.bold()).foregroundStyle(Palette.text)
+            if let days = model.settings.daysToRace, days >= 0 {
+                Text("\(days) days out · HYROX \(model.settings.raceLocation)")
+                    .font(.caption).foregroundStyle(Palette.textMuted)
+            } else {
+                Text("HYROX \(model.settings.raceLocation)")
+                    .font(.caption).foregroundStyle(Palette.textMuted)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 2).padding(.bottom, 2)
     }
 
     // MARK: - A. Readiness hero (live)
@@ -75,8 +95,44 @@ struct TodayView: View {
                 }
                 .padding(.top, 2)
 
-                Text("v0 readiness score — provisional until the baseline model lands.")
+                Text(baselineNote)
                     .font(.caption2).foregroundStyle(Palette.inkSoft.opacity(0.7))
+            }
+        }
+    }
+
+    private var baselineNote: String {
+        guard let rd = model.readiness else { return "Recovery model warming up…" }
+        let personal = rd.components.contains { $0.personal }
+        var parts = [personal ? "Relative to your recent baseline" : "Building your baseline — using norms"]
+        if let pct = rd.lastHardPct, let h = rd.lastHardHoursAgo, pct >= 0.9 {
+            parts.append(String(format: "%.0f%% max-HR effort %.0fh ago", pct * 100, h))
+        } else if rd.ratio > 1.3 {
+            parts.append(String(format: "training load high (%.1f×)", rd.ratio))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    // MARK: - Feeling selector
+
+    private var feelingCard: some View {
+        Card(style: .dark) {
+            VStack(alignment: .leading, spacing: 10) {
+                ModuleLabel("How do you feel?")
+                HStack(spacing: 6) {
+                    ForEach(Feeling.allCases) { f in
+                        let on = model.todayFeeling == f
+                        Button { model.setFeeling(f) } label: {
+                            Text(f.label)
+                                .font(.system(size: 11, weight: .semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(on ? Palette.mint : Palette.surface2, in: Capsule())
+                                .foregroundStyle(on ? Palette.ink : Palette.textMuted)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
         }
     }

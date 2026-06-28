@@ -16,6 +16,7 @@ struct FitnessSherpaApp: App {
             Session.self, Benchmark.self, HealthSnapshot.self,
             TrainingSession.self,
             Conversation.self, ChatMessageRecord.self,
+            PlannedWorkout.self,
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

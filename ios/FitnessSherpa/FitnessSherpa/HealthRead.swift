@@ -259,6 +259,47 @@ extension HealthData {
         }
     }
 
+    // MARK: - Baselines (for the readiness model)
+
+    /// Per-day aggregated values over the last `days` (one bucket per day) — the substrate for
+    /// rolling baselines. `.discreteAverage` for vitals, `.cumulativeSum` for energy.
+    static func dailyValues(_ id: HKQuantityTypeIdentifier, unit: HKUnit, days: Int,
+                            options: HKStatisticsOptions) async throws -> [Double] {
+        guard let type = HKQuantityType.quantityType(forIdentifier: id) else { return [] }
+        let cal = Calendar.current
+        let end = cal.startOfDay(for: Date()).addingTimeInterval(86400)     // start of tomorrow
+        guard let start = cal.date(byAdding: .day, value: -days, to: end) else { return [] }
+        var interval = DateComponents(); interval.day = 1
+
+        return try await withCheckedThrowingContinuation { cont in
+            let q = HKStatisticsCollectionQuery(
+                quantityType: type,
+                quantitySamplePredicate: HKQuery.predicateForSamples(withStart: start, end: end),
+                options: options,
+                anchorDate: cal.startOfDay(for: Date()),
+                intervalComponents: interval)
+            q.initialResultsHandler = { _, results, error in
+                if let error { cont.resume(throwing: error); return }
+                var values: [Double] = []
+                results?.enumerateStatistics(from: start, to: end) { stat, _ in
+                    let qty = options.contains(.cumulativeSum) ? stat.sumQuantity() : stat.averageQuantity()
+                    if let qty { values.append(qty.doubleValue(for: unit)) }
+                }
+                cont.resume(returning: values)
+            }
+            store.execute(q)
+        }
+    }
+
+    /// Rolling baseline (mean + SD) for a metric. Needs ≥7 days of data, else nil → caller uses a prior.
+    static func baseline(_ id: HKQuantityTypeIdentifier, unit: HKUnit, days: Int = 60) async -> MetricBaseline? {
+        guard let values = try? await dailyValues(id, unit: unit, days: days, options: .discreteAverage),
+              values.count >= 7 else { return nil }
+        let mean = values.reduce(0, +) / Double(values.count)
+        let variance = values.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Double(values.count)
+        return MetricBaseline(mean: mean, sd: max(sqrt(variance), 0.0001), n: values.count)
+    }
+
     /// Read the milestone metrics in one call, stamped with the query time.
     static func readSnapshot() async throws -> Reading {
         let bpm = HKUnit.count().unitDivided(by: .minute())

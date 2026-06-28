@@ -20,7 +20,8 @@ enum HealthData {
             .distanceWalkingRunning, .runningSpeed, .runningPower,
             .activeEnergyBurned, .basalEnergyBurned,
             .bodyMass, .bodyFatPercentage,
-            .stepCount, .respiratoryRate
+            .stepCount, .respiratoryRate,
+            .appleSleepingWristTemperature, .oxygenSaturation
         ]
         for id in quantities {
             if let t = HKQuantityType.quantityType(forIdentifier: id) { types.insert(t) }

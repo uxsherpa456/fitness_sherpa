@@ -16,22 +16,42 @@ final class AppModel {
 
     var reading: HealthData.Reading?
     var diagnosis: Diagnosis?
+    var readiness: ReadinessResult?
     var status = "Reading Health…"
     var loading = false
     var showingMenu = false          // global left hamburger menu
     var settings = UserSettings.load()
+    var feelingRaw: String? = AppModel.loadFeeling()
 
     func saveSettings() { settings.save() }
 
+    // MARK: Subjective feeling (per day)
+
+    var todayFeeling: Feeling? { feelingRaw.flatMap(Feeling.init) }
+
+    func setFeeling(_ f: Feeling) {
+        feelingRaw = f.rawValue
+        UserDefaults.standard.set(f.rawValue, forKey: Self.feelingKey)
+    }
+
+    private static var feelingKey: String {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+        return "feeling." + f.string(from: Date())
+    }
+    private static func loadFeeling() -> String? { UserDefaults.standard.string(forKey: feelingKey) }
+
+    /// Final readiness: the objective score scaled by today's feeling, with the no-GREEN cap held.
     var readinessScore: Int? {
-        Readiness.score(hrv: reading?.hrv?.value,
-                        restingHR: reading?.restingHR?.value,
-                        sleepHrs: reading?.sleep?.value)
+        guard let rd = readiness, let base = rd.score else { return nil }
+        var s = Double(base)
+        if let f = todayFeeling { s *= f.multiplier }
+        if rd.cappedGreen { s = min(s, 74) }
+        return Int(min(100, max(0, s.rounded())))
     }
 
     /// The freshness-stamped snapshot the coach reasons over (matches the Edge Function contract).
     /// `workouts` lets the coach adapt off recent training load (calories, HR, effort).
-    func coachContext(recentWorkouts: [TrainingSession] = []) -> [String: Any] {
+    func coachContext(recentWorkouts: [TrainingSession] = [], plan: [PlannedWorkout] = []) -> [String: Any] {
         let iso = ISO8601DateFormatter()
 
         var metrics: [String: Any] = ["recent_5k": Self.manual5k, "stations_hold": true]
@@ -59,6 +79,28 @@ final class AppModel {
         ]
         if let days = settings.daysToRace { race["days_out"] = days }
         ctx["race"] = race
+
+        if let rd = readiness {
+            func r1(_ v: Double) -> Double { (v * 10).rounded() / 10 }
+            var r: [String: Any] = ["baseline_relative": true]
+            if let s = readinessScore { r["score"] = s }
+            if let f = todayFeeling { r["how_you_feel"] = f.rawValue }
+            r["fitness_ctl"] = r1(rd.ctl)
+            r["fatigue_atl"] = r1(rd.atl)
+            r["form"] = r1(rd.form)
+            r["acute_chronic_load"] = r1(rd.ratio)
+            r["hr_max"] = rd.hrMax
+            if rd.cappedGreen { r["note"] = "near-max effort in last 24h — capped below GREEN" }
+            if let pct = rd.lastHardPct, let h = rd.lastHardHoursAgo {
+                r["last_hard_effort"] = ["pct_hrmax": Int((pct * 100).rounded()), "hours_ago": Int(h.rounded())]
+            }
+            r["components"] = rd.components.map { c -> [String: Any] in
+                ["metric": c.label, "value": r1(c.value),
+                 "unit": c.unit, "z_vs_baseline": (c.z * 100).rounded() / 100,
+                 "source": c.personal ? "personal_baseline" : "population_prior"]
+            }
+            ctx["readiness"] = r
+        }
 
         if let r = reading {
             let mins = Int(Date().timeIntervalSince(r.queriedAt) / 60)
@@ -116,6 +158,20 @@ final class AppModel {
                 return w
             }
         }
+
+        if !plan.isEmpty {
+            ctx["plan"] = plan.prefix(10).map { p -> [String: Any] in
+                var d: [String: Any] = [
+                    "date": iso.string(from: p.date),
+                    "type": p.type, "name": p.name, "meta": p.meta,
+                    "intent": p.intent.rawValue, "completed": p.completed,
+                    "source": p.source.rawValue, "phase": p.phase,
+                ]
+                if let z = p.targetZone { d["target_zone"] = z }
+                if let s = p.stations { d["stations"] = s }
+                return d
+            }
+        }
         return ctx
     }
 
@@ -128,6 +184,13 @@ final class AppModel {
             try await HealthData.requestAuthorization()
             let r = try await HealthData.readSnapshot()
             reading = r
+
+            // Reconcile workouts into the store, then compute training load + readiness.
+            let workouts = (try? await HealthData.recentWorkouts(days: 365)) ?? []
+            TrainingSession.reconcile(workouts, context: context)
+            let sessions = (try? context.fetch(FetchDescriptor<TrainingSession>())) ?? []
+            let load = TrainingLoad.compute(sessions: sessions, restingHR: r.restingHR?.value, age: settings.age)
+            readiness = await ReadinessEngine.compute(reading: r, load: load)
 
             let baseline = Baseline(bodyweightLb: r.bodyMass?.value,
                                     recent5kSeconds: DiagnosisEngine.parse5k(Self.manual5k),

@@ -13,11 +13,13 @@ struct PlanView: View {
 
     @Environment(\.modelContext) private var context
     @Query(sort: \TrainingSession.date, order: .forward) private var sessions: [TrainingSession]
+    @Query(sort: \PlannedWorkout.date, order: .forward) private var planned: [PlannedWorkout]
 
     @State private var loadError: String?
     @State private var loaded = false
     @State private var didScroll = false
     @State private var editing: TrainingSession?
+    @State private var editingPlan: PlannedWorkout?
     @State private var showingAdd = false
     @State private var conflict: TrainingSession?
 
@@ -38,6 +40,7 @@ struct PlanView: View {
                 .refreshable { await load() }
                 .onChange(of: sessions.count) { if !didScroll { proxy.scrollTo("today", anchor: .top); didScroll = true } }
                 .task {
+                    PlannedWorkout.seedIfNeeded(profile: model.diagnosis?.profile, context: context)
                     await load()
                     proxy.scrollTo("today", anchor: .top)
                 }
@@ -49,6 +52,7 @@ struct PlanView: View {
                 }
             }
             .sheet(item: $editing) { SessionEditView(session: $0) }
+            .sheet(item: $editingPlan) { PlannedEditView(plan: $0) }
             .sheet(isPresented: $showingAdd) { SessionEditView(session: nil) }
             .confirmationDialog("Apple Health has updated values for this session.",
                                 isPresented: Binding(get: { conflict != nil }, set: { if !$0 { conflict = nil } }),
@@ -66,7 +70,7 @@ struct PlanView: View {
         case actual(TrainingSession)
         case lastLogged(Date)
         case planBegins
-        case planned(PlannedSession, Date, today: Bool)
+        case planned(PlannedWorkout, today: Bool)
 
         var id: String {
             switch self {
@@ -74,7 +78,7 @@ struct PlanView: View {
             case .actual(let s): return "a-\(s.id)"
             case .lastLogged: return "lastlogged"
             case .planBegins: return "planbegins"
-            case .planned(_, let d, let t): return t ? "today" : "p-\(d.timeIntervalSince1970)"
+            case .planned(let p, let t): return t ? "today" : "p-\(p.id)"
             }
         }
     }
@@ -97,12 +101,11 @@ struct PlanView: View {
         if let last = actuals.last { out.append(.lastLogged(last.date)) }
 
         out.append(.planBegins)
-        let week = PlanEngine.recommendedWeek(for: model.diagnosis?.profile)
-        for (i, p) in week.enumerated() {
-            let date = cal.date(byAdding: .day, value: i, to: todayStart) ?? todayStart
-            let m = monthKey(date)
+        let upcoming = planned.filter { $0.date >= todayStart }.sorted { $0.date < $1.date }
+        for p in upcoming {
+            let m = monthKey(p.date)
             if m != lastMonth { out.append(.month(m)); lastMonth = m }
-            out.append(.planned(p, date, today: i == 0))
+            out.append(.planned(p, today: cal.isDateInToday(p.date)))
         }
         return out
     }
@@ -113,7 +116,7 @@ struct PlanView: View {
         case .actual(let s): actualRow(s)
         case .lastLogged(let d): divider("LAST LOGGED · \(d.formatted(.relative(presentation: .named)))", color: Palette.textFaint)
         case .planBegins: divider("PLAN", color: Palette.mint)
-        case .planned(let p, let date, let today): plannedRow(p, date: date, today: today)
+        case .planned(let p, let today): plannedRow(p, today: today)
         }
     }
 
@@ -192,12 +195,15 @@ struct PlanView: View {
         }
     }
 
-    private func plannedRow(_ p: PlannedSession, date: Date, today: Bool) -> some View {
+    private func plannedRow(_ p: PlannedWorkout, today: Bool) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            dateColumn(date, highlight: today)
+            dateColumn(p.date, highlight: today)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(p.type).font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundStyle(p.category.color)
+                    Text(p.type).font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundStyle(p.cat.color)
+                    if p.source == .coach {
+                        Text("COACH").font(.system(size: 8, weight: .heavy, design: .monospaced)).foregroundStyle(Palette.mint)
+                    }
                     Spacer()
                     if today {
                         Text("TODAY").font(.system(size: 8, weight: .heavy, design: .monospaced)).tracking(1)
@@ -205,9 +211,21 @@ struct PlanView: View {
                             .padding(.horizontal, 6).padding(.vertical, 2)
                             .background(Palette.mint, in: Capsule())
                     }
+                    Button {
+                        p.completed.toggle(); p.updatedAt = Date(); try? context.save()
+                    } label: {
+                        Image(systemName: p.completed ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(p.completed ? Palette.green : Palette.textFaint)
+                    }
+                    .buttonStyle(.plain)
                 }
-                Text(p.name).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.text)
+                Text(p.name).font(.subheadline.weight(.semibold))
+                    .foregroundStyle(p.completed ? Palette.textMuted : Palette.text)
+                    .strikethrough(p.completed)
                 Text(p.meta).font(.caption).foregroundStyle(Palette.textMuted)
+                if let z = p.targetZone {
+                    Text("\(p.intent.label) · \(z)").font(.caption2).foregroundStyle(Palette.textFaint)
+                }
                 if let why = p.why { Text(why).font(.caption2).foregroundStyle(Palette.textFaint) }
             }
             .padding(12)
@@ -215,8 +233,10 @@ struct PlanView: View {
             .background(today ? Palette.mint.opacity(0.10) : Palette.surface, in: RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(today ? Palette.mint.opacity(0.5) : .clear, lineWidth: 1))
             .overlay(alignment: .leading) {
-                Rectangle().fill(p.category.color).frame(width: 3).frame(maxHeight: .infinity).clipShape(Capsule())
+                Rectangle().fill(p.cat.color).frame(width: 3).frame(maxHeight: .infinity).clipShape(Capsule())
             }
+            .contentShape(Rectangle())
+            .onTapGesture { editingPlan = p }
         }
     }
 
