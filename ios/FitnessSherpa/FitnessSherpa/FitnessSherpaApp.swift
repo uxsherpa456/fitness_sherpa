@@ -11,21 +11,14 @@ import SwiftData
 @main
 struct FitnessSherpaApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Goal.self, Baseline.self, DiagnosisRecord.self,
-            Session.self, Benchmark.self, HealthSnapshot.self,
-            TrainingSession.self,
-            Conversation.self, ChatMessageRecord.self,
-            PlannedWorkout.self,
-        ])
+        let schema = Schema(versionedSchema: AppSchemaV1.self)
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
-            return try ModelContainer(for: schema, configurations: [config])
+            return try ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self, configurations: [config])
         } catch {
-            // Dev recovery: if the on-disk store can't migrate to the current schema, wipe it and
-            // recreate. Data re-imports from HealthKit; manual entries are dev-only at this stage.
-            // (Replace with a real VersionedSchema + MigrationPlan before shipping persistent data.)
+            // Last-resort recovery only: a true migration failure (not handled by the plan) wipes the
+            // dev store and recreates it. Real breaking changes should add an AppSchemaV2 stage instead.
             print("ModelContainer migration failed, recreating store: \(error)")
             let fm = FileManager.default
             let url = config.url
