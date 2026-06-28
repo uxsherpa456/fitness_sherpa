@@ -23,7 +23,27 @@ struct CoachView: View {
     @FocusState private var inputFocused: Bool
 
     var body: some View {
-        ZStack(alignment: .leading) {
+        GeometryReader { geo in
+            let drawerWidth = min(310, geo.size.width * 0.86)
+            ZStack(alignment: .leading) {
+                historyDrawer
+                    .frame(width: drawerWidth)
+
+                mainContent
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .offset(x: showingHistory ? drawerWidth : 0)
+                    .overlay {
+                        if showingHistory {
+                            Color.black.opacity(0.3)
+                                .onTapGesture { showingHistory = false }
+                        }
+                    }
+            }
+            .animation(.easeInOut(duration: 0.28), value: showingHistory)
+        }
+    }
+
+    private var mainContent: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 freshnessBar
@@ -45,20 +65,10 @@ struct CoachView: View {
                 }
             }
             .task { if current == nil { current = conversations.first ?? makeConversation() } }
-            }
-
-            if showingHistory {
-                Color.black.opacity(0.45).ignoresSafeArea()
-                    .transition(.opacity)
-                    .onTapGesture { showingHistory = false }
-                historyDrawer
-                    .transition(.move(edge: .leading))
-            }
         }
-        .animation(.easeInOut(duration: 0.25), value: showingHistory)
     }
 
-    // MARK: - History drawer (slides in from the left)
+    // MARK: - History drawer (pushes the chat to the right, like Claude)
 
     private var historyDrawer: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -98,10 +108,8 @@ struct CoachView: View {
             }
             Spacer(minLength: 0)
         }
-        .frame(width: 300)
-        .frame(maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Palette.bg)
-        .overlay(alignment: .trailing) { Rectangle().fill(Palette.surfaceLine).frame(width: 1) }
         .ignoresSafeArea(edges: .bottom)
     }
 
