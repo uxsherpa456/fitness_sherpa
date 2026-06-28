@@ -51,9 +51,9 @@ struct PlanView: View {
                     Button { showingAdd = true } label: { Image(systemName: "plus") }
                 }
             }
-            .sheet(item: $editing) { SessionEditView(session: $0) }
+            .sheet(item: $editing) { SessionEditView(session: $0, unitSettings: model.settings) }
             .sheet(item: $editingPlan) { PlannedEditView(plan: $0) }
-            .sheet(isPresented: $showingAdd) { SessionEditView(session: nil) }
+            .sheet(isPresented: $showingAdd) { SessionEditView(session: nil, unitSettings: model.settings) }
             .confirmationDialog("Apple Health has updated values for this session.",
                                 isPresented: Binding(get: { conflict != nil }, set: { if !$0 { conflict = nil } }),
                                 presenting: conflict) { s in
@@ -249,7 +249,7 @@ struct PlanView: View {
 
     private func detail(_ s: TrainingSession) -> String {
         var parts: [String] = []
-        if let km = s.distanceKm, km > 0 { parts.append(String(format: "%.1f km", km)) }
+        if let km = s.distanceKm, km > 0, let d = Units.displayDistance(km: km, model.settings) { parts.append(d) }
         parts.append("\(s.durationMin) min")
         if let kcal = s.caloriesKcal, kcal > 0 { parts.append("\(Int(kcal)) kcal") }
         if let hr = s.avgHR { parts.append("\(hr) bpm avg") }

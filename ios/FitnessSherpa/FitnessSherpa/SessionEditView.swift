@@ -9,6 +9,7 @@ import SwiftData
 
 struct SessionEditView: View {
     let session: TrainingSession?      // nil = add new manual session
+    var unitSettings: UserSettings = UserSettings()
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -23,12 +24,15 @@ struct SessionEditView: View {
     @State private var rpe: Int
     @State private var notes: String
 
-    init(session: TrainingSession?) {
+    init(session: TrainingSession?, unitSettings: UserSettings = UserSettings()) {
         self.session = session
+        self.unitSettings = unitSettings
         _category = State(initialValue: session?.cat ?? .run)
         _date = State(initialValue: session?.date ?? Date())
         _durationMin = State(initialValue: session?.durationMin ?? 45)
-        _distanceText = State(initialValue: session?.distanceKm.map { String(format: "%.2f", $0) } ?? "")
+        _distanceText = State(initialValue: session?.distanceKm.map {
+            String(format: "%.2f", Units.distanceValue(km: $0, unitSettings))
+        } ?? "")
         _caloriesText = State(initialValue: session?.caloriesKcal.map { String(Int($0)) } ?? "")
         _avgHRText = State(initialValue: session?.avgHR.map(String.init) ?? "")
         _maxHRText = State(initialValue: session?.maxHR.map(String.init) ?? "")
@@ -54,7 +58,7 @@ struct SessionEditView: View {
                     }
                     DatePicker("Date", selection: $date, displayedComponents: [.date, .hourAndMinute])
                     Stepper("Duration: \(durationMin) min", value: $durationMin, in: 0...300, step: 5)
-                    TextField("Distance km (optional)", text: $distanceText).keyboardType(.decimalPad)
+                    TextField("Distance \(Units.distanceUnit(unitSettings)) (optional)", text: $distanceText).keyboardType(.decimalPad)
                     TextField("Calories kcal (optional)", text: $caloriesText).keyboardType(.numberPad)
                     TextField("Avg HR bpm (optional)", text: $avgHRText).keyboardType(.numberPad)
                     TextField("Max HR bpm (optional)", text: $maxHRText).keyboardType(.numberPad)
@@ -85,6 +89,7 @@ struct SessionEditView: View {
 
     private func save() {
         let km = Double(distanceText.replacingOccurrences(of: ",", with: "."))
+            .map { Units.kmFromDisplay($0, unitSettings) }
         let kcal = Double(caloriesText)
         let hr = Int(avgHRText)
         let mhr = Int(maxHRText)

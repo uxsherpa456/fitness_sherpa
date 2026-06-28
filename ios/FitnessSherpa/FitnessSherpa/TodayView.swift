@@ -250,7 +250,7 @@ struct TodayView: View {
 
     private var lastRunHeading: String {
         guard let r = model.reading, let date = r.lastRunDate else { return "No recent run found" }
-        let km = r.lastRunKm.map { String(format: "%.1f km", $0) } ?? "run"
+        let km = r.lastRunKm.flatMap { Units.displayDistance(km: $0, model.settings) } ?? "run"
         return "\(date.formatted(.relative(presentation: .named))) — \(km)"
     }
 
