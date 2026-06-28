@@ -42,8 +42,7 @@ struct PlanView: View {
                     proxy.scrollTo("today", anchor: .top)
                 }
             }
-            .navigationTitle("Timeline").navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Palette.bg, for: .navigationBar)
+            .appBar(model)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingAdd = true } label: { Image(systemName: "plus") }

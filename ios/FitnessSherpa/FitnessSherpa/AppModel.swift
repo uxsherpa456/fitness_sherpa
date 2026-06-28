@@ -18,6 +18,7 @@ final class AppModel {
     var diagnosis: Diagnosis?
     var status = "Reading Health…"
     var loading = false
+    var showingMenu = false          // global left hamburger menu
     var settings = UserSettings.load()
 
     func saveSettings() { settings.save() }

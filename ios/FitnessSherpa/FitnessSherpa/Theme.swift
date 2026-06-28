@@ -94,6 +94,52 @@ struct Card<Content: View>: View {
     }
 }
 
+/// Persistent "when was the data last read" indicator shown in each tab's nav bar center.
+struct UpdatedIndicator: View {
+    let model: AppModel
+    var body: some View {
+        let dot: Color = model.reading == nil
+            ? Palette.textFaint
+            : (model.reading?.readinessFresh == true ? Palette.green : Palette.yellow)
+        HStack(spacing: 6) {
+            if model.loading {
+                ProgressView().controlSize(.mini).tint(Palette.textMuted)
+            } else {
+                Circle().fill(dot).frame(width: 6, height: 6)
+            }
+            Text(text)
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(Palette.textMuted)
+        }
+    }
+    private var text: String {
+        if model.loading { return "Updating…" }
+        guard let d = model.reading?.queriedAt else { return "No data yet" }
+        return "Updated " + d.formatted(.relative(presentation: .named))
+    }
+}
+
+/// Shared nav-bar chrome: global hamburger (left) + the updated indicator (center), no title.
+private struct AppBar: ViewModifier {
+    let model: AppModel
+    func body(content: Content) -> some View {
+        content
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Palette.bg, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { model.showingMenu = true } label: { Image(systemName: "line.3.horizontal") }
+                }
+                ToolbarItem(placement: .principal) { UpdatedIndicator(model: model) }
+            }
+    }
+}
+
+extension View {
+    func appBar(_ model: AppModel) -> some View { modifier(AppBar(model: model)) }
+}
+
 /// A status pill (dot + label), like the readiness verdict pill.
 struct StatusPill: View {
     let label: String

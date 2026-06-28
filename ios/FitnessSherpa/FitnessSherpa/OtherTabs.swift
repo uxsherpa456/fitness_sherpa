@@ -57,8 +57,7 @@ struct AthleteView: View {
             }
             .background(Palette.bg)
             .refreshable { await model.refresh(context: context) }
-            .navigationTitle("Athlete").navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Palette.bg, for: .navigationBar)
+            .appBar(model)
         }
     }
 
