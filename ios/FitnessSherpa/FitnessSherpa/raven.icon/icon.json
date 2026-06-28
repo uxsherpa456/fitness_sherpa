@@ -1,13 +1,13 @@
 {
   "fill" : {
-    "automatic-gradient" : "extended-srgb:0.91373,0.86275,0.74510,1.00000"
+    "automatic-gradient" : "extended-srgb:0.22745,0.22745,0.23529,1.00000"
   },
   "groups" : [
     {
       "layers" : [
         {
-          "image-name" : "dd1399e0-ec37-402a-966e-f9c41e5d5ef0.png",
-          "name" : "dd1399e0-ec37-402a-966e-f9c41e5d5ef0"
+          "image-name" : "raven.png",
+          "name" : "raven"
         }
       ],
       "shadow" : {
