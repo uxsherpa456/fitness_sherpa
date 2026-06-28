@@ -17,7 +17,7 @@ struct RootView: View {
                 .tabItem { Label("Today", systemImage: "house.fill") }
             AthleteView(model: model)
                 .tabItem { Label("Athlete", systemImage: "figure.run") }
-            PlanView()
+            PlanView(model: model)
                 .tabItem { Label("Plan", systemImage: "dumbbell.fill") }
             CoachView(model: model)
                 .tabItem { Label("AI Coach", systemImage: "sparkles") }

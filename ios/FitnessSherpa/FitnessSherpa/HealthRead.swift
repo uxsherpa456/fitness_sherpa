@@ -187,6 +187,68 @@ extension HealthData {
         }
     }
 
+    /// A completed workout read from HealthKit (read-only; manual sessions live in SwiftData).
+    struct Workout: Identifiable {
+        let id: UUID
+        let category: SessionCategory
+        let typeLabel: String
+        let date: Date
+        let durationMin: Int
+        let distanceKm: Double?
+        let caloriesKcal: Double?
+        let avgHR: Int?
+        let maxHR: Int?
+    }
+
+    private static func categorize(_ t: HKWorkoutActivityType) -> (SessionCategory, String) {
+        switch t {
+        case .running:                                            return (.run, "Run")
+        case .walking, .hiking:                                   return (.run, "Walk")
+        case .traditionalStrengthTraining, .functionalStrengthTraining: return (.strength, "Strength")
+        case .highIntensityIntervalTraining, .crossTraining:     return (.hiit, "HIIT")
+        case .rowing:                                            return (.row, "Row")
+        default:                                                 return (.other, "Workout")
+        }
+    }
+
+    /// Recent completed workouts from HealthKit, newest first.
+    static func recentWorkouts(days: Int = 21) async throws -> [Workout] {
+        let pred = HKQuery.predicateForSamples(withStart: Date().addingTimeInterval(-Double(days) * 86400), end: Date())
+        let workouts: [HKWorkout] = try await withCheckedThrowingContinuation { cont in
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+            let q = HKSampleQuery(sampleType: .workoutType(), predicate: pred, limit: 200, sortDescriptors: [sort]) { _, samples, error in
+                if let error { cont.resume(throwing: error); return }
+                cont.resume(returning: (samples as? [HKWorkout]) ?? [])
+            }
+            store.execute(q)
+        }
+        let distType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)
+        let energyType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)
+        let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate)
+        let bpm = HKUnit.count().unitDivided(by: .minute())
+        return workouts.map { w in
+            var km: Double? = nil
+            if let distType, let d = w.statistics(for: distType)?.sumQuantity() {
+                km = d.doubleValue(for: .meterUnit(with: .kilo))
+            }
+            var kcal: Double? = nil
+            if let energyType, let e = w.statistics(for: energyType)?.sumQuantity() {
+                kcal = e.doubleValue(for: .kilocalorie())
+            }
+            var avgHR: Int? = nil, maxHR: Int? = nil
+            if let hrType, let hr = w.statistics(for: hrType) {
+                avgHR = hr.averageQuantity().map { Int($0.doubleValue(for: bpm).rounded()) }
+                maxHR = hr.maximumQuantity().map { Int($0.doubleValue(for: bpm).rounded()) }
+            }
+            let (cat, label) = categorize(w.workoutActivityType)
+            return Workout(id: w.uuid, category: cat, typeLabel: label,
+                           date: w.endDate, durationMin: Int(w.duration / 60),
+                           distanceKm: (km ?? 0) > 0.05 ? km : nil,
+                           caloriesKcal: (kcal ?? 0) > 0 ? kcal : nil,
+                           avgHR: avgHR, maxHR: maxHR)
+        }
+    }
+
     /// Read the milestone metrics in one call, stamped with the query time.
     static func readSnapshot() async throws -> Reading {
         let bpm = HKUnit.count().unitDivided(by: .minute())

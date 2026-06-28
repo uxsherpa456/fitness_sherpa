@@ -69,10 +69,6 @@ struct AthleteView: View {
     }
 }
 
-struct PlanView: View {
-    var body: some View { placeholder("Plan", "Weekly training calendar ports next.") }
-}
-
 /// Shared placeholder tab body.
 @ViewBuilder
 private func placeholder(_ title: String, _ subtitle: String) -> some View {
