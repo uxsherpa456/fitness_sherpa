@@ -12,6 +12,7 @@ struct AthleteView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \DiagnosisRecord.date, order: .reverse) private var diagnoses: [DiagnosisRecord]
     @Query(sort: \HealthSnapshot.capturedAt, order: .reverse) private var snapshots: [HealthSnapshot]
+    @State private var editingGoal: GoalArc?
 
     var body: some View {
         NavigationStack {
@@ -38,6 +39,14 @@ struct AthleteView: View {
                             }
                         }
                     }
+                    if !model.goals.isEmpty {
+                        Card(style: .dark) {
+                            VStack(alignment: .leading, spacing: 16) {
+                                ModuleLabel("Focus metrics · arc to race day")
+                                ForEach(model.goals) { goalRow($0) }
+                            }
+                        }
+                    }
                     Card(style: .dark) {
                         VStack(alignment: .leading, spacing: 8) {
                             ModuleLabel("History (SwiftData)")
@@ -48,17 +57,44 @@ struct AthleteView: View {
                             }
                         }
                     }
-                    Text("Quadrant chart, fitness score, and race-log metrics port next.")
-                        .font(.caption).foregroundStyle(Palette.textFaint)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 4)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 8)
             }
             .background(Palette.bg)
             .refreshable { await model.refresh(context: context) }
             .appBar(model)
+            .sheet(item: $editingGoal) { GoalEditView(goal: $0, model: model) }
         }
+    }
+
+    private func goalRow(_ g: GoalArc) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(g.label ?? g.key)
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced)).tracking(0.5)
+                    .foregroundStyle(Palette.textFaint)
+                Spacer()
+                HStack(spacing: 2) {
+                    Text(g.currentDisplay).font(.system(size: 17, weight: .bold)).foregroundStyle(Palette.text)
+                    if let u = g.unit, !u.isEmpty { Text(u).font(.caption).foregroundStyle(Palette.textMuted) }
+                }
+            }
+            ZStack(alignment: .leading) {
+                Capsule().fill(Palette.surface2).frame(height: 5)
+                GeometryReader { geo in
+                    Capsule().fill(Palette.mint)
+                        .frame(width: max(5, geo.size.width * (g.progress ?? 0)), height: 5)
+                }
+                .frame(height: 5)
+            }
+            HStack {
+                Text("start \(g.startDisplay)").font(.caption2).foregroundStyle(Palette.textFaint)
+                Spacer()
+                Text("goal \(g.goalDisplay)").font(.caption2.weight(.semibold)).foregroundStyle(Palette.mint)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { editingGoal = g }
     }
 
     private func kv(_ k: String, _ v: String) -> some View {

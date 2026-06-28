@@ -35,6 +35,7 @@ extension HealthData {
         var hrv: Sample?            // HRV SDNN, ms
         var restingHR: Sample?      // bpm
         var bodyMass: Sample?       // lb
+        var bodyFat: Sample?        // fraction 0…1
         var sleepSummary: SleepSummary?
         var lastRunDate: Date?
 
@@ -306,6 +307,7 @@ extension HealthData {
         async let hrv   = latestSample(.heartRateVariabilitySDNN, unit: .secondUnit(with: .milli))
         async let rhr   = latestSample(.restingHeartRate, unit: bpm)
         async let mass  = latestSample(.bodyMass, unit: .pound())
+        async let bf    = latestSample(.bodyFatPercentage, unit: .percent())
         async let sleep = latestSleep()
 
         let run = try await latestRun()
@@ -320,6 +322,7 @@ extension HealthData {
             hrv: try await hrv,
             restingHR: try await rhr,
             bodyMass: try await mass,
+            bodyFat: try await bf,
             sleepSummary: try await sleep,
             lastRunDate: run?.endDate,
             lastRunKm: km,

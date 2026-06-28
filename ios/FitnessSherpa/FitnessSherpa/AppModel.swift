@@ -22,8 +22,34 @@ final class AppModel {
     var showingMenu = false          // global left hamburger menu
     var settings = UserSettings.load()
     var feelingRaw: String? = AppModel.loadFeeling()
+    var goals: [GoalArc] = AppModel.loadGoals()
 
     func saveSettings() { settings.save() }
+
+    // MARK: Goals (focus-metric arcs)
+
+    private static func loadGoals() -> [GoalArc] {
+        guard let d = UserDefaults.standard.data(forKey: "goals.v1"),
+              let g = try? JSONDecoder().decode([GoalArc].self, from: d) else { return [] }
+        return g
+    }
+    func saveGoals() {
+        if let d = try? JSONEncoder().encode(goals) { UserDefaults.standard.set(d, forKey: "goals.v1") }
+    }
+
+    /// Seed the four profile goals if none exist, then update current values from live data.
+    func refreshGoals() {
+        if goals.isEmpty { goals = GoalLibrary.seed(for: diagnosis?.profile) }
+        for i in goals.indices {
+            switch goals[i].key {
+            case "weight":  if let w = reading?.bodyMass?.value { goals[i].current = .number(w.rounded()) }
+            case "bodyfat": if let bf = reading?.bodyFat?.value { goals[i].current = .number((bf * 100).rounded()) }
+            case "fivek":   goals[i].current = .text(Self.manual5k)
+            default: break
+            }
+        }
+        saveGoals()
+    }
 
     // MARK: Cloud sync (StateClient ↔ app_state row)
 
@@ -34,14 +60,16 @@ final class AppModel {
         s.apply(state.settings)
         settings = s
         s.save()
+        if !state.goals.isEmpty { goals = state.goals; saveGoals() }
     }
 
-    /// Mirror settings up after an edit.
+    /// Mirror settings + goals up after an edit.
     func pushToCloud() {
         let snapshot = settings
+        let goalsSnapshot = goals
         Task {
             let state = AppState(onboarded: true, profile: snapshot.toProfile(),
-                                 goals: [], settings: snapshot.toAppSettings())
+                                 goals: goalsSnapshot, settings: snapshot.toAppSettings())
             try? await StateClient.save(state)
         }
     }
@@ -218,6 +246,7 @@ final class AppModel {
                                     stationsHold: true)
             let dx = DiagnosisEngine.diagnose(baseline.asInput())
             diagnosis = dx
+            refreshGoals()
 
             persist(reading: r, baseline: baseline, diagnosis: dx, context: context)
 
