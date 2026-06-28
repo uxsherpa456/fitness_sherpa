@@ -6,10 +6,12 @@
 //  agent actions (re-diagnosis, fuel, goals) surface inline as notes.
 
 import SwiftUI
+import SwiftData
 
 struct CoachView: View {
     let model: AppModel
 
+    @Query(sort: \TrainingSession.date, order: .reverse) private var recentSessions: [TrainingSession]
     @State private var input = ""
     @State private var messages: [ChatMessage] = []
     @State private var streaming = ""        // current assistant partial
@@ -174,7 +176,7 @@ struct CoachView: View {
         let convo: [[String: String]] = messages.filter { $0.role != .note }.map {
             ["role": $0.role == .user ? "user" : "assistant", "content": $0.text]
         }
-        let context = model.coachContext()
+        let context = model.coachContext(recentWorkouts: Array(recentSessions.prefix(12)))
 
         sending = true
         streaming = ""

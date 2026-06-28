@@ -26,7 +26,8 @@ final class AppModel {
     }
 
     /// The freshness-stamped snapshot the coach reasons over (matches the Edge Function contract).
-    func coachContext() -> [String: Any] {
+    /// `workouts` lets the coach adapt off recent training load (calories, HR, effort).
+    func coachContext(recentWorkouts: [TrainingSession] = []) -> [String: Any] {
         let iso = ISO8601DateFormatter()
 
         var metrics: [String: Any] = ["recent_5k": Self.manual5k, "stations_hold": true]
@@ -79,6 +80,23 @@ final class AppModel {
                 "marker": ["x": Int((d.markerX * 100).rounded()), "y": Int((d.markerY * 100).rounded())],
                 "evidence": d.evidence,
             ]
+        }
+
+        if !recentWorkouts.isEmpty {
+            ctx["recent_workouts"] = recentWorkouts.prefix(12).map { s -> [String: Any] in
+                var w: [String: Any] = [
+                    "date": iso.string(from: s.date),
+                    "type": s.cat.label,
+                    "duration_min": s.durationMin,
+                    "source": s.isManual ? "manual" : (s.isEdited ? "edited" : "healthkit"),
+                ]
+                if let km = s.distanceKm { w["distance_km"] = (km * 100).rounded() / 100 }
+                if let kcal = s.caloriesKcal { w["calories"] = Int(kcal.rounded()) }
+                if let hr = s.avgHR { w["avg_hr"] = hr }
+                if let mx = s.maxHR { w["max_hr"] = mx }
+                if let rpe = s.rpe { w["rpe"] = rpe }
+                return w
+            }
         }
         return ctx
     }
