@@ -20,7 +20,7 @@ struct RootView: View {
             PlanView(model: model)
                 .tabItem { Label("Plan", systemImage: "dumbbell.fill") }
             CoachView(model: model)
-                .tabItem { Label("AI Coach", systemImage: "sparkles") }
+                .tabItem { Label("Chat", systemImage: "sparkles") }
         }
         .tint(Palette.mint)
         .task { await model.refresh(context: context) }

@@ -1,9 +1,9 @@
 //  CoachView.swift
 //  Fitness Sherpa
 //
-//  The AI Coach tab: an evidence-gated chat over the deployed Edge Function. Every turn ships the
-//  freshness-stamped snapshot (AppModel.coachContext) so the coach reasons off current, real data;
-//  agent actions (re-diagnosis, fuel, goals) surface inline as notes.
+//  The AI Coach tab: an evidence-gated chat over the deployed Edge Function, with persistent
+//  conversation history (SwiftData). A list icon (top-left) opens past chats; the pencil starts a
+//  new one — like Claude. Every turn ships the freshness-stamped snapshot + recent training load.
 
 import SwiftUI
 import SwiftData
@@ -11,21 +11,19 @@ import SwiftData
 struct CoachView: View {
     let model: AppModel
 
+    @Environment(\.modelContext) private var context
+    @Query(sort: \Conversation.updatedAt, order: .reverse) private var conversations: [Conversation]
     @Query(sort: \TrainingSession.date, order: .reverse) private var recentSessions: [TrainingSession]
+
+    @State private var current: Conversation?
     @State private var input = ""
-    @State private var messages: [ChatMessage] = []
-    @State private var streaming = ""        // current assistant partial
+    @State private var streaming = ""
     @State private var sending = false
+    @State private var showingHistory = false
     @FocusState private var inputFocused: Bool
 
-    struct ChatMessage: Identifiable {
-        let id = UUID()
-        let role: Role
-        var text: String
-        enum Role { case user, assistant, note }
-    }
-
     var body: some View {
+        ZStack(alignment: .leading) {
         NavigationStack {
             VStack(spacing: 0) {
                 freshnessBar
@@ -33,15 +31,85 @@ struct CoachView: View {
                 inputBar
             }
             .background(Palette.bg)
-            .navigationTitle("AI Coach").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(current?.title ?? "Chat").navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Palette.bg, for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { showingHistory = true } label: { Image(systemName: "list.bullet") }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { startNewChat() } label: { Image(systemName: "square.and.pencil") }
+                }
                 ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { inputFocused = false }
+                    Spacer(); Button("Done") { inputFocused = false }
                 }
             }
+            .task { if current == nil { current = conversations.first ?? makeConversation() } }
+            }
+
+            if showingHistory {
+                Color.black.opacity(0.45).ignoresSafeArea()
+                    .transition(.opacity)
+                    .onTapGesture { showingHistory = false }
+                historyDrawer
+                    .transition(.move(edge: .leading))
+            }
         }
+        .animation(.easeInOut(duration: 0.25), value: showingHistory)
+    }
+
+    // MARK: - History drawer (slides in from the left)
+
+    private var historyDrawer: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Chats").font(.headline).foregroundStyle(Palette.text)
+                Spacer()
+                Button { startNewChat(); showingHistory = false } label: {
+                    Image(systemName: "square.and.pencil").foregroundStyle(Palette.mint)
+                }
+            }
+            .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 12)
+            Rectangle().fill(Palette.surfaceLine).frame(height: 1)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 2) {
+                    ForEach(conversations.filter { !$0.isEmpty }) { c in
+                        Button { current = c; showingHistory = false } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(c.title).lineLimit(1)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(c.id == current?.id ? Palette.mint : Palette.text)
+                                Text(c.updatedAt.formatted(.relative(presentation: .named)))
+                                    .font(.caption).foregroundStyle(Palette.textFaint)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16).padding(.vertical, 10)
+                            .background(c.id == current?.id ? Palette.surface : .clear)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button(role: .destructive) { deleteConversation(c) } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(width: 300)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(Palette.bg)
+        .overlay(alignment: .trailing) { Rectangle().fill(Palette.surfaceLine).frame(width: 1) }
+        .ignoresSafeArea(edges: .bottom)
+    }
+
+    private func deleteConversation(_ c: Conversation) {
+        if c.id == current?.id {
+            current = conversations.first(where: { !$0.isEmpty && $0.id != c.id }) ?? makeConversation()
+        }
+        context.delete(c); try? context.save()
     }
 
     // MARK: - Freshness bar
@@ -55,7 +123,7 @@ struct CoachView: View {
                  ? "Loading today's data…"
                  : (model.reading?.readinessFresh == true
                     ? "Primed with today's data"
-                    : "Stale data — coach will flag it: \(model.reading?.staleMetrics.joined(separator: ", ") ?? "")"))
+                    : "Stale data — coach will flag it"))
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(Palette.textMuted)
             Spacer()
@@ -66,16 +134,16 @@ struct CoachView: View {
 
     // MARK: - Chat
 
+    private var messages: [ChatMessageRecord] { current?.sortedMessages ?? [] }
+
     private var chatScroll: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 10) {
-                    if messages.isEmpty && streaming.isEmpty {
-                        emptyState
-                    }
+                    if messages.isEmpty && streaming.isEmpty { emptyState }
                     ForEach(messages) { bubble($0) }
                     if !streaming.isEmpty {
-                        bubble(ChatMessage(role: .assistant, text: streaming))
+                        assistantBubble(streaming)
                     }
                     Color.clear.frame(height: 1).id("bottom")
                 }
@@ -105,37 +173,38 @@ struct CoachView: View {
 
     private let starters = [
         "Am I on track for a 1:10 finish?",
+        "Given my recent training, am I recovered enough to push today?",
         "What should I eat today around the session?",
-        "What would my profile be at 195 lb?",
     ]
 
-    @ViewBuilder private func bubble(_ m: ChatMessage) -> some View {
+    @ViewBuilder private func bubble(_ m: ChatMessageRecord) -> some View {
         switch m.role {
         case .user:
             HStack {
                 Spacer(minLength: 40)
-                Text(m.text)
-                    .font(.subheadline).foregroundStyle(Palette.ink)
+                Text(m.text).font(.subheadline).foregroundStyle(Palette.ink)
                     .padding(.horizontal, 12).padding(.vertical, 9)
                     .background(Palette.mint, in: .rect(cornerRadius: 16))
             }
         case .assistant:
-            HStack {
-                Text(styledMarkdown(m.text))
-                    .font(.subheadline).foregroundStyle(Palette.text)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 12).padding(.vertical, 9)
-                    .background(Palette.surface, in: .rect(cornerRadius: 16))
-                Spacer(minLength: 40)
-            }
+            assistantBubble(m.text)
         case .note:
             HStack(spacing: 6) {
                 Image(systemName: "wand.and.stars").font(.caption2)
                 Text(m.text).font(.system(size: 11, weight: .medium, design: .monospaced))
                 Spacer()
             }
-            .foregroundStyle(Palette.textFaint)
-            .padding(.horizontal, 4)
+            .foregroundStyle(Palette.textFaint).padding(.horizontal, 4)
+        }
+    }
+
+    private func assistantBubble(_ text: String) -> some View {
+        HStack {
+            Text(styledMarkdown(text)).font(.subheadline).foregroundStyle(Palette.text)
+                .textSelection(.enabled)
+                .padding(.horizontal, 12).padding(.vertical, 9)
+                .background(Palette.surface, in: .rect(cornerRadius: 16))
+            Spacer(minLength: 40)
         }
     }
 
@@ -144,8 +213,7 @@ struct CoachView: View {
     private var inputBar: some View {
         HStack(spacing: 8) {
             TextField("Message the coach…", text: $input, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(1...4)
+                .textFieldStyle(.plain).lineLimit(1...4)
                 .padding(.horizontal, 12).padding(.vertical, 9)
                 .background(Palette.surface2, in: Capsule())
                 .foregroundStyle(Palette.text)
@@ -153,8 +221,7 @@ struct CoachView: View {
                 .disabled(sending)
             Button(action: send) {
                 Image(systemName: sending ? "stop.circle.fill" : "arrow.up.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(canSend ? Palette.mint : Palette.textFaint)
+                    .font(.title2).foregroundStyle(canSend ? Palette.mint : Palette.textFaint)
             }
             .disabled(!canSend)
         }
@@ -164,61 +231,87 @@ struct CoachView: View {
 
     private var canSend: Bool { !sending && !input.trimmingCharacters(in: .whitespaces).isEmpty }
 
+    // MARK: - Conversation management
+
+    private func makeConversation() -> Conversation {
+        let c = Conversation()
+        context.insert(c)
+        try? context.save()
+        return c
+    }
+
+    private func startNewChat() {
+        inputFocused = false
+        streaming = ""
+        // Reuse the current chat if it's already empty instead of piling up blank conversations.
+        if let c = current, c.isEmpty { return }
+        current = makeConversation()
+    }
+
     // MARK: - Send
 
     private func send() {
         let text = input.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty, !sending else { return }
+        let convo = current ?? makeConversation()
+        current = convo
         input = ""
-        messages.append(ChatMessage(role: .user, text: text))
 
-        // Conversation payload: user/assistant only, content as a string.
-        let convo: [[String: String]] = messages.filter { $0.role != .note }.map {
-            ["role": $0.role == .user ? "user" : "assistant", "content": $0.text]
-        }
-        let context = model.coachContext(recentWorkouts: Array(recentSessions.prefix(12)))
+        let userMsg = ChatMessageRecord(role: .user, text: text, order: convo.nextOrder)
+        userMsg.conversation = convo
+        context.insert(userMsg)
+        if convo.title == "New chat" { convo.title = String(text.prefix(48)) }
+        convo.updatedAt = Date()
+        try? context.save()
+
+        let payload: [[String: String]] = convo.sortedMessages
+            .filter { $0.role != .note }
+            .map { ["role": $0.role == .user ? "user" : "assistant", "content": $0.text] }
+        let coachContext = model.coachContext(recentWorkouts: Array(recentSessions.prefix(12)))
 
         sending = true
         streaming = ""
         Task {
             do {
-                for try await event in CoachClient.stream(messages: convo, context: context) {
+                for try await event in CoachClient.stream(messages: payload, context: coachContext) {
                     switch event {
-                    case .text(let t):
-                        streaming += t
-                    case .note(let n):
-                        flush()
-                        messages.append(ChatMessage(role: .note, text: n))
-                    case .done:
-                        flush()
+                    case .text(let t): streaming += t
+                    case .note(let n): flush(into: convo); append(.note, n, to: convo)
+                    case .done: flush(into: convo)
                     }
                 }
-                flush()
+                flush(into: convo)
             } catch {
-                flush()
-                messages.append(ChatMessage(role: .assistant, text: "⚠ \(error.localizedDescription)"))
+                flush(into: convo)
+                append(.assistant, "⚠ \(error.localizedDescription)", to: convo)
             }
             sending = false
         }
     }
 
-    /// Render markdown with **bold** runs colored mint, matching the web prototype.
-    private func styledMarkdown(_ s: String) -> AttributedString {
-        var attr = (try? AttributedString(
-            markdown: s,
-            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        )) ?? AttributedString(s)
-        let boldRanges = attr.runs.compactMap { run in
-            (run.inlinePresentationIntent?.contains(.stronglyEmphasized) ?? false) ? run.range : nil
-        }
-        for range in boldRanges { attr[range].foregroundColor = Palette.mint }
-        return attr
+    private func append(_ role: ChatRole, _ text: String, to convo: Conversation) {
+        let m = ChatMessageRecord(role: role, text: text, order: convo.nextOrder)
+        m.conversation = convo
+        context.insert(m)
+        convo.updatedAt = Date()
+        try? context.save()
     }
 
-    /// Commit any buffered assistant text as a finalized message (keeps note ordering correct).
-    private func flush() {
+    private func flush(into convo: Conversation) {
         guard !streaming.isEmpty else { return }
-        messages.append(ChatMessage(role: .assistant, text: streaming))
+        append(.assistant, streaming, to: convo)
         streaming = ""
     }
+
+    private func styledMarkdown(_ s: String) -> AttributedString {
+        var attr = (try? AttributedString(
+            markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(s)
+        let bold = attr.runs.compactMap { run in
+            (run.inlinePresentationIntent?.contains(.stronglyEmphasized) ?? false) ? run.range : nil
+        }
+        for range in bold { attr[range].foregroundColor = Palette.mint }
+        return attr
+    }
 }
+
