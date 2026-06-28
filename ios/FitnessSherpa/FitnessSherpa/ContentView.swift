@@ -15,6 +15,10 @@ struct ContentView: View {
     /// Chip-timed 5k PR — manual for now (comes from a race, not HealthKit). Moves to onboarding later.
     static let manual5k = "24:31"
 
+    @Environment(\.modelContext) private var context
+    @Query(sort: \DiagnosisRecord.date, order: .reverse) private var diagnoses: [DiagnosisRecord]
+    @Query(sort: \HealthSnapshot.capturedAt, order: .reverse) private var snapshots: [HealthSnapshot]
+
     @State private var status = "Tap to read Health…"
     @State private var reading: HealthData.Reading?
     @State private var diagnosis: Diagnosis?
@@ -46,6 +50,14 @@ struct ContentView: View {
                         row("Focus", d.focus)
                         row("Marker", String(format: "x %.2f · y %.2f", d.markerX, d.markerY))
                         row("Evidence", d.evidence)
+                    }
+                }
+
+                Section("Saved (SwiftData)") {
+                    row("Snapshots", "\(snapshots.count)")
+                    row("Diagnoses", "\(diagnoses.count)")
+                    if let last = diagnoses.first {
+                        row("Latest", "\(last.profile.title) · \(last.date.formatted(.relative(presentation: .named)))")
                     }
                 }
             }
@@ -133,6 +145,9 @@ struct ContentView: View {
             let dx = DiagnosisEngine.diagnose(baseline.asInput())
             diagnosis = dx
 
+            // Persist to the local store (deduped) so trends + re-diagnosis have history.
+            persist(reading: r, baseline: baseline, diagnosis: dx)
+
             // Freshness gate: readiness is only trustworthy when recovery metrics are current.
             if !HKHealthStore.isHealthDataAvailable() {
                 status = "Health data not available on this device."
@@ -162,6 +177,33 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Persistence
+
+    /// Save a snapshot + diagnosis (+ baseline), skipping inserts when nothing meaningful changed
+    /// so repeated launches don't pile up duplicate rows.
+    private func persist(reading r: HealthData.Reading, baseline: Baseline, diagnosis dx: Diagnosis) {
+        // HealthSnapshot — skip if the latest stored one has the same recovery values.
+        let lastSnap = snapshots.first
+        if lastSnap?.hrv != r.hrv?.value || lastSnap?.restingHR != r.restingHR?.value {
+            context.insert(HealthSnapshot(
+                capturedAt: r.queriedAt,
+                hrv: r.hrv?.value,
+                restingHR: r.restingHR?.value,
+                staleMetrics: r.staleMetrics
+            ))
+        }
+
+        // DiagnosisRecord — skip if the latest stored one is the same placement + evidence.
+        let lastDx = diagnoses.first
+        if lastDx?.profileRaw != dx.profile.rawValue || lastDx?.evidence != dx.evidence {
+            context.insert(DiagnosisRecord(dx))
+            context.insert(baseline)   // keep the input that produced this diagnosis
+        }
+
+        do { try context.save() }
+        catch { print("Persist error: \(error)") }
+    }
+
     private func stampText(_ r: HealthData.Reading, _ m: HealthData.Reading.Metric, _ unit: String) -> String {
         guard let s = r.sample(for: m) else { return "nil" }
         return String(format: "%.0f %@ (%@%@)", s.value, unit,
@@ -171,4 +213,6 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .modelContainer(for: [Goal.self, Baseline.self, DiagnosisRecord.self,
+                              Session.self, Benchmark.self, HealthSnapshot.self], inMemory: true)
 }
