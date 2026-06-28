@@ -58,10 +58,11 @@ struct CoachView: View {
                     Button { showingHistory = true } label: { Image(systemName: "list.bullet") }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { startNewChat() } label: { Image(systemName: "square.and.pencil") }
-                }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer(); Button("Done") { inputFocused = false }
+                    if inputFocused {
+                        Button("Close") { inputFocused = false }
+                    } else {
+                        Button { startNewChat() } label: { Image(systemName: "square.and.pencil") }
+                    }
                 }
             }
             .task { if current == nil { current = conversations.first ?? makeConversation() } }
@@ -81,36 +82,43 @@ struct CoachView: View {
             }
             .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 12)
             Rectangle().fill(Palette.surfaceLine).frame(height: 1)
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(conversations.filter { !$0.isEmpty }) { c in
-                        Button { current = c; showingHistory = false } label: {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(c.title).lineLimit(1)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(c.id == current?.id ? Palette.mint : Palette.text)
-                                Text(c.updatedAt.formatted(.relative(presentation: .named)))
-                                    .font(.caption).foregroundStyle(Palette.textFaint)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 16).padding(.vertical, 10)
-                            .background(c.id == current?.id ? Palette.surface : .clear)
+            List {
+                ForEach(conversations.filter { !$0.isEmpty }) { c in
+                    Button { selectConversation(c) } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(c.title).lineLimit(1)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(c.id == current?.id ? Palette.mint : Palette.text)
+                            Text(c.updatedAt.formatted(.relative(presentation: .named)))
+                                .font(.caption).foregroundStyle(Palette.textFaint)
                         }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button(role: .destructive) { deleteConversation(c) } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(c.id == current?.id ? Palette.surface : Palette.bg)
+                    .listRowSeparatorTint(Palette.surfaceLine)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) { deleteConversation(c) } label: {
+                            Label("Delete", systemImage: "trash")
                         }
                     }
                 }
-                .padding(.vertical, 8)
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Palette.bg)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Palette.bg)
         .ignoresSafeArea(edges: .bottom)
+    }
+
+    private func selectConversation(_ c: Conversation) {
+        current = c
+        streaming = ""
+        showingHistory = false
     }
 
     private func deleteConversation(_ c: Conversation) {
