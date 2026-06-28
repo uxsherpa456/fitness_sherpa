@@ -137,36 +137,46 @@ extension HealthData {
         func intervals(_ values: Set<Int>) -> [(start: Date, end: Date)] {
             merge(samples.filter { values.contains($0.value) }.map { (start: $0.startDate, end: $0.endDate) })
         }
-        func hours(_ ivs: [(start: Date, end: Date)]) -> Double {
-            ivs.reduce(0.0) { $0 + $1.end.timeIntervalSince($1.start) } / 3600
-        }
 
-        let rem    = intervals([HKCategoryValueSleepAnalysis.asleepREM.rawValue])
-        let core   = intervals([HKCategoryValueSleepAnalysis.asleepCore.rawValue])
-        let deep   = intervals([HKCategoryValueSleepAnalysis.asleepDeep.rawValue])
-        let asleep = intervals([
+        let asleepValues: Set<Int> = [
             HKCategoryValueSleepAnalysis.asleepREM.rawValue,
             HKCategoryValueSleepAnalysis.asleepCore.rawValue,
             HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
             HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
-        ])
-        guard !asleep.isEmpty else { return nil }
-        let awake  = intervals([HKCategoryValueSleepAnalysis.awake.rawValue])
-        let inBedIv = intervals([HKCategoryValueSleepAnalysis.inBed.rawValue])
+        ]
+        let asleep = intervals(asleepValues)
+        guard let last = asleep.last else { return nil }
 
-        let onset = asleep.map(\.start).min() ?? Date()
-        let wake  = asleep.map(\.end).max() ?? Date()
-        let asleepHrs = hours(asleep)
-        let awakeHrs  = hours(awake)
-        let inBedHrs  = inBedIv.isEmpty ? asleepHrs + awakeHrs : hours(inBedIv)
-        let awakenings = awake.filter { $0.start >= onset && $0.end <= wake }.count
+        // Isolate the MOST RECENT sleep session: the contiguous cluster ending at the latest
+        // interval, walking back while gaps stay under 4h. Prevents summing two nights / a nap.
+        var startIdx = asleep.count - 1
+        while startIdx > 0, asleep[startIdx].start.timeIntervalSince(asleep[startIdx - 1].end) <= 4 * 3600 {
+            startIdx -= 1
+        }
+        let windowStart = asleep[startIdx].start
+        let wake = last.end
+
+        // Sum a metric's intervals clipped to the session window [windowStart, wake].
+        func windowHours(_ ivs: [(start: Date, end: Date)]) -> Double {
+            ivs.reduce(0.0) { acc, iv in
+                let s = max(iv.start, windowStart), e = min(iv.end, wake)
+                return acc + max(0, e.timeIntervalSince(s))
+            } / 3600
+        }
+
+        let asleepHrs = windowHours(asleep)
+        let awakeIv = intervals([HKCategoryValueSleepAnalysis.awake.rawValue])
+        let awakeHrs = windowHours(awakeIv)
+        let inBedIv = intervals([HKCategoryValueSleepAnalysis.inBed.rawValue])
+        let inBedHrs = inBedIv.isEmpty ? asleepHrs + awakeHrs : windowHours(inBedIv)
+        let awakenings = awakeIv.filter { $0.start >= windowStart && $0.end <= wake }.count
 
         return SleepSummary(
             inBed: inBedHrs,
             asleep: asleepHrs,
-            rem: hours(rem),
-            core: hours(core),
-            deep: hours(deep),
+            rem: windowHours(intervals([HKCategoryValueSleepAnalysis.asleepREM.rawValue])),
+            core: windowHours(intervals([HKCategoryValueSleepAnalysis.asleepCore.rawValue])),
+            deep: windowHours(intervals([HKCategoryValueSleepAnalysis.asleepDeep.rawValue])),
             awake: awakeHrs,
             awakenings: awakenings,
             efficiency: inBedHrs > 0 ? min(1, asleepHrs / inBedHrs) : 0,
