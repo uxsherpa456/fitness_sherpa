@@ -311,6 +311,10 @@ struct CoachView: View {
                     switch event {
                     case .text(let t): streaming += t
                     case .note(let n): flush(into: convo); append(.note, n, to: convo)
+                    case .plan(let changes, let summary):
+                        flush(into: convo)
+                        applyPlanChanges(changes)
+                        append(.note, "Updated plan" + (summary.map { ": \($0)" } ?? ""), to: convo)
                     case .done: flush(into: convo)
                     }
                 }
@@ -328,6 +332,43 @@ struct CoachView: View {
         m.conversation = convo
         context.insert(m)
         convo.updatedAt = Date()
+        try? context.save()
+    }
+
+    /// Apply coach-proposed plan edits to the PlannedWorkout store (tagged `coach`).
+    private func applyPlanChanges(_ changes: [[String: Any]]) {
+        let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd"
+        let cal = Calendar.current
+        for c in changes {
+            guard let action = c["action"] as? String,
+                  let dateStr = c["date"] as? String,
+                  let date = df.date(from: dateStr) else { continue }
+            let day = cal.startOfDay(for: date)
+            let existing = planned.first { cal.isDate($0.date, inSameDayAs: day) }
+
+            switch action {
+            case "remove":
+                if let e = existing { context.delete(e) }
+            case "complete":
+                if let e = existing { e.completed = true; e.updatedAt = Date() }
+            case "upsert":
+                let p = existing ?? PlannedWorkout(date: day, category: .run, type: "", name: "",
+                                                   meta: "", intent: .easy, source: .coach)
+                if existing == nil { context.insert(p) }
+                if let v = c["category"] as? String, SessionCategory(rawValue: v) != nil { p.categoryRaw = v }
+                if let v = c["type"] as? String { p.type = v }
+                if let v = c["name"] as? String { p.name = v }
+                if let v = c["meta"] as? String { p.meta = v }
+                if let v = c["intent"] as? String { p.intentRaw = v }
+                if let v = c["target_zone"] as? String { p.targetZone = v }
+                if let v = c["stations"] as? String { p.stations = v }
+                if let v = c["why"] as? String { p.why = v }
+                p.date = day
+                p.sourceRaw = PlanSource.coach.rawValue
+                p.updatedAt = Date()
+            default: break
+            }
+        }
         try? context.save()
     }
 

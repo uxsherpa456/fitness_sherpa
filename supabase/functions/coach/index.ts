@@ -62,6 +62,36 @@ const TOOLS = [{
     },
     required: ["goals"],
   },
+}, {
+  name: "update_plan",
+  description:
+    "Edit the athlete's upcoming training plan (shown in context.plan). Use this when they ask to reschedule, swap, add, remove, or modify sessions, or mark one done. Each change targets a calendar date (yyyy-MM-dd) — to move a session, remove the old date and upsert the new one. Gate intensity against readiness: don't add quality work on a low readiness score. The app applies the changes to its store and tags them as coach-set; after calling, explain the change in 1-2 sentences.",
+  input_schema: {
+    type: "object",
+    properties: {
+      changes: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            action: { type: "string", enum: ["upsert", "remove", "complete"] },
+            date: { type: "string", description: "yyyy-MM-dd of the session" },
+            category: { type: "string", enum: ["run", "strength", "hiit", "sim", "row", "rest", "other"] },
+            type: { type: "string", description: "short label, e.g. EASY RUN · Z2" },
+            name: { type: "string", description: "e.g. Aerobic base run" },
+            meta: { type: "string", description: "detail, e.g. 8 km · 48 min" },
+            intent: { type: "string", enum: ["easy", "quality", "recovery", "strength", "race_sim", "rest"] },
+            target_zone: { type: "string", description: "Z2 | threshold | tempo | …" },
+            stations: { type: "string" },
+            why: { type: "string", description: "why this session, in one line" },
+          },
+          required: ["action", "date"],
+        },
+      },
+      summary: { type: "string", description: "one-line summary of the change for the athlete" },
+    },
+    required: ["changes"],
+  },
 }];
 
 function systemPrompt(ctx: unknown): string {
@@ -75,6 +105,8 @@ You have a tool, recompute_diagnosis. Call it when the athlete asks to re-diagno
 NUTRITION — you also coach food, in service of the goal. You have a compute_fuel tool: call it for ANY quantitative food question (how much to eat, protein, the deficit, fueling a session) and cite the numbers it returns — never invent macros. Tie advice to the diagnosis: a weight-limited Profile 1 athlete runs a moderate deficit with high protein to protect strength, carbs around quality sessions. The freshness guardrail applies to food too — don't give precise targets off a stale bodyweight or body-fat reading; say what's stale first.
 
 GOALS — when context.proposed_goals is present, you're helping set targets. Answer questions about whether targets are realistic (reason from baseline, diagnosis, and days to race), and use suggest_goals to actually propose/adjust target values for those metrics. Be realistic and specific — a sensible race-day target plus a stretch beats a fantasy number.
+
+PLAN — context.plan is the athlete's upcoming sessions (each with date, intent, target_zone, completed, source). You can EDIT it with the update_plan tool: reschedule, swap, add, remove, or mark sessions done. Use it whenever the athlete asks to change their week, or when readiness/load clearly warrants it (e.g. a red readiness day should not hold a quality session — move it and put easy/recovery in its place). Gate intensity against readiness and load, respect their division/format, and keep the week coherent. After editing, explain what you changed and why in 1-2 sentences, citing their numbers.
 
 WEIGH THE WHOLE ATHLETE — factor these into your advice when they bear on the answer (don't recite them all every time):
 - AGE & DIVISION — recovery capacity and injury risk scale with age; judge against THEIR division's HYROX standards and weights (men's vs women's, and Open vs Pro all differ — Pro carries heavier sled/sandbag/wall-ball/farmers), and set timelines a masters athlete can actually hit.
@@ -188,6 +220,7 @@ Deno.serve(async (req: Request) => {
                 && (inp.goal == null || inp.goal === base.goal);
             }
             else if (tu.name === "suggest_goals") { result = tu.input ?? { goals: [] }; evType = "goals"; }
+            else if (tu.name === "update_plan") { result = tu.input ?? { changes: [] }; evType = "plan"; }
             else { result = { error: "unknown tool" }; }
             send({ type: evType, data: result });
             if (tu.name === "recompute_diagnosis") model = DIAGNOSIS_MODEL;  // escalate the explanation to Opus
