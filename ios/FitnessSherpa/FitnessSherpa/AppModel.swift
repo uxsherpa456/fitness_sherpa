@@ -18,6 +18,9 @@ final class AppModel {
     var diagnosis: Diagnosis?
     var status = "Reading Health…"
     var loading = false
+    var settings = UserSettings.load()
+
+    func saveSettings() { settings.save() }
 
     var readinessScore: Int? {
         Readiness.score(hrv: reading?.hrv?.value,
@@ -40,7 +43,21 @@ final class AppModel {
         var ctx: [String: Any] = [
             "metrics": metrics,
             "nutrition": ["goal": "lose", "training_day": "quality"],
+            "demographics": [
+                "format": settings.format,
+                "gender": settings.gender,
+                "tier": settings.tier,
+                "age": settings.age,
+            ],
         ]
+
+        var race: [String: Any] = [
+            "goal_time": settings.goalTime,
+            "date": settings.raceDate,
+            "location": settings.raceLocation,
+        ]
+        if let days = settings.daysToRace { race["days_out"] = days }
+        ctx["race"] = race
 
         if let r = reading {
             let mins = Int(Date().timeIntervalSince(r.queriedAt) / 60)

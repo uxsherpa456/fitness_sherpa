@@ -12,6 +12,7 @@ import SwiftData
 struct TodayView: View {
     let model: AppModel
     @Environment(\.modelContext) private var context
+    @State private var showingSettings = false
 
     var body: some View {
         NavigationStack {
@@ -29,10 +30,21 @@ struct TodayView: View {
             }
             .background(Palette.bg)
             .refreshable { await model.refresh(context: context) }
-            .navigationTitle("Today")
+            .navigationTitle(raceCountdown)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Palette.bg, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showingSettings = true } label: { Image(systemName: "gearshape") }
+                }
+            }
+            .sheet(isPresented: $showingSettings) { SettingsView(model: model) }
         }
+    }
+
+    private var raceCountdown: String {
+        if let days = model.settings.daysToRace, days >= 0 { return "Today · \(days) days out" }
+        return "Today"
     }
 
     // MARK: - A. Readiness hero (live)
