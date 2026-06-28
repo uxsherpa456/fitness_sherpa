@@ -112,6 +112,7 @@ struct SettingsView: View {
         if !genderOptions.contains(where: { $0.0 == s.gender }) { s.gender = "mens" }
         model.settings = s
         model.saveSettings()
+        model.pushToCloud()
         dismiss()
     }
 }

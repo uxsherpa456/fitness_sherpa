@@ -30,6 +30,29 @@ struct UserSettings: Codable, Equatable {
         if let data = try? JSONEncoder().encode(self) { UserDefaults.standard.set(data, forKey: Self.key) }
     }
 
+    // MARK: Cloud mapping (StateSync.AppState — the same row the prototype writes)
+
+    func toAppSettings() -> AppSettings {
+        AppSettings(location: location, goalTime: goalTime, raceDate: raceDate, raceLoc: raceLocation,
+                    weightUnit: weightUnit, distUnit: distanceUnit, format: format, gender: gender,
+                    tier: tier, age: age)
+    }
+    func toProfile() -> ProfileData {
+        ProfileData(format: format, gender: gender, tier: tier, age: age)
+    }
+    mutating func apply(_ s: AppSettings) {
+        if let v = s.location { location = v }
+        if let v = s.goalTime { goalTime = v }
+        if let v = s.raceDate { raceDate = v }
+        if let v = s.raceLoc { raceLocation = v }
+        if let v = s.weightUnit { weightUnit = v }
+        if let v = s.distUnit { distanceUnit = v }
+        if let v = s.format { format = v }
+        if let v = s.gender { gender = v }
+        if let v = s.tier { tier = v }
+        if let v = s.age { age = v }
+    }
+
     /// Days from today until race day (nil if the date can't be parsed).
     var daysToRace: Int? {
         let f = DateFormatter()

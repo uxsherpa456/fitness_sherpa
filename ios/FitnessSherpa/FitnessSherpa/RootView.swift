@@ -32,7 +32,10 @@ struct RootView: View {
             .animation(.easeInOut(duration: 0.28), value: model.showingMenu)
         }
         .tint(Palette.mint)
-        .task { await model.refresh(context: context) }
+        .task {
+            await model.bootstrapCloud()          // pull durable settings first (cloud wins if it has data)
+            await model.refresh(context: context)
+        }
     }
 
     private var tabs: some View {

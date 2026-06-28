@@ -25,6 +25,27 @@ final class AppModel {
 
     func saveSettings() { settings.save() }
 
+    // MARK: Cloud sync (StateClient ↔ app_state row)
+
+    /// Pull the durable copy on launch — cloud wins when it has data (carries across devices/prototype).
+    func bootstrapCloud() async {
+        guard let state = try? await StateClient.load(), state.updated_at != nil else { return }
+        var s = settings
+        s.apply(state.settings)
+        settings = s
+        s.save()
+    }
+
+    /// Mirror settings up after an edit.
+    func pushToCloud() {
+        let snapshot = settings
+        Task {
+            let state = AppState(onboarded: true, profile: snapshot.toProfile(),
+                                 goals: [], settings: snapshot.toAppSettings())
+            try? await StateClient.save(state)
+        }
+    }
+
     // MARK: Subjective feeling (per day)
 
     var todayFeeling: Feeling? { feelingRaw.flatMap(Feeling.init) }
