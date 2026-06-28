@@ -17,16 +17,23 @@ struct AthleteView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     Card(style: .dark) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            ModuleLabel("Diagnosis")
+                        VStack(alignment: .leading, spacing: 12) {
+                            ModuleLabel("Diagnosis · quadrant")
                             if let d = model.diagnosis {
-                                Text(d.profile.title).font(.title3.bold())
-                                kv("Limiter", d.limiter)
-                                kv("Focus", d.focus)
-                                kv("Marker", String(format: "x %.2f · y %.2f", d.markerX, d.markerY))
-                                kv("Evidence", d.evidence)
+                                QuadrantChart(markerX: d.markerX, markerY: d.markerY, active: d.profile)
+                                Text(d.profile.title).font(.headline)
                             } else {
                                 Text("No diagnosis yet.").foregroundStyle(Palette.textMuted)
+                            }
+                        }
+                    }
+                    if let d = model.diagnosis {
+                        Card(style: .dark) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ModuleLabel("The read")
+                                kv("Limiter", d.limiter)
+                                kv("Focus", d.focus)
+                                kv("Evidence", d.evidence)
                             }
                         }
                     }
