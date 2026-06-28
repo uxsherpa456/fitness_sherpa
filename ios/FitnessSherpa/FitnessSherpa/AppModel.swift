@@ -208,6 +208,18 @@ final class AppModel {
             }
         }
 
+        if !goals.isEmpty {
+            ctx["goals"] = goals.map { g -> [String: Any] in
+                var d: [String: Any] = ["key": g.key,
+                                        "current": g.current?.display ?? "",
+                                        "target": g.goal?.display ?? ""]
+                if let l = g.label { d["label"] = l }
+                if let u = g.unit, !u.isEmpty { d["unit"] = u }
+                if let b = g.better { d["better"] = b }
+                return d
+            }
+        }
+
         if !plan.isEmpty {
             ctx["plan"] = plan.prefix(10).map { p -> [String: Any] in
                 var d: [String: Any] = [

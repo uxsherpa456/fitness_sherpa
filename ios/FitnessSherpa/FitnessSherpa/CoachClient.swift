@@ -17,6 +17,7 @@ enum CoachClient {
         case text(String)
         case note(String)
         case plan(changes: [[String: Any]], summary: String?)
+        case goals(items: [[String: Any]])
         case done
     }
 
@@ -63,7 +64,11 @@ enum CoachClient {
                                 continuation.yield(.note("Fuel computed"))
                             }
                         case "goals":
-                            continuation.yield(.note("Suggested goal targets"))
+                            if let d = obj["data"] as? [String: Any], let items = d["goals"] as? [[String: Any]] {
+                                continuation.yield(.goals(items: items))
+                            } else {
+                                continuation.yield(.note("Suggested goal targets"))
+                            }
                         case "plan":
                             if let d = obj["data"] as? [String: Any] {
                                 let changes = (d["changes"] as? [[String: Any]]) ?? []

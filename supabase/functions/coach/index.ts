@@ -47,7 +47,7 @@ const TOOLS = [{
 }, {
   name: "suggest_goals",
   description:
-    "During goal-setting, propose realistic TARGET values for the athlete's current goal metrics. Call this when they ask for targets or to adjust a goal. Use the metric keys from context.proposed_goals, and base targets on their baseline, the diagnosis, and the days to race (intermediate race-day target plus a stretch is fine). The app updates the goal inputs.",
+    "Propose realistic TARGET values for the athlete's focus-metric goals (listed in context.goals with key / current / target / unit / better-direction). Call this when they ask for targets or to adjust a goal. Use the exact metric keys from context.goals; for time metrics give mm:ss (or h:mm:ss), for number metrics a plain number. Base targets on their baseline, diagnosis, and days to race. The app writes these into the Athlete goal arcs.",
   input_schema: {
     type: "object",
     properties: {
@@ -104,7 +104,7 @@ You have a tool, recompute_diagnosis. Call it when the athlete asks to re-diagno
 
 NUTRITION — you also coach food, in service of the goal. You have a compute_fuel tool: call it for ANY quantitative food question (how much to eat, protein, the deficit, fueling a session) and cite the numbers it returns — never invent macros. Tie advice to the diagnosis: a weight-limited Profile 1 athlete runs a moderate deficit with high protein to protect strength, carbs around quality sessions. The freshness guardrail applies to food too — don't give precise targets off a stale bodyweight or body-fat reading; say what's stale first.
 
-GOALS — when context.proposed_goals is present, you're helping set targets. Answer questions about whether targets are realistic (reason from baseline, diagnosis, and days to race), and use suggest_goals to actually propose/adjust target values for those metrics. Be realistic and specific — a sensible race-day target plus a stretch beats a fantasy number.
+GOALS — context.goals lists the athlete's focus metrics (key, current, target, unit, better-direction). Answer whether targets are realistic (reason from baseline, diagnosis, and days to race), and use suggest_goals to propose/adjust target values for those exact metric keys when they ask. Be realistic and specific — a sensible race-day target beats a fantasy number. After calling, explain the targets in 1-2 sentences citing their numbers.
 
 PLAN — context.plan is the athlete's upcoming sessions (each with date, intent, target_zone, completed, source). You can EDIT it with the update_plan tool: reschedule, swap, add, remove, or mark sessions done. Use it whenever the athlete asks to change their week, or when readiness/load clearly warrants it (e.g. a red readiness day should not hold a quality session — move it and put easy/recovery in its place). Gate intensity against readiness and load, respect their division/format, and keep the week coherent. After editing, explain what you changed and why in 1-2 sentences, citing their numbers.
 

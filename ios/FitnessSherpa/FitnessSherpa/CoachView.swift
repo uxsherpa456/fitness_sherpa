@@ -315,6 +315,10 @@ struct CoachView: View {
                         flush(into: convo)
                         applyPlanChanges(changes)
                         append(.note, "Updated plan" + (summary.map { ": \($0)" } ?? ""), to: convo)
+                    case .goals(let items):
+                        flush(into: convo)
+                        applyGoalChanges(items)
+                        append(.note, "Updated goal targets", to: convo)
                     case .done: flush(into: convo)
                     }
                 }
@@ -333,6 +337,19 @@ struct CoachView: View {
         context.insert(m)
         convo.updatedAt = Date()
         try? context.save()
+    }
+
+    /// Apply coach-proposed goal targets to the athlete's focus-metric goals.
+    private func applyGoalChanges(_ items: [[String: Any]]) {
+        for it in items {
+            guard let key = it["key"] as? String,
+                  let target = it["target"] as? String,
+                  let i = model.goals.firstIndex(where: { $0.key == key }) else { continue }
+            model.goals[i].goal = model.goals[i].isTime ? .text(target)
+                : .number(Double(target) ?? (model.goals[i].goal?.asDouble ?? 0))
+        }
+        model.saveGoals()
+        model.pushToCloud()
     }
 
     /// Apply coach-proposed plan edits to the PlannedWorkout store (tagged `coach`).
