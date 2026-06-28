@@ -25,20 +25,21 @@ struct CoachView: View {
     var body: some View {
         GeometryReader { geo in
             let drawerWidth = min(310, geo.size.width * 0.86)
-            ZStack(alignment: .leading) {
+            HStack(spacing: 0) {
                 historyDrawer
-                    .frame(width: drawerWidth)
-
+                    .frame(width: drawerWidth, height: geo.size.height)
                 mainContent
                     .frame(width: geo.size.width, height: geo.size.height)
-                    .offset(x: showingHistory ? drawerWidth : 0)
                     .overlay {
                         if showingHistory {
                             Color.black.opacity(0.3)
+                                .contentShape(Rectangle())
                                 .onTapGesture { showingHistory = false }
                         }
                     }
             }
+            .frame(width: drawerWidth + geo.size.width, alignment: .leading)
+            .offset(x: showingHistory ? 0 : -drawerWidth)
             .animation(.easeInOut(duration: 0.28), value: showingHistory)
         }
     }
@@ -99,9 +100,11 @@ struct CoachView: View {
                     .listRowBackground(c.id == current?.id ? Palette.surface : Palette.bg)
                     .listRowSeparatorTint(Palette.surfaceLine)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button(role: .destructive) { deleteConversation(c) } label: {
+                        Button { deleteConversation(c) } label: {
                             Label("Delete", systemImage: "trash")
+                                .foregroundStyle(.black)
                         }
+                        .tint(Palette.mint)
                     }
                 }
             }
@@ -156,6 +159,7 @@ struct CoachView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 10) {
+                    Color.clear.frame(height: 0).id("top")
                     if messages.isEmpty && streaming.isEmpty { emptyState }
                     ForEach(messages) { bubble($0) }
                     if !streaming.isEmpty {
@@ -166,8 +170,12 @@ struct CoachView: View {
                 .padding(.horizontal, 14).padding(.vertical, 12)
             }
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: messages.count) { withAnimation { proxy.scrollTo("bottom") } }
-            .onChange(of: streaming) { proxy.scrollTo("bottom") }
+            .onChange(of: messages.count) { if !messages.isEmpty { withAnimation { proxy.scrollTo("bottom") } } }
+            .onChange(of: streaming) { if !streaming.isEmpty { proxy.scrollTo("bottom") } }
+            .onChange(of: current?.id) {
+                if current?.isEmpty ?? true { withAnimation { proxy.scrollTo("top", anchor: .top) } }
+                else { proxy.scrollTo("bottom") }
+            }
         }
     }
 
