@@ -57,6 +57,20 @@ final class AppModel {
             }
         }
 
+        if let s = reading?.sleepSummary {
+            func h(_ v: Double) -> Double { (v * 10).rounded() / 10 }
+            ctx["sleep"] = [
+                "asleep_hrs": h(s.asleep),
+                "rem_hrs": h(s.rem),
+                "core_hrs": h(s.core),
+                "deep_hrs": h(s.deep),
+                "awake_hrs": h(s.awake),
+                "in_bed_hrs": h(s.inBed),
+                "efficiency_pct": Int((s.efficiency * 100).rounded()),
+                "awakenings": s.awakenings,
+            ]
+        }
+
         if let d = diagnosis {
             ctx["diagnosis"] = [
                 "profile": d.profile.title,

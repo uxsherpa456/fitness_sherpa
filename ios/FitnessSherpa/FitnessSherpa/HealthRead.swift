@@ -16,14 +16,30 @@ extension HealthData {
         var date: Date          // endDate of the newest sample
     }
 
+    /// Full sleep-quality breakdown for the most recent night (hours unless noted).
+    struct SleepSummary {
+        var inBed: Double
+        var asleep: Double          // REM + Core + Deep + Unspecified
+        var rem: Double
+        var core: Double
+        var deep: Double
+        var awake: Double           // awake time within the sleep window
+        var awakenings: Int         // mid-sleep awake segments
+        var efficiency: Double      // asleep / inBed, 0–1
+        var wake: Date              // when the night ended (freshness stamp)
+    }
+
     /// One read of the milestone metrics, stamped with when we queried Health.
     struct Reading {
         var queriedAt: Date
         var hrv: Sample?            // HRV SDNN, ms
         var restingHR: Sample?      // bpm
         var bodyMass: Sample?       // lb
-        var sleep: Sample?          // hours asleep, last night
+        var sleepSummary: SleepSummary?
         var lastRunDate: Date?
+
+        /// Total sleep as a freshness-stamped Sample (drives the readiness metric set).
+        var sleep: Sample? { sleepSummary.map { Sample(value: $0.asleep, date: $0.wake) } }
         var lastRunKm: Double?
         var lastRunMinutes: Double?
 
@@ -89,9 +105,23 @@ extension HealthData {
         }
     }
 
-    /// Total time asleep over the most recent night: merges overlapping "asleep" intervals from
-    /// the last 36h (de-duping multiple sources) and stamps with the wake time. `nil` if none.
-    static func latestSleep() async throws -> Sample? {
+    /// Merge overlapping date intervals (de-dupes overlapping samples from multiple sources).
+    private static func merge(_ ivs: [(start: Date, end: Date)]) -> [(start: Date, end: Date)] {
+        let sorted = ivs.sorted { $0.start < $1.start }
+        var out: [(start: Date, end: Date)] = []
+        for iv in sorted {
+            if let last = out.last, iv.start <= last.end {
+                out[out.count - 1].end = max(last.end, iv.end)
+            } else {
+                out.append(iv)
+            }
+        }
+        return out
+    }
+
+    /// Full sleep-quality breakdown for the most recent night: per-stage hours, time in bed,
+    /// efficiency, awake time, and awakenings — from the last 36h, merged across sources.
+    static func latestSleep() async throws -> SleepSummary? {
         guard let type = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else { return nil }
         let pred = HKQuery.predicateForSamples(withStart: Date().addingTimeInterval(-36 * 3600), end: Date())
         let samples: [HKCategorySample] = try await withCheckedThrowingContinuation { cont in
@@ -102,29 +132,46 @@ extension HealthData {
             }
             store.execute(q)
         }
+        guard !samples.isEmpty else { return nil }
 
-        let asleep: Set<Int> = [
-            HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
+        func intervals(_ values: Set<Int>) -> [(start: Date, end: Date)] {
+            merge(samples.filter { values.contains($0.value) }.map { (start: $0.startDate, end: $0.endDate) })
+        }
+        func hours(_ ivs: [(start: Date, end: Date)]) -> Double {
+            ivs.reduce(0.0) { $0 + $1.end.timeIntervalSince($1.start) } / 3600
+        }
+
+        let rem    = intervals([HKCategoryValueSleepAnalysis.asleepREM.rawValue])
+        let core   = intervals([HKCategoryValueSleepAnalysis.asleepCore.rawValue])
+        let deep   = intervals([HKCategoryValueSleepAnalysis.asleepDeep.rawValue])
+        let asleep = intervals([
+            HKCategoryValueSleepAnalysis.asleepREM.rawValue,
             HKCategoryValueSleepAnalysis.asleepCore.rawValue,
             HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
-            HKCategoryValueSleepAnalysis.asleepREM.rawValue,
-        ]
-        let intervals = samples.filter { asleep.contains($0.value) }
-            .map { (start: $0.startDate, end: $0.endDate) }
-            .sorted { $0.start < $1.start }
-        guard !intervals.isEmpty else { return nil }
+            HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
+        ])
+        guard !asleep.isEmpty else { return nil }
+        let awake  = intervals([HKCategoryValueSleepAnalysis.awake.rawValue])
+        let inBedIv = intervals([HKCategoryValueSleepAnalysis.inBed.rawValue])
 
-        var merged: [(start: Date, end: Date)] = []
-        for iv in intervals {
-            if let last = merged.last, iv.start <= last.end {
-                merged[merged.count - 1].end = max(last.end, iv.end)
-            } else {
-                merged.append(iv)
-            }
-        }
-        let totalSeconds = merged.reduce(0.0) { $0 + $1.end.timeIntervalSince($1.start) }
-        let wake = merged.map(\.end).max() ?? Date()
-        return Sample(value: totalSeconds / 3600, date: wake)
+        let onset = asleep.map(\.start).min() ?? Date()
+        let wake  = asleep.map(\.end).max() ?? Date()
+        let asleepHrs = hours(asleep)
+        let awakeHrs  = hours(awake)
+        let inBedHrs  = inBedIv.isEmpty ? asleepHrs + awakeHrs : hours(inBedIv)
+        let awakenings = awake.filter { $0.start >= onset && $0.end <= wake }.count
+
+        return SleepSummary(
+            inBed: inBedHrs,
+            asleep: asleepHrs,
+            rem: hours(rem),
+            core: hours(core),
+            deep: hours(deep),
+            awake: awakeHrs,
+            awakenings: awakenings,
+            efficiency: inBedHrs > 0 ? min(1, asleepHrs / inBedHrs) : 0,
+            wake: wake
+        )
     }
 
     /// Most recent running workout, or `nil`.
@@ -160,7 +207,7 @@ extension HealthData {
             hrv: try await hrv,
             restingHR: try await rhr,
             bodyMass: try await mass,
-            sleep: try await sleep,
+            sleepSummary: try await sleep,
             lastRunDate: run?.endDate,
             lastRunKm: km,
             lastRunMinutes: run.map { $0.duration / 60 }

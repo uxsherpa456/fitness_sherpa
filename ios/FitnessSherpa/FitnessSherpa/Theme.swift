@@ -33,6 +33,7 @@ enum Palette {
     static let textFaint   = Color(hex: 0x5A5E65)
     static let green       = Color(hex: 0x7CE3A2)
     static let yellow      = Color(hex: 0xF2D484)
+    static let orange      = Color(hex: 0xF2B27A)
     static let red         = Color(hex: 0xF0917B)
 }
 
@@ -51,24 +52,32 @@ struct ModuleLabel: View {
 
 /// The card convention: flat left edge + 3px accent stripe, rounded right edge.
 struct Card<Content: View>: View {
-    enum Style { case dark, mint, light, ai }
+    /// `tinted` paints a custom background (dark ink text + translucent stripe), like `mint`.
+    enum Style { case dark, mint, light, ai, tinted(Color) }
     var style: Style = .dark
     @ViewBuilder var content: () -> Content
 
+    private var onLightBackground: Bool {
+        switch style { case .mint, .light, .tinted: return true; default: return false }
+    }
     private var background: AnyShapeStyle {
         switch style {
-        case .dark:  return AnyShapeStyle(Palette.surface)
-        case .mint:  return AnyShapeStyle(Palette.mint)
-        case .light: return AnyShapeStyle(Palette.sand)
-        case .ai:    return AnyShapeStyle(LinearGradient(
+        case .dark:          return AnyShapeStyle(Palette.surface)
+        case .mint:          return AnyShapeStyle(Palette.mint)
+        case .light:         return AnyShapeStyle(Palette.sand)
+        case .tinted(let c): return AnyShapeStyle(c)
+        case .ai:            return AnyShapeStyle(LinearGradient(
             colors: [Color(hex: 0x1F2A27), Palette.surface],
             startPoint: .topLeading, endPoint: .bottomTrailing))
         }
     }
-    private var foreground: Color { (style == .mint || style == .light) ? Palette.ink : Palette.text }
-    private var stripe: Color { style == .mint ? Palette.ink.opacity(0.18) : Palette.mint }
+    private var foreground: Color { onLightBackground ? Palette.ink : Palette.text }
+    private var stripe: Color { onLightBackground ? Palette.ink.opacity(0.18) : Palette.mint }
     private var shape: UnevenRoundedRectangle {
         .rect(topLeadingRadius: 0, bottomLeadingRadius: 0, bottomTrailingRadius: 22, topTrailingRadius: 22)
+    }
+    @ViewBuilder private var aiStroke: some View {
+        if case .ai = style { shape.stroke(Color(hex: 0x28403A), lineWidth: 1) }
     }
 
     var body: some View {
@@ -81,7 +90,7 @@ struct Card<Content: View>: View {
                 Rectangle().fill(stripe).frame(width: 3)
                     .clipShape(shape)
             }
-            .overlay(style == .ai ? AnyView(shape.stroke(Color(hex: 0x28403A), lineWidth: 1)) : AnyView(EmptyView()))
+            .overlay(aiStroke)
     }
 }
 

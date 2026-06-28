@@ -17,6 +17,7 @@ struct TodayView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     readinessCard
+                    sleepCard
                     fuelCard
                     lastWorkoutCard
                     nextSessionCard
@@ -34,17 +35,27 @@ struct TodayView: View {
 
     // MARK: - A. Readiness hero (live)
 
+    /// Background color by readiness band: mint (high) → orange (moderate) → red (low).
+    private var readinessTint: Color {
+        guard let s = model.readinessScore else { return Palette.mint }
+        switch s {
+        case 75...:   return Palette.mint
+        case 50..<75: return Palette.orange
+        default:      return Palette.red
+        }
+    }
+
     private var readinessCard: some View {
-        Card(style: .mint) {
+        Card(style: .tinted(readinessTint)) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     ModuleLabel("Readiness", onLight: true)
                     Spacer()
                     if let r = model.reading, r.readinessFresh, let s = model.readinessScore {
                         StatusPill(label: Readiness.verdict(for: s).label,
-                                   dot: Readiness.verdict(for: s).color, onLight: true)
+                                   dot: Palette.ink, onLight: true)
                     } else {
-                        StatusPill(label: "STALE · CHECK DATA", dot: Palette.yellow, onLight: true)
+                        StatusPill(label: "STALE · CHECK DATA", dot: Palette.ink, onLight: true)
                     }
                 }
 
@@ -89,6 +100,44 @@ struct TodayView: View {
             Text("\(label) · \(unit)")
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
                 .foregroundStyle(Palette.inkSoft)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Sleep quality (live)
+
+    private var sleepCard: some View {
+        Card(style: .dark) {
+            VStack(alignment: .leading, spacing: 10) {
+                ModuleLabel("Sleep · last night")
+                if let s = model.reading?.sleepSummary {
+                    HStack(alignment: .lastTextBaseline, spacing: 8) {
+                        Text(String(format: "%.1f hrs", s.asleep)).font(.system(size: 28, weight: .heavy))
+                        Text("\(Int((s.efficiency * 100).rounded()))% EFFICIENCY")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Palette.mint)
+                    }
+                    HStack(spacing: 0) {
+                        stageTile("REM", s.rem)
+                        stageTile("CORE", s.core)
+                        stageTile("DEEP", s.deep)
+                    }
+                    Text(String(format: "In bed %.1f hrs · %d awakening%@ · %.1f hrs awake",
+                                s.inBed, s.awakenings, s.awakenings == 1 ? "" : "s", s.awake))
+                        .font(.footnote).foregroundStyle(Palette.textMuted)
+                } else {
+                    Text("No sleep recorded in the last 36h — wear the watch to bed for recovery metrics.")
+                        .font(.footnote).foregroundStyle(Palette.textMuted)
+                }
+            }
+        }
+    }
+
+    private func stageTile(_ label: String, _ hrs: Double) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(String(format: "%.1f h", hrs)).font(.system(size: 15, weight: .bold))
+            Text(label).font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(Palette.textFaint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
