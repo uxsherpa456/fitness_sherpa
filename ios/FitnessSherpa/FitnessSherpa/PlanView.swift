@@ -35,6 +35,7 @@ struct PlanView: View {
                     .padding(.horizontal, 14).padding(.vertical, 10)
                 }
                 .background(Palette.bg)
+                .refreshable { await load() }
                 .onChange(of: sessions.count) { if !didScroll { proxy.scrollTo("today", anchor: .top); didScroll = true } }
                 .task {
                     await load()

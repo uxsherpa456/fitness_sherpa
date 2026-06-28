@@ -9,6 +9,7 @@ import SwiftData
 
 struct AthleteView: View {
     let model: AppModel
+    @Environment(\.modelContext) private var context
     @Query(sort: \DiagnosisRecord.date, order: .reverse) private var diagnoses: [DiagnosisRecord]
     @Query(sort: \HealthSnapshot.capturedAt, order: .reverse) private var snapshots: [HealthSnapshot]
 
@@ -55,6 +56,7 @@ struct AthleteView: View {
                 .padding(.horizontal, 14).padding(.vertical, 8)
             }
             .background(Palette.bg)
+            .refreshable { await model.refresh(context: context) }
             .navigationTitle("Athlete").navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Palette.bg, for: .navigationBar)
         }

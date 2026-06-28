@@ -11,6 +11,7 @@ import SwiftData
 
 struct TodayView: View {
     let model: AppModel
+    @Environment(\.modelContext) private var context
 
     var body: some View {
         NavigationStack {
@@ -27,6 +28,7 @@ struct TodayView: View {
                 .padding(.vertical, 8)
             }
             .background(Palette.bg)
+            .refreshable { await model.refresh(context: context) }
             .navigationTitle("Today")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Palette.bg, for: .navigationBar)
