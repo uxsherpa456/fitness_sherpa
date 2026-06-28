@@ -22,6 +22,7 @@ extension HealthData {
         var hrv: Sample?            // HRV SDNN, ms
         var restingHR: Sample?      // bpm
         var bodyMass: Sample?       // lb
+        var sleep: Sample?          // hours asleep, last night
         var lastRunDate: Date?
         var lastRunKm: Double?
         var lastRunMinutes: Double?
@@ -31,12 +32,13 @@ extension HealthData {
         enum Metric: String, CaseIterable {
             case hrv = "HRV"
             case restingHR = "Resting HR"
+            case sleep = "Sleep"
             case bodyweight = "Bodyweight"
 
             var maxAge: TimeInterval {
                 switch self {
-                case .hrv, .restingHR: return 36 * 3600   // 36 h
-                case .bodyweight:      return 14 * 86400   // 14 d
+                case .hrv, .restingHR, .sleep: return 36 * 3600   // 36 h
+                case .bodyweight:              return 14 * 86400   // 14 d
                 }
             }
 
@@ -48,6 +50,7 @@ extension HealthData {
             switch m {
             case .hrv:        return hrv
             case .restingHR:  return restingHR
+            case .sleep:      return sleep
             case .bodyweight: return bodyMass
             }
         }
@@ -86,6 +89,44 @@ extension HealthData {
         }
     }
 
+    /// Total time asleep over the most recent night: merges overlapping "asleep" intervals from
+    /// the last 36h (de-duping multiple sources) and stamps with the wake time. `nil` if none.
+    static func latestSleep() async throws -> Sample? {
+        guard let type = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else { return nil }
+        let pred = HKQuery.predicateForSamples(withStart: Date().addingTimeInterval(-36 * 3600), end: Date())
+        let samples: [HKCategorySample] = try await withCheckedThrowingContinuation { cont in
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+            let q = HKSampleQuery(sampleType: type, predicate: pred, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, samples, error in
+                if let error { cont.resume(throwing: error); return }
+                cont.resume(returning: (samples as? [HKCategorySample]) ?? [])
+            }
+            store.execute(q)
+        }
+
+        let asleep: Set<Int> = [
+            HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
+            HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+            HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+            HKCategoryValueSleepAnalysis.asleepREM.rawValue,
+        ]
+        let intervals = samples.filter { asleep.contains($0.value) }
+            .map { (start: $0.startDate, end: $0.endDate) }
+            .sorted { $0.start < $1.start }
+        guard !intervals.isEmpty else { return nil }
+
+        var merged: [(start: Date, end: Date)] = []
+        for iv in intervals {
+            if let last = merged.last, iv.start <= last.end {
+                merged[merged.count - 1].end = max(last.end, iv.end)
+            } else {
+                merged.append(iv)
+            }
+        }
+        let totalSeconds = merged.reduce(0.0) { $0 + $1.end.timeIntervalSince($1.start) }
+        let wake = merged.map(\.end).max() ?? Date()
+        return Sample(value: totalSeconds / 3600, date: wake)
+    }
+
     /// Most recent running workout, or `nil`.
     static func latestRun() async throws -> HKWorkout? {
         try await withCheckedThrowingContinuation { cont in
@@ -102,9 +143,10 @@ extension HealthData {
     /// Read the milestone metrics in one call, stamped with the query time.
     static func readSnapshot() async throws -> Reading {
         let bpm = HKUnit.count().unitDivided(by: .minute())
-        async let hrv  = latestSample(.heartRateVariabilitySDNN, unit: .secondUnit(with: .milli))
-        async let rhr  = latestSample(.restingHeartRate, unit: bpm)
-        async let mass = latestSample(.bodyMass, unit: .pound())
+        async let hrv   = latestSample(.heartRateVariabilitySDNN, unit: .secondUnit(with: .milli))
+        async let rhr   = latestSample(.restingHeartRate, unit: bpm)
+        async let mass  = latestSample(.bodyMass, unit: .pound())
+        async let sleep = latestSleep()
 
         let run = try await latestRun()
         var km: Double? = nil
@@ -118,6 +160,7 @@ extension HealthData {
             hrv: try await hrv,
             restingHR: try await rhr,
             bodyMass: try await mass,
+            sleep: try await sleep,
             lastRunDate: run?.endDate,
             lastRunKm: km,
             lastRunMinutes: run.map { $0.duration / 60 }

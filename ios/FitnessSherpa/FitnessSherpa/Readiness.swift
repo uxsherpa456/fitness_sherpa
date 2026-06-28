@@ -11,13 +11,21 @@ import SwiftUI
 enum Readiness {
     private static func clamp(_ v: Double, _ lo: Double, _ hi: Double) -> Double { min(max(v, lo), hi) }
 
-    /// 0–100, or nil if there's no HRV to reason from.
-    static func score(hrv: Double?, restingHR: Double?) -> Int? {
+    /// 0–100, or nil if there's no HRV to reason from. Weights re-normalize over whatever
+    /// metrics are present (HRV 0.5, resting HR 0.3, sleep 0.2).
+    static func score(hrv: Double?, restingHR: Double?, sleepHrs: Double?) -> Int? {
         guard let hrv else { return nil }
-        let hrvScore = clamp((hrv - 20) / (70 - 20), 0, 1)                // 20 ms → 0, 70 ms → 1
-        let rhrScore = restingHR.map { clamp((60 - $0) / (60 - 40), 0, 1) } // 60 bpm → 0, 40 bpm → 1
-        let combined = rhrScore.map { hrvScore * 0.6 + $0 * 0.4 } ?? hrvScore
-        return Int((combined * 100).rounded())
+        var total = clamp((hrv - 20) / (70 - 20), 0, 1) * 0.5            // 20 ms → 0, 70 ms → 1
+        var weight = 0.5
+        if let rhr = restingHR {
+            total += clamp((60 - rhr) / (60 - 40), 0, 1) * 0.3           // 60 bpm → 0, 40 bpm → 1
+            weight += 0.3
+        }
+        if let sleep = sleepHrs {
+            total += clamp((sleep - 5) / (8 - 5), 0, 1) * 0.2            // 5 h → 0, 8 h → 1
+            weight += 0.2
+        }
+        return Int((total / weight * 100).rounded())
     }
 
     struct Verdict { let label: String; let color: Color }

@@ -60,7 +60,7 @@ struct TodayView: View {
                 HStack(spacing: 0) {
                     micro("HRV", model.reading?.hrv.map { String(format: "%.0f", $0.value) }, "ms")
                     micro("Resting HR", model.reading?.restingHR.map { String(format: "%.0f", $0.value) }, "bpm")
-                    micro("Sleep", nil, "hrs")   // sleep not read yet
+                    micro("Sleep", model.reading?.sleep.map { String(format: "%.1f", $0.value) }, "hrs")
                 }
                 .padding(.top, 2)
 
