@@ -127,7 +127,7 @@ struct AthleteView: View {
                 kv("Division", divisionText)
                 kv("Age", "\(model.settings.age)")
                 kv("Race", "\(raceDateText) · \(model.settings.raceLocation)")
-                kv("Goal", model.settings.goalTime)
+                kv("Goal", model.settings.goalTimeDisplay)
             }
         }
     }

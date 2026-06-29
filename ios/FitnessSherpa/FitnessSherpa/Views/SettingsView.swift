@@ -13,7 +13,6 @@ struct SettingsView: View {
     @State private var s: UserSettings
     @State private var goalH: Int
     @State private var goalM: Int
-    @State private var goalS: Int
     @State private var raceDate: Date
 
     init(model: AppModel) {
@@ -23,7 +22,6 @@ struct SettingsView: View {
         let parts = settings.goalTime.split(separator: ":").map { Int($0) ?? 0 }
         _goalH = State(initialValue: parts.count > 0 ? parts[0] : 1)
         _goalM = State(initialValue: parts.count > 1 ? parts[1] : 10)
-        _goalS = State(initialValue: parts.count > 2 ? parts[2] : 0)
         _raceDate = State(initialValue: DateFormatters.ymd.date(from: settings.raceDate) ?? Date())
     }
 
@@ -68,9 +66,6 @@ struct SettingsView: View {
                         Picker("M", selection: $goalM) { ForEach(0...59, id: \.self) { Text(String(format: "%02d", $0)).tag($0) } }
                             .labelsHidden().frame(width: 56)
                         Text("m").foregroundStyle(.secondary)
-                        Picker("S", selection: $goalS) { ForEach(0...59, id: \.self) { Text(String(format: "%02d", $0)).tag($0) } }
-                            .labelsHidden().frame(width: 56)
-                        Text("s").foregroundStyle(.secondary)
                     }
                     DatePicker("Race date", selection: $raceDate, displayedComponents: [.date])
                     LabeledContent("Race location") {
@@ -116,7 +111,7 @@ struct SettingsView: View {
     }
 
     private func save() {
-        s.goalTime = "\(goalH):\(String(format: "%02d", goalM)):\(String(format: "%02d", goalS))"
+        s.goalTime = "\(goalH):\(String(format: "%02d", goalM))"
         s.raceDate = DateFormatters.ymd.string(from: raceDate)
         // Division must be valid for the chosen format (mixed only for doubles/relay).
         if !genderOptions.contains(where: { $0.0 == s.gender }) { s.gender = "mens" }

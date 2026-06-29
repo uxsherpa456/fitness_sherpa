@@ -18,7 +18,6 @@ struct OnboardingView: View {
     @State private var s: UserSettings
     @State private var goalH: Int
     @State private var goalM: Int
-    @State private var goalS: Int
     @State private var raceDate: Date
 
     @State private var step = 0
@@ -46,7 +45,6 @@ struct OnboardingView: View {
         let parts = settings.goalTime.split(separator: ":").map { Int($0) ?? 0 }
         _goalH = State(initialValue: parts.count > 0 ? parts[0] : 1)
         _goalM = State(initialValue: parts.count > 1 ? parts[1] : 10)
-        _goalS = State(initialValue: parts.count > 2 ? parts[2] : 0)
         _raceDate = State(initialValue: DateFormatters.ymd.date(from: settings.raceDate) ?? Date())
     }
 
@@ -501,9 +499,6 @@ struct OnboardingView: View {
             Picker("M", selection: $goalM) { ForEach(0...59, id: \.self) { Text(String(format: "%02d", $0)).tag($0) } }
                 .labelsHidden().frame(width: 60).clipped()
             Text("m").foregroundStyle(Palette.textMuted)
-            Picker("S", selection: $goalS) { ForEach(0...59, id: \.self) { Text(String(format: "%02d", $0)).tag($0) } }
-                .labelsHidden().frame(width: 60).clipped()
-            Text("s").foregroundStyle(Palette.textMuted)
             Spacer()
         }
         .pickerStyle(.wheel).frame(height: 96)
@@ -561,7 +556,7 @@ struct OnboardingView: View {
     private func finish() {
         finishing = true
         // Commit the goal time + race date the pickers built.
-        s.goalTime = "\(goalH):\(String(format: "%02d", goalM)):\(String(format: "%02d", goalS))"
+        s.goalTime = "\(goalH):\(String(format: "%02d", goalM))"
         s.raceDate = DateFormatters.ymd.string(from: raceDate)
         if !genderOptions.contains(where: { $0.0 == s.gender }) { s.gender = "mens" }
         s.onboarded = true

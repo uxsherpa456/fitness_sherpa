@@ -85,6 +85,13 @@ struct UserSettings: Codable, Equatable {
         if let v = s.age { age = v }
     }
 
+    /// Goal finish as H:MM — seconds dropped (HYROX targets are minute-level). Tolerates a stored
+    /// "H:MM:SS" from before seconds were removed.
+    var goalTimeDisplay: String {
+        let p = goalTime.split(separator: ":")
+        return p.count >= 2 ? "\(p[0]):\(p[1])" : goalTime
+    }
+
     /// Days from today until race day (nil if the date can't be parsed).
     var daysToRace: Int? {
         guard let d = DateFormatters.ymd.date(from: raceDate) else { return nil }

@@ -50,7 +50,7 @@ struct TodayView: View {
                 Text("HYROX \(model.settings.raceLocation)")
                     .font(.caption).foregroundStyle(Palette.textMuted)
             }
-            Text("Goal \(model.settings.goalTime)")
+            Text("Goal \(model.settings.goalTimeDisplay)")
                 .font(.caption.weight(.semibold)).foregroundStyle(Palette.mint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
