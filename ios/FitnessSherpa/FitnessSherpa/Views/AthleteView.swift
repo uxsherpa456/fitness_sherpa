@@ -1,8 +1,7 @@
-//  OtherTabs.swift
+//  AthleteView.swift
 //  Fitness Sherpa
 //
-//  Athlete / Plan / AI Coach tabs. Athlete surfaces the live diagnosis + saved history; Plan and
-//  Coach are honest placeholders until those features are ported from the prototype.
+//  The Athlete tab: live diagnosis + quadrant, focus-metric goals (race log), and trend charts.
 
 import SwiftUI
 import SwiftData
@@ -137,22 +136,5 @@ struct AthleteView: View {
             Spacer()
             Text(v).font(.subheadline).multilineTextAlignment(.trailing)
         }
-    }
-}
-
-/// Shared placeholder tab body.
-@ViewBuilder
-private func placeholder(_ title: String, _ subtitle: String) -> some View {
-    NavigationStack {
-        VStack(spacing: 12) {
-            Image(systemName: "hammer.fill").font(.largeTitle).foregroundStyle(Palette.mint)
-            Text(title).font(.title2.bold()).foregroundStyle(Palette.text)
-            Text(subtitle).font(.footnote).foregroundStyle(Palette.textMuted)
-                .multilineTextAlignment(.center).padding(.horizontal, 36)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Palette.bg)
-        .navigationTitle(title).navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Palette.bg, for: .navigationBar)
     }
 }
