@@ -28,11 +28,3 @@ struct SleepNight: Identifiable {
     let rem: Double
     var id: Date { date }
 }
-
-/// Everything the Athlete charts need.
-struct AthleteTrends {
-    var hrv: [TrendPoint] = []
-    var sleep: [SleepNight] = []
-    var form: [FormPoint] = []
-    var readiness: [TrendPoint] = []
-}

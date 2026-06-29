@@ -19,12 +19,10 @@ extension Color {
 
 enum Palette {
     static let bg          = Color(hex: 0x0E0F11)
-    static let bgDeep      = Color(hex: 0x08090A)
     static let surface     = Color(hex: 0x1A1B1E)
     static let surface2    = Color(hex: 0x232427)
     static let surfaceLine = Color(hex: 0x2A2C30)
     static let mint        = Color(hex: 0xC7F0E3)
-    static let mintDeep    = Color(hex: 0xA7E6D2)
     static let sand        = Color(hex: 0xEFEEE9)
     static let ink         = Color(hex: 0x0E0F11)
     static let inkSoft     = Color(hex: 0x44474C)

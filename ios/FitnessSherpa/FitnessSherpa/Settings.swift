@@ -55,9 +55,7 @@ struct UserSettings: Codable, Equatable {
 
     /// Days from today until race day (nil if the date can't be parsed).
     var daysToRace: Int? {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"; f.timeZone = .current
-        guard let d = f.date(from: raceDate) else { return nil }
+        guard let d = DateFormatters.ymd.date(from: raceDate) else { return nil }
         return Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()),
                                                to: Calendar.current.startOfDay(for: d)).day
     }

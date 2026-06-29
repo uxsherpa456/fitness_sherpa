@@ -24,8 +24,7 @@ struct SettingsView: View {
         _goalH = State(initialValue: parts.count > 0 ? parts[0] : 1)
         _goalM = State(initialValue: parts.count > 1 ? parts[1] : 10)
         _goalS = State(initialValue: parts.count > 2 ? parts[2] : 0)
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
-        _raceDate = State(initialValue: f.date(from: settings.raceDate) ?? Date())
+        _raceDate = State(initialValue: DateFormatters.ymd.date(from: settings.raceDate) ?? Date())
     }
 
     private var genderOptions: [(String, String)] {
@@ -106,8 +105,7 @@ struct SettingsView: View {
 
     private func save() {
         s.goalTime = "\(goalH):\(String(format: "%02d", goalM)):\(String(format: "%02d", goalS))"
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
-        s.raceDate = f.string(from: raceDate)
+        s.raceDate = DateFormatters.ymd.string(from: raceDate)
         // Division must be valid for the chosen format (mixed only for doubles/relay).
         if !genderOptions.contains(where: { $0.0 == s.gender }) { s.gender = "mens" }
         model.settings = s

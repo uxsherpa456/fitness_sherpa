@@ -58,7 +58,6 @@ struct ReadinessResult {
     var hrMax: Int = 0
     var lastHardPct: Double?
     var lastHardHoursAgo: Double?
-    var recoveryMultiplier: Double = 1
 }
 
 enum Readiness {
@@ -125,8 +124,7 @@ enum ReadinessEngine {
         var result = ReadinessResult(score: nil, components: comps, cappedGreen: load.cappedGreen,
                                      atl: load.atl, ctl: load.ctl, form: load.form, ratio: load.ratio,
                                      hrMax: load.hrMax, lastHardPct: load.lastHardPct,
-                                     lastHardHoursAgo: load.lastHardHoursAgo,
-                                     recoveryMultiplier: load.recoveryMultiplier)
+                                     lastHardHoursAgo: load.lastHardHoursAgo)
 
         guard reading.hrv != nil, !comps.isEmpty else { return result }
 

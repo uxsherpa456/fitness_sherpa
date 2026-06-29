@@ -16,7 +16,6 @@ struct PlanView: View {
     @Query(sort: \PlannedWorkout.date, order: .forward) private var planned: [PlannedWorkout]
 
     @State private var loadError: String?
-    @State private var loaded = false
     @State private var didScroll = false
     @State private var editing: TrainingSession?
     @State private var editingPlan: PlannedWorkout?
@@ -37,11 +36,11 @@ struct PlanView: View {
                     .padding(.horizontal, 14).padding(.vertical, 10)
                 }
                 .background(Palette.bg)
-                .refreshable { await load() }
+                .refreshable { await load(force: true) }
                 .onChange(of: sessions.count) { if !didScroll { proxy.scrollTo("today", anchor: .top); didScroll = true } }
                 .task {
                     PlannedWorkout.seedIfNeeded(profile: model.diagnosis?.profile, context: context)
-                    await load()
+                    await load(force: false)
                     proxy.scrollTo("today", anchor: .top)
                 }
             }
@@ -138,16 +137,14 @@ struct PlanView: View {
         .padding(.vertical, 6)
     }
 
-    private func load() async {
+    private func load(force: Bool) async {
         do {
             try await HealthData.requestAuthorization()
-            let workouts = try await HealthData.recentWorkouts(days: 365)
-            TrainingSession.reconcile(workouts, context: context)
+            await model.importWorkouts(context: context, force: force)
             loadError = nil
         } catch {
             loadError = error.localizedDescription
         }
-        loaded = true
     }
 
     // MARK: - Rows

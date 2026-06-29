@@ -11,13 +11,12 @@ import HealthKit
 struct AthleteView: View {
     let model: AppModel
     @Environment(\.modelContext) private var context
-    @Query(sort: \DiagnosisRecord.date, order: .reverse) private var diagnoses: [DiagnosisRecord]
-    @Query(sort: \HealthSnapshot.capturedAt, order: .reverse) private var snapshots: [HealthSnapshot]
     @Query(sort: \TrainingSession.date, order: .forward) private var sessions: [TrainingSession]
     @Query(sort: \DailyReadiness.day, order: .forward) private var readinessLog: [DailyReadiness]
     @State private var editingGoal: GoalArc?
     @State private var hrvTrend: [TrendPoint] = []
     @State private var sleepNights: [SleepNight] = []
+    @State private var formTrend: [FormPoint] = []
 
     var body: some View {
         NavigationStack {
@@ -82,28 +81,26 @@ struct AthleteView: View {
 
     // MARK: - Trend charts
 
-    private var formSeries: [FormPoint] {
-        TrainingLoad.series(sessions: sessions, restingHR: model.reading?.restingHR?.value, age: model.settings.age)
-    }
     private var readinessSeries: [TrendPoint] {
         readinessLog.map { TrendPoint(date: $0.day, value: Double($0.score)) }
     }
 
     private func loadTrends() async {
+        formTrend = TrainingLoad.series(sessions: sessions, restingHR: model.reading?.restingHR?.value, age: model.settings.age)
         hrvTrend = (try? await HealthData.dailySeries(.heartRateVariabilitySDNN,
                     unit: .secondUnit(with: .milli), days: 30, options: .discreteAverage)) ?? []
         sleepNights = (try? await HealthData.sleepNights(days: 21)) ?? []
     }
 
     @ViewBuilder private var trendCharts: some View {
-        ChartCard(title: "Form · fresh vs fatigued", subtitle: "TSB", isEmpty: formSeries.count < 3) {
-            FormChart(points: formSeries)
+        ChartCard(title: "Form · fresh vs fatigued", subtitle: "TSB", isEmpty: formTrend.count < 3) {
+            FormChart(points: formTrend)
         }
         ChartCard(title: "HRV trend", subtitle: "30 days", isEmpty: hrvTrend.count < 2) {
             HRVTrendChart(points: hrvTrend)
         }
-        ChartCard(title: "Acute : chronic load", subtitle: "ratio", isEmpty: formSeries.count < 3) {
-            ACRChart(points: formSeries)
+        ChartCard(title: "Acute : chronic load", subtitle: "ratio", isEmpty: formTrend.count < 3) {
+            ACRChart(points: formTrend)
         }
         ChartCard(title: "Sleep quality", subtitle: "deep / REM / light", isEmpty: sleepNights.count < 2) {
             SleepChart(nights: sleepNights)

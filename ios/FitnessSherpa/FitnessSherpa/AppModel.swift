@@ -20,7 +20,17 @@ final class AppModel {
     var status = "Reading Health…"
     var loading = false
     var showingMenu = false          // global left hamburger menu
+    var lastWorkoutSync: Date?
     var settings = UserSettings.load()
+
+    /// Import + reconcile recent workouts from HealthKit, skipping if synced very recently (dedups
+    /// the launch refresh vs. opening the Plan tab). `force` bypasses the gate (pull-to-refresh).
+    func importWorkouts(context: ModelContext, force: Bool) async {
+        if !force, let last = lastWorkoutSync, Date().timeIntervalSince(last) < 20 { return }
+        let workouts = (try? await HealthData.recentWorkouts(days: 365)) ?? []
+        TrainingSession.reconcile(workouts, context: context)
+        lastWorkoutSync = Date()
+    }
     var feelingRaw: String? = AppModel.loadFeeling()
     var goals: [GoalArc] = AppModel.loadGoals()
 
@@ -84,8 +94,7 @@ final class AppModel {
     }
 
     private static var feelingKey: String {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
-        return "feeling." + f.string(from: Date())
+        "feeling." + DateFormatters.ymd.string(from: Date())
     }
     private static func loadFeeling() -> String? { UserDefaults.standard.string(forKey: feelingKey) }
 
@@ -247,8 +256,7 @@ final class AppModel {
             reading = r
 
             // Reconcile workouts into the store, then compute training load + readiness.
-            let workouts = (try? await HealthData.recentWorkouts(days: 365)) ?? []
-            TrainingSession.reconcile(workouts, context: context)
+            await importWorkouts(context: context, force: true)
             let sessions = (try? context.fetch(FetchDescriptor<TrainingSession>())) ?? []
             let load = TrainingLoad.compute(sessions: sessions, restingHR: r.restingHR?.value, age: settings.age)
             readiness = await ReadinessEngine.compute(reading: r, load: load)

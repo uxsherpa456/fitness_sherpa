@@ -25,13 +25,6 @@ extension GoalArc: Identifiable {
     public var id: String { key }
     var betterDown: Bool { better == "down" }
     var isTime: Bool { kind == "time" }
-
-    /// 0…1 toward the goal (start → goal), nil if not computable.
-    var progress: Double? {
-        guard let s = start?.asDouble, let c = current?.asDouble, let g = goal?.asDouble, s != g else { return nil }
-        let p = betterDown ? (s - c) / (s - g) : (c - s) / (g - s)
-        return min(max(p, 0), 1)
-    }
     var currentDisplay: String { current?.display ?? "—" }
     var goalDisplay: String { goal?.display ?? "—" }
     var startDisplay: String { start?.display ?? "—" }

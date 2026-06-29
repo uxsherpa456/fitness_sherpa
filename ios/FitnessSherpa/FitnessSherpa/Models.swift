@@ -5,9 +5,9 @@
 //  trends, and coach reason over. A "goal" is modeled as a concept with HYROX as the
 //  only instance for now, structured to extend later.
 //
-//  Container setup (App entry point):
-//      .modelContainer(for: [Goal.self, Baseline.self, DiagnosisRecord.self,
-//                            Session.self, Benchmark.self, HealthSnapshot.self])
+//  NOTE: the live schema is AppSchemaV2 in Migrations.swift. Goal / Session / Benchmark below are
+//  legacy/orphaned (superseded by TrainingSession / PlannedWorkout / GoalArc); slated for removal
+//  in a future schema version.
 
 import Foundation
 import SwiftData

@@ -26,9 +26,6 @@ final class Conversation {
     var sortedMessages: [ChatMessageRecord] { messages.sorted { $0.order < $1.order } }
     var nextOrder: Int { (messages.map(\.order).max() ?? -1) + 1 }
     var isEmpty: Bool { messages.isEmpty }
-    var preview: String {
-        sortedMessages.first(where: { $0.role == .user })?.text ?? "New chat"
-    }
 }
 
 @Model

@@ -354,12 +354,11 @@ struct CoachView: View {
 
     /// Apply coach-proposed plan edits to the PlannedWorkout store (tagged `coach`).
     private func applyPlanChanges(_ changes: [[String: Any]]) {
-        let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd"
         let cal = Calendar.current
         for c in changes {
             guard let action = c["action"] as? String,
                   let dateStr = c["date"] as? String,
-                  let date = df.date(from: dateStr) else { continue }
+                  let date = DateFormatters.ymd.date(from: dateStr) else { continue }
             let day = cal.startOfDay(for: date)
             let existing = planned.first { cal.isDate($0.date, inSameDayAs: day) }
 
