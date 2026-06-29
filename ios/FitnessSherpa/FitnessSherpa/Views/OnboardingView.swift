@@ -40,13 +40,24 @@ struct OnboardingView: View {
 
     init(model: AppModel) {
         self.model = model
-        let settings = model.settings
+        var settings = model.settings
+        // A genuinely new athlete (never onboarded) starts with nothing pre-filled or pre-selected;
+        // a re-run keeps the existing values so you can tweak them.
+        let fresh = !UserDefaults.standard.bool(forKey: OnboardingView.everKey)
+        if fresh {
+            settings.location = ""; settings.raceLocation = ""; settings.recent5k = ""
+            settings.format = ""; settings.gender = ""; settings.tier = ""
+            settings.raceDate = DateFormatters.ymd.string(
+                from: Calendar.current.date(byAdding: .day, value: 56, to: Date()) ?? Date())
+        }
         _s = State(initialValue: settings)
         let parts = settings.goalTime.split(separator: ":").map { Int($0) ?? 0 }
         _goalH = State(initialValue: parts.count > 0 ? parts[0] : 1)
         _goalM = State(initialValue: parts.count > 1 ? parts[1] : 10)
         _raceDate = State(initialValue: DateFormatters.ymd.date(from: settings.raceDate) ?? Date())
     }
+
+    static let everKey = "onboardedBefore"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -175,10 +186,10 @@ struct OnboardingView: View {
                 }
             }
             field("HOME LOCATION") {
-                obField("e.g. Washington, DC", text: $s.location)
+                LocationField(placeholder: "Start typing a city…", text: $s.location)
             }
             field("RACE LOCATION") {
-                obField("City", text: $s.raceLocation)
+                LocationField(placeholder: "Start typing a city…", text: $s.raceLocation)
             }
             field("RACE DATE") {
                 DatePicker("", selection: $raceDate, displayedComponents: [.date])
@@ -558,8 +569,12 @@ struct OnboardingView: View {
         // Commit the goal time + race date the pickers built.
         s.goalTime = "\(goalH):\(String(format: "%02d", goalM))"
         s.raceDate = DateFormatters.ymd.string(from: raceDate)
+        // Fall back to sensible defaults for anything left unselected.
+        if s.format.isEmpty { s.format = "singles" }
         if !genderOptions.contains(where: { $0.0 == s.gender }) { s.gender = "mens" }
+        if s.tier.isEmpty { s.tier = "open" }
         s.onboarded = true
+        UserDefaults.standard.set(true, forKey: Self.everKey)   // re-runs will pre-fill from here on
 
         model.settings = s
         model.saveSettings()

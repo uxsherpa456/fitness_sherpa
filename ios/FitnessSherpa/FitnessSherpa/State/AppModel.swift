@@ -125,7 +125,7 @@ final class AppModel {
 
     private func wipeLocal(context: ModelContext) {
         let d = UserDefaults.standard
-        ["userSettings.v1", "goals.v1"].forEach { d.removeObject(forKey: $0) }
+        ["userSettings.v1", "goals.v1", "onboardedBefore"].forEach { d.removeObject(forKey: $0) }
         for key in d.dictionaryRepresentation().keys where key.hasPrefix("feeling.") { d.removeObject(forKey: key) }
         func deleteAll<T: PersistentModel>(_ type: T.Type) {
             if let rows = try? context.fetch(FetchDescriptor<T>()) { rows.forEach { context.delete($0) } }
