@@ -46,9 +46,25 @@ struct AthleteView: View {
                     }
                     if !model.goals.isEmpty {
                         Card(style: .dark) {
-                            VStack(alignment: .leading, spacing: 16) {
-                                ModuleLabel("Focus metrics · arc to race day")
-                                ForEach(model.goals) { goalRow($0) }
+                            VStack(alignment: .leading, spacing: 14) {
+                                ModuleLabel("Focus metrics · race log")
+                                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 16) {
+                                    GridRow {
+                                        colHead("START"); colHead("CURRENT"); colHead("GOAL")
+                                    }
+                                    GridRow {
+                                        Rectangle().fill(Palette.surfaceLine).frame(height: 1).gridCellColumns(3)
+                                    }
+                                    ForEach(model.goals) { g in
+                                        GridRow {
+                                            metricCell(g.startDisplay, color: Color(hex: 0x7C8088), label: g.label)
+                                            metricCell(g.currentDisplay, color: Palette.text, label: g.label, arrow: arrowFor(g))
+                                            metricCell(g.goalDisplay, color: Palette.mint, label: g.label)
+                                        }
+                                        .contentShape(Rectangle())
+                                        .onTapGesture { editingGoal = g }
+                                    }
+                                }
                             }
                         }
                     }
@@ -80,7 +96,7 @@ struct AthleteView: View {
     }
 
     @ViewBuilder private var trendCharts: some View {
-        ChartCard(title: "Form · fitness vs fatigue", subtitle: "CTL / ATL", isEmpty: formSeries.count < 3) {
+        ChartCard(title: "Form · fresh vs fatigued", subtitle: "TSB", isEmpty: formSeries.count < 3) {
             FormChart(points: formSeries)
         }
         ChartCard(title: "HRV trend", subtitle: "30 days", isEmpty: hrvTrend.count < 2) {
@@ -97,34 +113,25 @@ struct AthleteView: View {
         }
     }
 
-    private func goalRow(_ g: GoalArc) -> some View {
+    private func colHead(_ t: String) -> some View {
+        Text(t).font(.system(size: 10, weight: .semibold, design: .monospaced)).tracking(1.5)
+            .foregroundStyle(Palette.textMuted)
+    }
+
+    private func metricCell(_ value: String, color: Color, label: String?, arrow: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(g.label ?? g.key)
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced)).tracking(0.5)
-                    .foregroundStyle(Palette.textFaint)
-                Spacer()
-                HStack(spacing: 2) {
-                    Text(g.currentDisplay).font(.system(size: 17, weight: .bold)).foregroundStyle(Palette.text)
-                    if let u = g.unit, !u.isEmpty { Text(u).font(.caption).foregroundStyle(Palette.textMuted) }
-                }
+            HStack(spacing: 2) {
+                if let arrow { Text(arrow).font(.system(size: 13, weight: .bold)).foregroundStyle(Palette.mint) }
+                Text(value).font(.system(size: 20, weight: .heavy)).tracking(-0.5).foregroundStyle(color)
             }
-            ZStack(alignment: .leading) {
-                Capsule().fill(Palette.surface2).frame(height: 5)
-                GeometryReader { geo in
-                    Capsule().fill(Palette.mint)
-                        .frame(width: max(5, geo.size.width * (g.progress ?? 0)), height: 5)
-                }
-                .frame(height: 5)
-            }
-            HStack {
-                Text("start \(g.startDisplay)").font(.caption2).foregroundStyle(Palette.textFaint)
-                Spacer()
-                Text("goal \(g.goalDisplay)").font(.caption2.weight(.semibold)).foregroundStyle(Palette.mint)
-            }
+            Text(label ?? "").font(.system(size: 8, weight: .medium, design: .monospaced)).tracking(1)
+                .foregroundStyle(Palette.textFaint).lineLimit(1)
         }
-        .contentShape(Rectangle())
-        .onTapGesture { editingGoal = g }
+    }
+
+    private func arrowFor(_ g: GoalArc) -> String? {
+        guard let s = g.start?.asDouble, let c = g.current?.asDouble, c != s else { return nil }
+        return c < s ? "↓" : "↑"
     }
 
     private func kv(_ k: String, _ v: String) -> some View {

@@ -58,47 +58,61 @@ struct HRVTrendChart: View {
 
 struct ReadinessTrendChart: View {
     let points: [TrendPoint]
+    private func band(_ v: Double) -> Color { v >= 75 ? Palette.green : (v >= 50 ? Palette.yellow : Palette.red) }
     var body: some View {
-        Chart(points) { p in
-            LineMark(x: .value("Date", p.date), y: .value("Readiness", p.value))
-                .foregroundStyle(Palette.mint)
-            PointMark(x: .value("Date", p.date), y: .value("Readiness", p.value))
-                .foregroundStyle(Palette.mint).symbolSize(18)
+        Chart {
+            ForEach(points) { p in
+                LineMark(x: .value("Date", p.date), y: .value("Readiness", p.value))
+                    .foregroundStyle(Palette.textMuted).interpolationMethod(.catmullRom)
+            }
+            ForEach(points) { p in
+                PointMark(x: .value("Date", p.date), y: .value("Readiness", p.value))
+                    .foregroundStyle(band(p.value)).symbolSize(28)
+            }
         }
         .chartYScale(domain: 0...100)
         .darkChartAxes()
     }
 }
 
+/// Form (TSB = CTL − ATL): bars up/green when fresh, down/red when fatigued, orange when neutral.
 struct FormChart: View {
     let points: [FormPoint]
+    private func color(_ f: Double) -> Color { f >= 5 ? Palette.green : (f <= -10 ? Palette.red : Palette.orange) }
     var body: some View {
-        Chart(points) { p in
-            LineMark(x: .value("Date", p.date), y: .value("Load", p.ctl), series: .value("s", "Fitness"))
-                .foregroundStyle(Palette.mint)
-            LineMark(x: .value("Date", p.date), y: .value("Load", p.atl), series: .value("s", "Fatigue"))
-                .foregroundStyle(Palette.red)
+        Chart {
+            ForEach(points) { p in
+                BarMark(x: .value("Date", p.date, unit: .day), y: .value("Form", p.form))
+                    .foregroundStyle(color(p.form))
+            }
+            RuleMark(y: .value("zero", 0)).foregroundStyle(Palette.textFaint.opacity(0.7))
+                .lineStyle(.init(lineWidth: 1))
         }
-        .chartForegroundStyleScale(["Fitness": Palette.mint, "Fatigue": Palette.red])
-        .chartLegend(position: .top, alignment: .leading)
         .darkChartAxes()
     }
 }
 
 struct ACRChart: View {
     let points: [FormPoint]
+    private func color(_ r: Double) -> Color { r <= 1.3 ? Palette.green : (r <= 1.5 ? Palette.orange : Palette.red) }
     var body: some View {
         Chart {
+            if let x0 = points.first?.date, let x1 = points.last?.date {
+                RectangleMark(xStart: .value("", x0), xEnd: .value("", x1), yStart: .value("", 0.8), yEnd: .value("", 1.3))
+                    .foregroundStyle(Palette.green.opacity(0.10))
+                RectangleMark(xStart: .value("", x0), xEnd: .value("", x1), yStart: .value("", 1.3), yEnd: .value("", 1.5))
+                    .foregroundStyle(Palette.orange.opacity(0.12))
+                RectangleMark(xStart: .value("", x0), xEnd: .value("", x1), yStart: .value("", 1.5), yEnd: .value("", 2.2))
+                    .foregroundStyle(Palette.red.opacity(0.12))
+            }
             ForEach(points) { p in
                 LineMark(x: .value("Date", p.date), y: .value("ACR", p.ratio))
-                    .foregroundStyle(Palette.mint).interpolationMethod(.catmullRom)
+                    .foregroundStyle(Palette.text).interpolationMethod(.catmullRom)
             }
-            RuleMark(y: .value("low", 0.8)).foregroundStyle(Palette.textFaint.opacity(0.5))
-                .lineStyle(.init(lineWidth: 1, dash: [3, 3]))
-            RuleMark(y: .value("high", 1.3)).foregroundStyle(Palette.yellow.opacity(0.6))
-                .lineStyle(.init(lineWidth: 1, dash: [3, 3]))
-            RuleMark(y: .value("danger", 1.5)).foregroundStyle(Palette.red.opacity(0.6))
-                .lineStyle(.init(lineWidth: 1, dash: [3, 3]))
+            ForEach(points) { p in
+                PointMark(x: .value("Date", p.date), y: .value("ACR", p.ratio))
+                    .foregroundStyle(color(p.ratio)).symbolSize(16)
+            }
         }
         .darkChartAxes()
     }
