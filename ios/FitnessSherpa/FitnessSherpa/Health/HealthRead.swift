@@ -348,10 +348,15 @@ extension HealthData {
         }
     }
 
-    /// Per-day "morning" readings for the RecoveryEngine: each day's earliest overnight/morning SDNN
-    /// reading (hour < 11, never a daytime mean) paired with that day's resting HR. Oldest → newest;
-    /// only days that have a morning HRV sample. NOTE: true post-wake detection needs per-night wake
-    /// times — this uses the earliest morning-window reading as an overnight proxy (refine later).
+    /// Per-day "morning" readings for the RecoveryEngine: each day's **overnight SDNN average**
+    /// (samples in the [00:00, 10:00) sleep/early-morning window, averaged to smooth the big
+    /// sample-to-sample swings) paired with that day's resting HR. Oldest → newest.
+    ///
+    /// We average rather than take a single reading because one Apple Watch SDNN sample is very
+    /// noisy and the earliest overnight sample is usually a sleep-onset dip — the *opposite* of a
+    /// recovery value. Resting HR is forward-filled (it posts with a lag and changes slowly), so the
+    /// latest day with an overnight HRV reading still resolves to "today" instead of stalling on
+    /// yesterday. (True per-night sleep-window detection is a future refinement.)
     static func morningReadings(days: Int = 70) async throws -> [MorningReading] {
         guard let hrvType = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) else { return [] }
         let ms = HKUnit.secondUnit(with: .milli)
@@ -360,7 +365,6 @@ extension HealthData {
         let start = cal.startOfDay(for: Date().addingTimeInterval(-Double(days) * 86400))
         let pred = HKQuery.predicateForSamples(withStart: start, end: Date())
 
-        // All SDNN samples ascending → keep the earliest morning-window sample per day.
         let hrvSamples: [HKQuantitySample] = try await withCheckedThrowingContinuation { cont in
             let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
             let q = HKSampleQuery(sampleType: hrvType, predicate: pred, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, s, err in
@@ -369,21 +373,32 @@ extension HealthData {
             }
             store.execute(q)
         }
-        var morningHRV: [Date: Double] = [:]
-        for s in hrvSamples where cal.component(.hour, from: s.startDate) < 11 {
+        // Average the overnight window per day.
+        var acc: [Date: (sum: Double, n: Int)] = [:]
+        for s in hrvSamples where cal.component(.hour, from: s.startDate) < 10 {
             let day = cal.startOfDay(for: s.startDate)
-            if morningHRV[day] == nil { morningHRV[day] = s.quantity.doubleValue(for: ms) }  // earliest wins
+            let v = s.quantity.doubleValue(for: ms)
+            let cur = acc[day] ?? (0, 0)
+            acc[day] = (cur.sum + v, cur.n + 1)
         }
+        var morningHRV: [Date: Double] = [:]
+        for (day, a) in acc { morningHRV[day] = a.sum / Double(a.n) }
 
         // Apple stores one resting-HR value per day.
         let rhrSeries = (try? await dailySeries(.restingHeartRate, unit: bpm, days: days, options: .discreteAverage)) ?? []
         var rhrByDay: [Date: Double] = [:]
         for p in rhrSeries { rhrByDay[cal.startOfDay(for: p.date)] = p.value }
 
-        return morningHRV.keys.sorted().compactMap { day in
-            guard let sdnn = morningHRV[day], let rhr = rhrByDay[day] else { return nil }
-            return MorningReading(date: day, sdnnMS: sdnn, rhrBPM: rhr, source: .healthkit)
+        // Build oldest→newest, forward-filling resting HR so today (HRV present, RHR may lag) still resolves.
+        var lastRHR: Double?
+        var out: [MorningReading] = []
+        for day in morningHRV.keys.sorted() {
+            guard let sdnn = morningHRV[day] else { continue }
+            if let rhr = rhrByDay[day] { lastRHR = rhr }
+            guard let rhr = lastRHR else { continue }   // skip leading days before any RHR exists
+            out.append(MorningReading(date: day, sdnnMS: sdnn, rhrBPM: rhr, source: .healthkit))
         }
+        return out
     }
 
     /// Per-night sleep over the last `days` (asleep / deep / REM hours), grouped into sleep sessions.
