@@ -297,7 +297,7 @@ final class AppModel {
             let dx = DiagnosisEngine.diagnose(input)
             diagnosis = dx
             refreshGoals()
-            PlannedWorkout.seedIfNeeded(profile: dx.profile, daysToRace: settings.daysToRace, context: context)   // so Today + Plan share one plan
+            PlannedWorkout.seedIfNeeded(profile: dx.profile, settings: settings, context: context)   // so Today + Plan share one plan
 
             persist(reading: r, baseline: baseline, diagnosis: dx, context: context)
 

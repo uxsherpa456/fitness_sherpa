@@ -566,7 +566,7 @@ struct OnboardingView: View {
         model.diagnosis = diagnosis                       // so goals seed from the right profile
         model.reseedGoals(for: diagnosis?.profile)        // re-seed the goal set (profile may have changed) + live currents
         // Rebuild the full periodized plan for the (possibly new) profile + race date.
-        PlannedWorkout.regeneratePlan(profile: diagnosis?.profile, daysToRace: s.daysToRace, context: context)
+        PlannedWorkout.regeneratePlan(profile: diagnosis?.profile, settings: s, context: context)
         model.pushToCloud()
 
         Task { await model.refresh(context: context) }   // first real read now that we're in

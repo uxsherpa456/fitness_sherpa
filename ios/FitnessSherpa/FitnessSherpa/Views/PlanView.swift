@@ -40,7 +40,7 @@ struct PlanView: View {
                 .refreshable { await load(force: true) }
                 .onChange(of: sessions.count) { if !didScroll { proxy.scrollTo("today", anchor: .top); didScroll = true } }
                 .task {
-                    PlannedWorkout.seedIfNeeded(profile: model.diagnosis?.profile, daysToRace: model.settings.daysToRace, context: context)
+                    PlannedWorkout.seedIfNeeded(profile: model.diagnosis?.profile, settings: model.settings, context: context)
                     await load(force: false)
                     proxy.scrollTo("today", anchor: .top)
                 }
@@ -52,7 +52,7 @@ struct PlanView: View {
                         Button { showingAdd = true } label: { Label("Add session", systemImage: "plus") }
                         Button {
                             PlannedWorkout.regeneratePlan(profile: model.diagnosis?.profile,
-                                                          daysToRace: model.settings.daysToRace, context: context)
+                                                          settings: model.settings, context: context)
                         } label: { Label("Regenerate plan", systemImage: "arrow.triangle.2.circlepath") }
                     } label: { Image(systemName: "ellipsis.circle") }
                 }

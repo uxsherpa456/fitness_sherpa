@@ -141,6 +141,23 @@ enum PlanEngine {
 
     private enum Role { case easyRun, longRun, qualityRun, strength, sim, rest }
 
+    /// Training paces derived from the recent 5K, formatted per the athlete's distance unit.
+    /// Offsets (s/km) off 5K pace: easy/long well below; tempo & threshold near; race ≈ HYROX run pace.
+    struct Paces {
+        let easy: String, long: String, tempo: String, threshold: String, race: String, fiveK: String
+    }
+    static func paces(recent5k: String, unit: String) -> Paces? {
+        let secs = DiagnosisEngine.parse5k(recent5k)   // "24:31" → 1471 s
+        guard secs > 0 else { return nil }
+        let perKm = secs / 5.0
+        func fmt(_ offset: Double) -> String {
+            let p = (perKm + offset) * (unit == "mi" ? 1.609344 : 1)
+            let s = Int(p.rounded())
+            return String(format: "%d:%02d/%@", s / 60, s % 60, unit)
+        }
+        return Paces(easy: fmt(70), long: fmt(62), tempo: fmt(25), threshold: fmt(12), race: fmt(28), fiveK: fmt(0))
+    }
+
     /// The weekly day-of-week skeleton (Mon…Sun) for a profile — its training-day mix follows the limiter.
     private static func weeklySkeleton(_ p: AthleteProfile?) -> [Role] {
         switch p {
@@ -151,16 +168,19 @@ enum PlanEngine {
         }
     }
 
-    /// Walk every day from today to race day, render the skeleton day modulated by its phase.
-    static func generate(profile: AthleteProfile?, daysToRace: Int, startDate: Date) -> [GeneratedSession] {
+    /// Walk every day from today to race day, render the skeleton day modulated by its phase, with
+    /// concrete targets: run paces from the 5K + station loads from the athlete's division.
+    static func generate(profile: AthleteProfile?, settings: UserSettings, startDate: Date) -> [GeneratedSession] {
         let cal = Calendar.current
         let today = cal.startOfDay(for: startDate)
-        let totalDays = min(max(daysToRace, 7), 366)   // cap at ~1 year
+        let totalDays = min(max(settings.daysToRace ?? 56, 7), 366)   // cap at ~1 year
         guard let raceDate = cal.date(byAdding: .day, value: totalDays, to: today) else { return [] }
         let weekdayMon0 = (cal.component(.weekday, from: today) + 5) % 7
         let startMonday = cal.date(byAdding: .day, value: -weekdayMon0, to: today) ?? today
         let blocks = Periodization.roadmap(daysToRace: totalDays, profile: profile)
         let skeleton = weeklySkeleton(profile)
+        let paces = paces(recent5k: settings.recent5k, unit: Units.distanceUnit(settings))
+        let stations = HyroxStations.weights(for: settings)
 
         var out: [GeneratedSession] = []
         var date = today
@@ -169,7 +189,8 @@ enum PlanEngine {
             let (phase, weekInPhase) = phaseFor(weekOffset, blocks)
             let weekday = (cal.component(.weekday, from: date) + 5) % 7
             out.append(render(role: skeleton[weekday], phase: phase, weekInPhase: weekInPhase,
-                              profile: profile, date: date, weekNumber: weekOffset + 1))
+                              profile: profile, date: date, weekNumber: weekOffset + 1,
+                              paces: paces, stations: stations, settings: settings))
             guard let next = cal.date(byAdding: .day, value: 1, to: date) else { break }
             date = next
         }
@@ -185,13 +206,15 @@ enum PlanEngine {
     }
 
     private static func render(role: Role, phase: TrainingPhase, weekInPhase: Int,
-                               profile: AthleteProfile?, date: Date, weekNumber: Int) -> GeneratedSession {
+                               profile: AthleteProfile?, date: Date, weekNumber: Int,
+                               paces: Paces?, stations: StationWeights, settings: UserSettings) -> GeneratedSession {
         // Volume by phase × progressive overload within the phase × a light deload every 4th week.
         let phaseVol: Double = { switch phase { case .base: return 1.0; case .build: return 1.0; case .peak: return 0.85; case .taper: return 0.55 } }()
         let prog = 0.9 + 0.05 * Double(min(weekInPhase, 4))
         let deload = (weekInPhase > 0 && weekInPhase % 4 == 3) ? 0.82 : 1.0
         let vol = phaseVol * prog * deload
         func km(_ base: Double) -> Int { max(3, Int((base * vol).rounded())) }
+        func dist(_ base: Double) -> String { Units.displayDistance(km: Double(km(base)), settings) ?? "\(km(base)) km" }
 
         func make(_ cat: SessionCategory, _ type: String, _ name: String, _ meta: String,
                   _ intent: PlanIntent, _ zone: String?, _ why: String?) -> GeneratedSession {
@@ -204,26 +227,26 @@ enum PlanEngine {
             return make(.rest, "REST", "Rest day", "recover", .rest, nil, nil)
 
         case .easyRun:
-            return make(.run, "EASY RUN · Z2", "Aerobic base run", "\(km(8)) km · easy", .easy, "Z2",
+            return make(.run, "EASY RUN · Z2", "Aerobic base run", "\(dist(8)) · \(paces?.easy ?? "easy")", .easy, "Z2",
                         "\(phase.label) — aerobic base that frees up race pace.")
 
         case .longRun:
-            return make(.run, "LONG RUN · Z2", "Long aerobic run", "\(km(phase == .taper ? 9 : 14)) km · easy", .easy, "Z2",
+            return make(.run, "LONG RUN · Z2", "Long aerobic run", "\(dist(phase == .taper ? 9 : 14)) · \(paces?.long ?? "easy")", .easy, "Z2",
                         "\(phase.label) — volume + power-to-weight.")
 
         case .qualityRun:
             switch phase {
             case .base:
-                return make(.run, "STEADY RUN · Z2", "Steady aerobic run", "\(km(9)) km · easy-moderate", .easy, "Z2",
+                return make(.run, "STEADY RUN · Z2", "Steady aerobic run", "\(dist(9)) · \(paces?.easy ?? "easy-moderate")", .easy, "Z2",
                             "Base — volume first; hold intensity easy.")
             case .build:
-                return make(.run, "TEMPO RUN", "Tempo + strides", "\(km(8)) km tempo · RPE 7", .quality, "tempo",
+                return make(.run, "TEMPO RUN", "Tempo + strides", "\(dist(8)) tempo · \(paces?.tempo ?? "RPE 7")", .quality, "tempo",
                             "Build — lifts the pace you can hold.")
             case .peak:
-                return make(.run, "GOAL-PACE INTERVALS", "Race-pace intervals", "5 × 1 km @ goal · 90s", .quality, "threshold",
-                            "Peak — locks in goal pace.")
+                return make(.run, "GOAL-PACE INTERVALS", "Race-pace intervals", "5 × 1 km @ \(paces?.race ?? "goal") · 90s", .quality, "threshold",
+                            "Peak — locks in your HYROX run pace.")
             case .taper:
-                return make(.run, "SHARPENER", "Strides + openers", "20 min easy + 6 strides", .quality, nil,
+                return make(.run, "SHARPENER", "Strides + openers", "20 min easy + 6 strides @ \(paces?.fiveK ?? "5k")", .quality, nil,
                             "Taper — stay sharp, arrive fresh.")
             }
 
@@ -234,17 +257,17 @@ enum PlanEngine {
             }
             switch phase {
             case .base:  return make(.strength, "STRENGTH · FOUNDATION", "Foundational strength", "45 min · squat/DL/press", .strength, nil, "Base — build the strength your stations need.")
-            case .build: return make(.strength, "STRENGTH · BUILD", "Heavy lower + pull", "45 min", .strength, nil, "Build — strength + grip for the stations.")
+            case .build: return make(.strength, "STRENGTH · BUILD", "Heavy lower + carries", "45 min + farmers \(stations.farmersKg)kg, sandbag \(stations.sandbagKg)kg", .strength, nil, "Build — strength + grip at race loads.")
             case .peak:  return make(.strength, "STRENGTH · MAINTAIN", "Power maintenance", "30 min", .strength, nil, "Peak — keep strength, prioritise race work.")
             case .taper: return make(.strength, "STRENGTH · LIGHT", "Light + crisp", "20 min · explosive", .strength, nil, "Taper — touch the weights, no fatigue.")
             }
 
         case .sim:
             switch phase {
-            case .base:  return make(.sim, "STATION TECHNIQUE", "Movement quality", "stations · clean reps", .easy, nil, "Base — groove the movements.")
-            case .build: return make(.sim, "STATION CIRCUIT", "Sled + wall ball + carries", "capacity under fatigue", .quality, nil, "Build — station capacity under fatigue.")
-            case .peak:  return make(.sim, "RACE SIM @ GOAL", "Compromised runs + stations", "4 × (1 km + station) @ goal", .race_sim, nil, "Peak — rehearse pacing + the fade.")
-            case .taper: return make(.sim, "MINI SIM", "Short sharp sim", "2 × (1 km + station)", .race_sim, nil, "Taper — short, race-pace, sharp.")
+            case .base:  return make(.sim, "STATION TECHNIQUE", "Movement quality", "wall ball \(stations.wallBallKg)kg + sled technique · clean reps", .easy, nil, "Base — groove the movements at race weight.")
+            case .build: return make(.sim, "STATION CIRCUIT", "Sled + wall ball + carries", "sled \(stations.sledKg)kg · WB \(stations.wallBallKg)kg · farmers \(stations.farmersKg)kg", .quality, nil, "Build — station capacity under fatigue, at your division loads.")
+            case .peak:  return make(.sim, "RACE SIM @ GOAL", "Compromised runs + stations", "4 × (1 km @ \(paces?.race ?? "goal") + station @ race weight)", .race_sim, nil, "Peak — rehearse pacing + the fade.")
+            case .taper: return make(.sim, "MINI SIM", "Short sharp sim", "2 × (1 km @ \(paces?.race ?? "goal") + station)", .race_sim, nil, "Taper — short, race-pace, sharp.")
             }
         }
     }

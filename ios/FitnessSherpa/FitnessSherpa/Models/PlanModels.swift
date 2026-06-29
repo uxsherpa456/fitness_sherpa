@@ -64,29 +64,29 @@ final class PlannedWorkout: Identifiable {
 
     /// Generate the full periodized plan to race day if the store has no upcoming plan.
     @MainActor
-    static func seedIfNeeded(profile: AthleteProfile?, daysToRace: Int?, context: ModelContext) {
+    static func seedIfNeeded(profile: AthleteProfile?, settings: UserSettings, context: ModelContext) {
         let todayStart = Calendar.current.startOfDay(for: Date())
         var desc = FetchDescriptor<PlannedWorkout>(predicate: #Predicate { $0.date >= todayStart })
         desc.fetchLimit = 1
         if let existing = try? context.fetch(desc), !existing.isEmpty { return }
-        insertGeneratedPlan(profile: profile, daysToRace: daysToRace, context: context)
+        insertGeneratedPlan(profile: profile, settings: settings, context: context)
     }
 
     /// Rebuild the future plan from scratch (after a re-diagnosis / changed race date). Preserves
     /// coach- and athlete-authored sessions; only the auto-generated future ones are replaced.
     @MainActor
-    static func regeneratePlan(profile: AthleteProfile?, daysToRace: Int?, context: ModelContext) {
+    static func regeneratePlan(profile: AthleteProfile?, settings: UserSettings, context: ModelContext) {
         let todayStart = Calendar.current.startOfDay(for: Date())
         let aiRaw = PlanSource.ai_generated.rawValue
         let desc = FetchDescriptor<PlannedWorkout>(
             predicate: #Predicate { $0.date >= todayStart && $0.sourceRaw == aiRaw })
         if let existing = try? context.fetch(desc) { existing.forEach { context.delete($0) } }
-        insertGeneratedPlan(profile: profile, daysToRace: daysToRace, context: context)
+        insertGeneratedPlan(profile: profile, settings: settings, context: context)
     }
 
     @MainActor
-    private static func insertGeneratedPlan(profile: AthleteProfile?, daysToRace: Int?, context: ModelContext) {
-        let generated = PlanEngine.generate(profile: profile, daysToRace: daysToRace ?? 56, startDate: Date())
+    private static func insertGeneratedPlan(profile: AthleteProfile?, settings: UserSettings, context: ModelContext) {
+        let generated = PlanEngine.generate(profile: profile, settings: settings, startDate: Date())
         for g in generated {
             context.insert(PlannedWorkout(
                 date: g.date, category: g.category, type: g.type, name: g.name, meta: g.meta,
