@@ -110,7 +110,9 @@ final class AppModel {
     func coachContext(recentWorkouts: [TrainingSession] = [], plan: [PlannedWorkout] = []) -> [String: Any] {
         let iso = ISO8601DateFormatter()
 
-        var metrics: [String: Any] = ["recent_5k": settings.recent5k, "stations_hold": settings.stationsHold]
+        var metrics: [String: Any] = ["recent_5k": settings.recent5k,
+                                      "stations_hold": settings.stationsHold,
+                                      "strength_axis": (settings.strengthAxis * 100).rounded() / 100]
         if let bw = reading?.bodyMass?.value { metrics["bodyweight_lb"] = Int(bw.rounded()) }
         if let hrv = reading?.hrv?.value { metrics["hrv_ms"] = Int(hrv.rounded()) }
         if let rhr = reading?.restingHR?.value { metrics["resting_hr_bpm"] = Int(rhr.rounded()) }
@@ -263,7 +265,11 @@ final class AppModel {
             let baseline = Baseline(bodyweightLb: r.bodyMass?.value,
                                     recent5kSeconds: DiagnosisEngine.parse5k(settings.recent5k),
                                     stationsHold: settings.stationsHold)
-            let dx = DiagnosisEngine.diagnose(baseline.asInput())
+            // Diagnose off the precise continuous strength axis (the boolean Baseline snapshot is for history).
+            let input = DiagnosisInput(bodyweightLb: r.bodyMass?.value ?? 214,
+                                       recent5k: DiagnosisEngine.parse5k(settings.recent5k),
+                                       strengthAxis: settings.strengthAxis)
+            let dx = DiagnosisEngine.diagnose(input)
             diagnosis = dx
             refreshGoals()
 

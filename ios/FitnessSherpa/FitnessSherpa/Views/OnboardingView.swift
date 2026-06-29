@@ -28,6 +28,11 @@ struct OnboardingView: View {
     @State private var diagnosis: Diagnosis?
     @State private var finishing = false
 
+    // Strength assessment (branched questionnaire → continuous strength axis).
+    @State private var experienced: Bool?          // nil until the gate is answered
+    @State private var strAnswers: [String: Double] = [:]   // qid → 0…1 (omitted when "not sure")
+    @State private var strNotSure: Set<String> = []         // qids explicitly marked "not sure"
+
     private static let lastStep = 5
 
     init(model: AppModel) {
@@ -124,6 +129,7 @@ struct OnboardingView: View {
     private var nextEnabled: Bool {
         switch step {
         case 3: return DiagnosisEngine.parse5k(s.recent5k) > 0
+        case 4: return experienced != nil && !strAnswers.isEmpty   // gate + at least one real answer
         case Self.lastStep: return !finishing
         default: return true
         }
@@ -221,23 +227,103 @@ struct OnboardingView: View {
         }
     }
 
+    // The strength axis is the one thing Apple Health can't see, so the athlete answers for it.
+    // An experience gate picks a question set you can actually answer; the answers average to 0…1.
+    private static let hyroxQuestions: [(id: String, label: String, options: [(String, Double?)])] = [
+        ("wallballs", "WALL BALLS — UNBROKEN, FRESH",
+         [("<20", 0.20), ("20–40", 0.50), ("40–70", 0.75), ("70+", 0.95), ("not sure", nil)]),
+        ("sled", "RACE-WEIGHT SLED PUSH · 50 M",
+         [("can't / long breaks", 0.15), ("unbroken, grindy", 0.50), ("unbroken, steady", 0.80), ("unbroken, fast", 0.95), ("not sure", nil)]),
+        ("fatigue", "STATIONS AFTER A HARD RUN",
+         [("fall apart", 0.20), ("drop a lot", 0.45), ("dip a little", 0.75), ("barely change", 0.95), ("not sure", nil)]),
+    ]
+    private static let generalQuestions: [(id: String, label: String, options: [(String, Double?)])] = [
+        ("pushups", "MAX PUSH-UPS · UNBROKEN",
+         [("<10", 0.20), ("10–25", 0.50), ("25–40", 0.75), ("40+", 0.95), ("not sure", nil)]),
+        ("squat", "BACK SQUAT vs BODYWEIGHT",
+         [("under bodyweight", 0.20), ("~bodyweight", 0.50), ("1.25× BW", 0.75), ("1.5×+ BW", 0.95), ("not sure", nil)]),
+        ("pullups", "STRICT PULL-UPS · UNBROKEN",
+         [("0–2", 0.20), ("3–8", 0.50), ("9–15", 0.80), ("15+", 0.95), ("not sure", nil)]),
+    ]
+
     private var strengthStep: some View {
         VStack(alignment: .leading, spacing: 20) {
-            stepTitle("Your strength", "The thing Apple Health can't see. Be honest — it sets your strength axis.")
+            stepTitle("Your strength", "The one axis Apple Health can't see. A couple of honest answers place you left-to-right on the map.")
             field("AGE") {
                 Stepper("\(s.age) years", value: $s.age, in: 14...90)
                     .tint(Palette.mint).foregroundStyle(Palette.text)
             }
-            VStack(alignment: .leading, spacing: 10) {
-                Text("STATIONS AFTER A HARD RUN")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced)).tracking(1.5)
-                    .foregroundStyle(Palette.textMuted)
-                choice("Barely change", "I hold output under fatigue", holds: true,  selected: s.stationsHold)
-                choice("Dip a little",  "Mostly hold, minor drop",     holds: true,  selected: s.stationsHold)
-                choice("Drop a lot",    "Stations fall off when tired", holds: false, selected: !s.stationsHold)
-                choice("Fall apart",    "I grind to a stop",            holds: false, selected: !s.stationsHold)
+
+            field("HOW MUCH HYROX HAVE YOU DONE?") {
+                VStack(spacing: 8) {
+                    expChoice("Experienced", "I've raced HYROX or train the stations", value: true)
+                    expChoice("New to it", "Haven't really trained the stations yet", value: false)
+                }
+            }
+
+            if let exp = experienced {
+                ForEach(exp ? Self.hyroxQuestions : Self.generalQuestions, id: \.id) { q in
+                    strQuestion(q.id, q.label, q.options)
+                }
             }
         }
+    }
+
+    private func expChoice(_ title: String, _ detail: String, value: Bool) -> some View {
+        Button {
+            if experienced != value { strAnswers.removeAll(); strNotSure.removeAll() }   // switching branch clears answers
+            experienced = value
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: experienced == value ? "largecircle.fill.circle" : "circle")
+                    .foregroundStyle(experienced == value ? Palette.mint : Palette.textFaint)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.body.weight(.semibold)).foregroundStyle(Palette.text)
+                    Text(detail).font(.caption).foregroundStyle(Palette.textMuted)
+                }
+                Spacer()
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 10).fill(experienced == value ? Palette.surface2 : Palette.surface))
+            .overlay(RoundedRectangle(cornerRadius: 10)
+                .stroke(experienced == value ? Palette.mint.opacity(0.5) : Palette.surfaceLine, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func strQuestion(_ qid: String, _ label: String, _ options: [(String, Double?)]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced)).tracking(1.5)
+                .foregroundStyle(Palette.textMuted)
+            FlowLayout(spacing: 8) {
+                ForEach(options.indices, id: \.self) { i in
+                    let (txt, val) = options[i]
+                    let isSel = val == nil ? strNotSure.contains(qid) : (strAnswers[qid] == val)
+                    Button { pickStrength(qid, val) } label: {
+                        Text(txt)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(isSel ? Palette.ink : (val == nil ? Palette.textFaint : Palette.text))
+                            .padding(.vertical, 9).padding(.horizontal, 14)
+                            .background(Capsule().fill(isSel ? Palette.mint : Palette.surface))
+                            .overlay(Capsule().stroke(isSel ? Color.clear : Palette.surfaceLine, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func pickStrength(_ qid: String, _ val: Double?) {
+        if let val { strAnswers[qid] = val; strNotSure.remove(qid) }
+        else { strAnswers.removeValue(forKey: qid); strNotSure.insert(qid) }
+    }
+
+    /// Average the answered questions (skipping "not sure"); neutral 0.5 if nothing was answered.
+    private var computedStrengthAxis: Double {
+        let vals = Array(strAnswers.values)
+        guard !vals.isEmpty else { return 0.5 }
+        return vals.reduce(0, +) / Double(vals.count)
     }
 
     @ViewBuilder private var revealStep: some View {
@@ -324,25 +410,6 @@ struct OnboardingView: View {
         }
     }
 
-    private func choice(_ title: String, _ detail: String, holds: Bool, selected: Bool) -> some View {
-        Button { s.stationsHold = holds } label: {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: selected ? "largecircle.fill.circle" : "circle")
-                    .foregroundStyle(selected ? Palette.mint : Palette.textFaint)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.body.weight(.semibold)).foregroundStyle(Palette.text)
-                    Text(detail).font(.caption).foregroundStyle(Palette.textMuted)
-                }
-                Spacer()
-            }
-            .padding(12)
-            .background(RoundedRectangle(cornerRadius: 10).fill(selected ? Palette.surface2 : Palette.surface))
-            .overlay(RoundedRectangle(cornerRadius: 10)
-                .stroke(selected ? Palette.mint.opacity(0.5) : Palette.surfaceLine, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-    }
-
     // MARK: - Logic
 
     private var genderOptions: [(String, String)] {
@@ -368,10 +435,14 @@ struct OnboardingView: View {
     }
 
     private func computeDiagnosis() {
-        let bw = reading?.bodyMass?.value ?? 200
+        // Fold the questionnaire into the continuous strength axis (and keep the legacy boolean in sync).
+        let axis = computedStrengthAxis
+        s.strengthAxis = axis
+        s.stationsHold = axis >= 0.5
+        let bw = reading?.bodyMass?.value ?? 214
         let input = DiagnosisInput(bodyweightLb: bw,
                                    recent5k: DiagnosisEngine.parse5k(s.recent5k),
-                                   stationsHold: s.stationsHold)
+                                   strengthAxis: axis)
         diagnosis = DiagnosisEngine.diagnose(input)
     }
 

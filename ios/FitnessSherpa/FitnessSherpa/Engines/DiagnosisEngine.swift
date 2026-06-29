@@ -8,7 +8,7 @@
 //  Example:
 //      let input = DiagnosisInput(bodyweightLb: 214,
 //                                 recent5k: DiagnosisEngine.parse5k("25:45"),
-//                                 stationsHold: true)
+//                                 strengthAxis: 0.78)
 //      let dx = DiagnosisEngine.diagnose(input)
 //      // dx.profile == .heavySlowStrong, dx.markerX/Y drive the quadrant marker
 
@@ -53,7 +53,7 @@ enum AthleteProfile: Int, Codable, CaseIterable {
 struct DiagnosisInput {
     var bodyweightLb: Double
     var recent5k: TimeInterval          // seconds
-    var stationsHold: Bool              // do the stations hold output under fatigue
+    var strengthAxis: Double            // 0…1 self-assessed strength + station capacity (the run/Health-blind axis)
     var goal5k: TimeInterval = 22 * 60  // the 5k pace a 1:10 finish needs
 }
 
@@ -79,8 +79,9 @@ enum DiagnosisEngine {
         let weightScore = clamp(1 - (input.bodyweightLb - 185) / (225 - 185), 0, 1)     // 185 lb→1, 225→0
         let runAxis = paceScore * 0.6 + weightScore * 0.4
 
-        // Strength axis: a self-assessed boolean for now (manual entry).
-        let strengthAxis = input.stationsHold ? 0.78 : 0.30
+        // Strength axis: a continuous 0…1 self-assessment (averaged from the onboarding station/lift
+        // questions). Apple Health can't see this, so it's the one axis the athlete enters by hand.
+        let strengthAxis = clamp(input.strengthAxis, 0, 1)
 
         let strong = strengthAxis >= 0.5
         let fast   = runAxis >= 0.5
@@ -99,7 +100,7 @@ enum DiagnosisEngine {
         let markerX = 0.12 + runAxis * 0.76
         let markerY = 0.12 + (1 - strengthAxis) * 0.76
         let evidence = "\(format5k(input.recent5k)) 5k, \(Int(input.bodyweightLb)) lb, "
-                     + "stations \(input.stationsHold ? "hold" : "fade") vs \(format5k(goal)) goal"
+                     + "stations \(strong ? "hold" : "fade") vs \(format5k(goal)) goal"
 
         return Diagnosis(profile: profile, limiter: profile.limiter, focus: profile.focus,
                          runAxis: runAxis, strengthAxis: strengthAxis,

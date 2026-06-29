@@ -19,10 +19,34 @@ struct UserSettings: Codable, Equatable {
     var weightUnit = "lb"         // lb | kg
     var distanceUnit = "mi"       // mi | km
     var recent5k = "24:31"        // chip-timed 5k PR (baseline input)
-    var stationsHold = true       // do the stations hold under fatigue (strength axis)
+    var strengthAxis = 0.78       // 0…1 strength + station capacity, averaged from onboarding (the Health-blind axis)
+    var stationsHold = true       // legacy boolean snapshot, kept in sync with strengthAxis for the coach context
     var onboarded = false
 
     static let key = "userSettings.v1"
+
+    /// Tolerant decode — every field is optional with a default, so adding or removing a field never
+    /// wipes a saved profile. `strengthAxis` back-fills from the legacy `stationsHold` boolean.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func v<T: Decodable>(_ k: CodingKeys, _ def: T) -> T { (try? c.decode(T.self, forKey: k)) ?? def }
+        location      = v(.location, "Washington, DC")
+        format        = v(.format, "singles")
+        gender        = v(.gender, "mens")
+        tier          = v(.tier, "open")
+        age           = v(.age, 37)
+        goalTime      = v(.goalTime, "1:10:00")
+        raceDate      = v(.raceDate, "2026-09-04")
+        raceLocation  = v(.raceLocation, "Washington DC")
+        weightUnit    = v(.weightUnit, "lb")
+        distanceUnit  = v(.distanceUnit, "mi")
+        recent5k      = v(.recent5k, "24:31")
+        stationsHold  = v(.stationsHold, true)
+        strengthAxis  = v(.strengthAxis, stationsHold ? 0.78 : 0.30)
+        onboarded     = v(.onboarded, false)
+    }
+
+    init() {}
 
     static func load() -> UserSettings {
         guard let data = UserDefaults.standard.data(forKey: key),

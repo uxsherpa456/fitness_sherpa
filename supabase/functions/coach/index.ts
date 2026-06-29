@@ -27,6 +27,7 @@ const TOOLS = [{
       bodyweight_lb: { type: "number" },
       recent_5k: { type: "string", description: "mm:ss" },
       stations_hold: { type: "boolean", description: "do the stations hold output under fatigue" },
+      strength_axis: { type: "number", description: "0…1 continuous strength/station capacity; overrides stations_hold" },
       scenario_note: { type: "string", description: "short label for the scenario" },
     },
     required: [],
@@ -198,6 +199,7 @@ Deno.serve(async (req: Request) => {
           bodyweight_lb: context?.metrics?.bodyweight_lb ?? 214,
           recent_5k: context?.metrics?.recent_5k ?? "25:45",
           stations_hold: context?.metrics?.stations_hold ?? true,
+          strength_axis: context?.metrics?.strength_axis ?? (context?.metrics?.stations_hold ?? true ? 0.78 : 0.30),
           goal: (context?.nutrition?.goal ?? "lose") as "lose" | "maintain" | "gain",
           training_day: (context?.nutrition?.training_day ?? "quality") as "rest" | "easy" | "quality" | "long",
         };

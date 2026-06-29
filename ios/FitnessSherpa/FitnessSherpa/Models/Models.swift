@@ -28,11 +28,12 @@ import SwiftData
         self.stationsHold = stationsHold
     }
 
-    /// Build the engine input from this baseline (with sensible fallbacks).
+    /// Build the engine input from this baseline (with sensible fallbacks). `stationsHold` is the
+    /// stored boolean snapshot; the live diagnosis prefers `settings.strengthAxis` for full precision.
     func asInput() -> DiagnosisInput {
         DiagnosisInput(bodyweightLb: bodyweightLb ?? 214,
                        recent5k: recent5kSeconds ?? DiagnosisEngine.parse5k("25:45"),
-                       stationsHold: stationsHold ?? true)
+                       strengthAxis: (stationsHold ?? true) ? 0.78 : 0.30)
     }
 }
 

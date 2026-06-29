@@ -5,6 +5,7 @@ export interface DiagnosisInput {
   bodyweight_lb?: number;
   recent_5k?: string; // mm:ss
   stations_hold?: boolean;
+  strength_axis?: number; // 0…1 continuous strength/station capacity; overrides stations_hold when present
 }
 
 export interface Diagnosis {
@@ -29,12 +30,14 @@ export function recomputeDiagnosis(
   const w = o.bodyweight_lb ?? base.bodyweight_lb;
   const fk = sec(o.recent_5k ?? base.recent_5k);
   const sh = o.stations_hold ?? base.stations_hold;
+  const sa = o.strength_axis ?? base.strength_axis;
 
   const goal = sec("22:00");
   const ps = clamp(1 - (fk - goal) / (sec("28:00") - goal), 0, 1); // 22:00->1, 28:00->0
   const ws = clamp(1 - (w - 185) / (225 - 185), 0, 1); // 185lb->1, 225->0
   const run = ps * 0.6 + ws * 0.4;
-  const str = sh ? 0.78 : 0.30;
+  // Continuous strength axis when the app sends one; otherwise the legacy boolean snaps to 0.78 / 0.30.
+  const str = (sa != null) ? clamp(sa, 0, 1) : (sh ? 0.78 : 0.30);
 
   const strong = str >= 0.5, fast = run >= 0.5;
   let profile: string, profileIndex: 1 | 2 | 3 | 4, limiter: string, focus: string;
@@ -62,6 +65,6 @@ export function recomputeDiagnosis(
       x: Math.round((0.12 + run * 0.76) * 100),
       y: Math.round((0.12 + (1 - str) * 0.76) * 100),
     },
-    evidence: `${o.recent_5k ?? base.recent_5k} 5k, ${w} lb, stations ${sh ? "hold" : "fade"} vs 22:00 goal`,
+    evidence: `${o.recent_5k ?? base.recent_5k} 5k, ${w} lb, stations ${str >= 0.5 ? "hold" : "fade"} vs 22:00 goal`,
   };
 }
