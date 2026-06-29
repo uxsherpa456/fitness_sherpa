@@ -24,9 +24,21 @@ enum AppSchemaV2: VersionedSchema {
     }
 }
 
+enum AppSchemaV3: VersionedSchema {
+    static var versionIdentifier = Schema.Version(3, 0, 0)
+    static var models: [any PersistentModel.Type] {
+        // drops the orphaned Goal / Session / Benchmark (now in LegacySchema, excluded here)
+        [Baseline.self, DiagnosisRecord.self, HealthSnapshot.self, TrainingSession.self,
+         Conversation.self, ChatMessageRecord.self, PlannedWorkout.self, DailyReadiness.self]
+    }
+}
+
 enum AppMigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] { [AppSchemaV1.self, AppSchemaV2.self] }
+    static var schemas: [any VersionedSchema.Type] {
+        [AppSchemaV1.self, AppSchemaV2.self, AppSchemaV3.self]
+    }
     static var stages: [MigrationStage] {
-        [.lightweight(fromVersion: AppSchemaV1.self, toVersion: AppSchemaV2.self)]
+        [.lightweight(fromVersion: AppSchemaV1.self, toVersion: AppSchemaV2.self),
+         .lightweight(fromVersion: AppSchemaV2.self, toVersion: AppSchemaV3.self)]   // drops orphan tables
     }
 }

@@ -5,30 +5,11 @@
 //  trends, and coach reason over. A "goal" is modeled as a concept with HYROX as the
 //  only instance for now, structured to extend later.
 //
-//  NOTE: the live schema is AppSchemaV2 in Migrations.swift. Goal / Session / Benchmark below are
-//  legacy/orphaned (superseded by TrainingSession / PlannedWorkout / GoalArc); slated for removal
-//  in a future schema version.
+//  NOTE: the live schema is AppSchemaV3 in Migrations.swift. The orphaned Goal / Session / Benchmark
+//  models moved to LegacySchema.swift (kept only for migration history).
 
 import Foundation
 import SwiftData
-
-/// The fixed race goal — the point everything reasons against.
-@Model final class Goal {
-    var sport: String          // "HYROX"
-    var targetTime: String     // "1:10:00"
-    var raceDate: Date
-    var location: String       // "Washington DC"
-    var createdAt: Date
-
-    init(sport: String = "HYROX", targetTime: String, raceDate: Date,
-         location: String, createdAt: Date = .now) {
-        self.sport = sport
-        self.targetTime = targetTime
-        self.raceDate = raceDate
-        self.location = location
-        self.createdAt = createdAt
-    }
-}
 
 /// A baseline assessment entry the diagnosis reasons over (from onboarding or re-runs).
 @Model final class Baseline {
@@ -79,48 +60,6 @@ import SwiftData
         self.markerX = d.markerX
         self.markerY = d.markerY
         self.evidence = d.evidence
-    }
-}
-
-/// A confirmed cardio workout (imported from HealthKit) or a manual session.
-@Model final class Session {
-    var date: Date
-    var type: String           // "run" | "strength" | "station" | "sim" | "recovery"
-    var durationMin: Int
-    var distanceKm: Double?
-    var avgPace: String?       // "5:18/km"
-    var avgHR: Int?
-    var hrDriftPct: Double?     // the "did the aerobic base hold" read
-    var rpe: Int?
-    var source: String         // "healthkit" | "manual"
-
-    init(date: Date = .now, type: String, durationMin: Int, distanceKm: Double? = nil,
-         avgPace: String? = nil, avgHR: Int? = nil, hrDriftPct: Double? = nil,
-         rpe: Int? = nil, source: String = "manual") {
-        self.date = date
-        self.type = type
-        self.durationMin = durationMin
-        self.distanceKm = distanceKm
-        self.avgPace = avgPace
-        self.avgHR = avgHR
-        self.hrDriftPct = hrDriftPct
-        self.rpe = rpe
-        self.source = source
-    }
-}
-
-/// A manual station / strength benchmark HealthKit can't capture.
-@Model final class Benchmark {
-    var date: Date
-    var name: String           // "Wall balls" | "Sled push" | "Back squat 5RM"
-    var value: String          // "100 reps" | "2:10" | "120 kg"
-    var underFatigue: String?  // "held" | "slipped" | "blew up"
-
-    init(date: Date = .now, name: String, value: String, underFatigue: String? = nil) {
-        self.date = date
-        self.name = name
-        self.value = value
-        self.underFatigue = underFatigue
     }
 }
 
