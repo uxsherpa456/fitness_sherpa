@@ -91,6 +91,10 @@ struct TodayView: View {
                 Text(verdictText)
                     .font(.subheadline).foregroundStyle(Palette.inkSoft)
 
+                if let rec = model.readiness?.recovery {
+                    recoveryReadout(rec)
+                }
+
                 HStack(spacing: 0) {
                     micro("HRV", model.reading?.hrv.map { String(format: "%.0f", $0.value) }, "ms")
                     micro("Resting HR", model.reading?.restingHR.map { String(format: "%.0f", $0.value) }, "bpm")
@@ -103,6 +107,27 @@ struct TodayView: View {
             }
         }
     }
+
+    /// Two-axis recovery readout (state + body + the HRV/RHR z-scores), in the readiness card's light style.
+    @ViewBuilder private func recoveryReadout(_ rec: RecoveryResult) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 8) {
+                Text(rec.headline).font(.caption.weight(.bold)).foregroundStyle(Palette.ink)
+                if let hz = rec.hrvZ, let rz = rec.rhrZ {
+                    Text("HRV \(sigma(hz)) · RHR \(sigma(rz))")
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(Palette.inkSoft)
+                }
+            }
+            Text(rec.body)
+                .font(.caption2).foregroundStyle(Palette.inkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 2)
+    }
+
+    private func sigma(_ z: Double) -> String { String(format: "%+.1fσ", z) }
 
     private var baselineNote: String {
         guard let rd = model.readiness else { return "Recovery model warming up…" }

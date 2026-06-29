@@ -49,6 +49,7 @@ struct ReadinessComponent: Identifiable {
 struct ReadinessResult {
     var score: Int?                // recovery × load (before the subjective feeling, applied later)
     var components: [ReadinessComponent]
+    var recovery: RecoveryResult?  // two-axis HRV/RHR readout (log-z HRV + z RHR) feeding the blend
     var cappedGreen: Bool = false
     // training load context (for the card + coach)
     var atl: Double = 0
@@ -87,11 +88,18 @@ enum ReadinessEngine {
         async let tempBaseT = HealthData.baseline(.appleSleepingWristTemperature, unit: degC)
         async let respTodayT = try? HealthData.latestSample(.respiratoryRate, unit: bpm)
         async let tempTodayT = try? HealthData.latestSample(.appleSleepingWristTemperature, unit: degC)
+        async let morningT = try? HealthData.morningReadings()
 
         let hrvBase = await hrvBaseT, rhrBase = await rhrBaseT
         let respBase = await respBaseT, tempBase = await tempBaseT
         let respToday = (await respTodayT) ?? nil
         let tempToday = (await tempTodayT) ?? nil
+        let morning = ((await morningT) ?? nil) ?? []
+
+        // Two-axis recovery: log-z HRV + z RHR vs the athlete's own morning-reading baseline.
+        let recovery: RecoveryResult? = morning.last.map {
+            RecoveryEngine.evaluate(history: Array(morning.dropLast()), today: $0)
+        }
 
         var comps: [ReadinessComponent] = []
         func z(_ value: Double, _ base: MetricBaseline, invert: Bool) -> Double {
@@ -105,8 +113,21 @@ enum ReadinessEngine {
                                             z: z(today, b, invert: invert), weight: weight, personal: base != nil))
         }
 
-        add("HRV", reading.hrv?.value, hrvBase, prior: hrvPrior, weight: 0.35, unit: "ms", invert: false)
-        add("Resting HR", reading.restingHR?.value, rhrBase, prior: rhrPrior, weight: 0.20, unit: "bpm", invert: true)
+        func clampZ(_ z: Double) -> Double { min(max(z, -2), 2) }
+        // HRV + RHR: prefer the RecoveryEngine's log-z / z (own morning baseline) when it has ≥14
+        // days; otherwise fall back to the raw-z-vs-baseline (population priors early on).
+        if let rec = recovery, let hz = rec.hrvZ, let today = morning.last {
+            comps.append(ReadinessComponent(label: "HRV", value: today.sdnnMS, unit: "ms",
+                                            z: clampZ(hz), weight: 0.35, personal: true))
+        } else {
+            add("HRV", reading.hrv?.value, hrvBase, prior: hrvPrior, weight: 0.35, unit: "ms", invert: false)
+        }
+        if let rec = recovery, let rz = rec.rhrZ, let today = morning.last {
+            comps.append(ReadinessComponent(label: "Resting HR", value: today.rhrBPM, unit: "bpm",
+                                            z: clampZ(-rz), weight: 0.20, personal: true))   // higher RHR = worse
+        } else {
+            add("Resting HR", reading.restingHR?.value, rhrBase, prior: rhrPrior, weight: 0.20, unit: "bpm", invert: true)
+        }
         add("Resp rate", respToday?.value, respBase, prior: respPrior, weight: 0.10, unit: "br/min", invert: true)
 
         if let t = tempToday?.value, let tb = tempBase {
@@ -121,7 +142,7 @@ enum ReadinessEngine {
                                             weight: 0.20, personal: false))
         }
 
-        var result = ReadinessResult(score: nil, components: comps, cappedGreen: load.cappedGreen,
+        var result = ReadinessResult(score: nil, components: comps, recovery: recovery, cappedGreen: load.cappedGreen,
                                      atl: load.atl, ctl: load.ctl, form: load.form, ratio: load.ratio,
                                      hrMax: load.hrMax, lastHardPct: load.lastHardPct,
                                      lastHardHoursAgo: load.lastHardHoursAgo)
@@ -129,8 +150,8 @@ enum ReadinessEngine {
         guard reading.hrv != nil, !comps.isEmpty else { return result }
 
         let totalW = comps.reduce(0) { $0 + $1.weight }
-        let recovery = comps.reduce(0.0) { $0 + (($1.z + 2) / 4 * 100) * ($1.weight / totalW) }
-        let scored = recovery * load.recoveryMultiplier
+        let recoveryPct = comps.reduce(0.0) { $0 + (($1.z + 2) / 4 * 100) * ($1.weight / totalW) }
+        let scored = recoveryPct * load.recoveryMultiplier
         result.score = Int(min(100, max(0, scored.rounded())))
         return result
     }

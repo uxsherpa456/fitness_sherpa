@@ -348,6 +348,44 @@ extension HealthData {
         }
     }
 
+    /// Per-day "morning" readings for the RecoveryEngine: each day's earliest overnight/morning SDNN
+    /// reading (hour < 11, never a daytime mean) paired with that day's resting HR. Oldest → newest;
+    /// only days that have a morning HRV sample. NOTE: true post-wake detection needs per-night wake
+    /// times — this uses the earliest morning-window reading as an overnight proxy (refine later).
+    static func morningReadings(days: Int = 70) async throws -> [MorningReading] {
+        guard let hrvType = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) else { return [] }
+        let ms = HKUnit.secondUnit(with: .milli)
+        let bpm = HKUnit.count().unitDivided(by: .minute())
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: Date().addingTimeInterval(-Double(days) * 86400))
+        let pred = HKQuery.predicateForSamples(withStart: start, end: Date())
+
+        // All SDNN samples ascending → keep the earliest morning-window sample per day.
+        let hrvSamples: [HKQuantitySample] = try await withCheckedThrowingContinuation { cont in
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+            let q = HKSampleQuery(sampleType: hrvType, predicate: pred, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, s, err in
+                if let err { cont.resume(throwing: err); return }
+                cont.resume(returning: (s as? [HKQuantitySample]) ?? [])
+            }
+            store.execute(q)
+        }
+        var morningHRV: [Date: Double] = [:]
+        for s in hrvSamples where cal.component(.hour, from: s.startDate) < 11 {
+            let day = cal.startOfDay(for: s.startDate)
+            if morningHRV[day] == nil { morningHRV[day] = s.quantity.doubleValue(for: ms) }  // earliest wins
+        }
+
+        // Apple stores one resting-HR value per day.
+        let rhrSeries = (try? await dailySeries(.restingHeartRate, unit: bpm, days: days, options: .discreteAverage)) ?? []
+        var rhrByDay: [Date: Double] = [:]
+        for p in rhrSeries { rhrByDay[cal.startOfDay(for: p.date)] = p.value }
+
+        return morningHRV.keys.sorted().compactMap { day in
+            guard let sdnn = morningHRV[day], let rhr = rhrByDay[day] else { return nil }
+            return MorningReading(date: day, sdnnMS: sdnn, rhrBPM: rhr, source: .healthkit)
+        }
+    }
+
     /// Per-night sleep over the last `days` (asleep / deep / REM hours), grouped into sleep sessions.
     static func sleepNights(days: Int = 30) async throws -> [SleepNight] {
         guard let type = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else { return [] }

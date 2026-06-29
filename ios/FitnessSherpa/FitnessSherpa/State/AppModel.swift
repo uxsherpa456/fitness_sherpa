@@ -157,6 +157,12 @@ final class AppModel {
                  "unit": c.unit, "z_vs_baseline": (c.z * 100).rounded() / 100,
                  "source": c.personal ? "personal_baseline" : "population_prior"]
             }
+            if let rec = rd.recovery {
+                var rr: [String: Any] = ["state": rec.state.key, "readout": rec.headline]
+                if let z = rec.hrvZ { rr["hrv_log_z"] = (z * 100).rounded() / 100 }
+                if let z = rec.rhrZ { rr["rhr_z"] = (z * 100).rounded() / 100 }
+                r["recovery"] = rr   // two-axis HRV/RHR readout (log-normal HRV vs own morning baseline)
+            }
             ctx["readiness"] = r
         }
 
