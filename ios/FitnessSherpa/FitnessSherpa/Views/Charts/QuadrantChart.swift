@@ -35,10 +35,33 @@ struct QuadrantChart: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            axisLabel("STRENGTH / STATIONS  ·  stronger ↑")
-            GeometryReader { geo in
-                let w = geo.size.width, h = geo.size.height
-                ZStack {
+            HStack(spacing: 6) {
+                // strength axis — vertical, both ends (weak at the bottom, strong at the top)
+                Text("WEAKER  →  STRONGER")
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .tracking(1).foregroundStyle(Palette.textFaint)
+                    .fixedSize().rotationEffect(.degrees(-90)).frame(width: 16)
+
+                VStack(spacing: 6) {
+                    chart
+                    // run axis — both ends, in plain language
+                    HStack {
+                        axisLabel("← heavier · slower")
+                        Spacer()
+                        axisLabel("faster · lighter →")
+                    }
+                }
+            }
+            Text("Up = stronger · right = faster. Top-right is the complete athlete; your corner names your limiter.")
+                .font(.system(size: 10)).foregroundStyle(Palette.textMuted)
+                .fixedSize(horizontal: false, vertical: true).padding(.top, 1)
+        }
+    }
+
+    private var chart: some View {
+        GeometryReader { geo in
+            let w = geo.size.width, h = geo.size.height
+            ZStack {
                     // the ideal corner — a faint glow in the top-right (strong + fast)
                     RadialGradient(colors: [Palette.mint.opacity(0.12), .clear], center: .topTrailing,
                                    startRadius: 0, endRadius: w * 0.55)
@@ -65,16 +88,6 @@ struct QuadrantChart: View {
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.surfaceLine, lineWidth: 1))
             }
             .aspectRatio(1, contentMode: .fit)
-            // run axis — both ends, in plain language
-            HStack {
-                axisLabel("← heavier · slower")
-                Spacer()
-                axisLabel("faster · lighter →")
-            }
-            Text("Up = stronger · right = faster. Top-right is the complete athlete; your corner names your limiter.")
-                .font(.system(size: 10)).foregroundStyle(Palette.textMuted)
-                .fixedSize(horizontal: false, vertical: true).padding(.top, 1)
-        }
     }
 
     private func axisLabel(_ t: String) -> some View {
