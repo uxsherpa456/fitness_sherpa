@@ -63,19 +63,21 @@ final class PlannedWorkout: Identifiable {
     var source: PlanSource { PlanSource(rawValue: sourceRaw) ?? .ai_generated }
 
     /// Seed the next 7 days from the diagnosis-driven template if the store has no upcoming plan.
+    /// Each session is tagged with the current periodization phase (from days-to-race + profile).
     @MainActor
-    static func seedIfNeeded(profile: AthleteProfile?, context: ModelContext) {
+    static func seedIfNeeded(profile: AthleteProfile?, daysToRace: Int?, context: ModelContext) {
         let cal = Calendar.current
         let todayStart = cal.startOfDay(for: Date())
         var desc = FetchDescriptor<PlannedWorkout>(predicate: #Predicate { $0.date >= todayStart })
         desc.fetchLimit = 1
         if let existing = try? context.fetch(desc), !existing.isEmpty { return }
 
+        let phase = Periodization.currentPhase(daysToRace: daysToRace, profile: profile).rawValue
         for (i, p) in PlanEngine.recommendedWeek(for: profile).enumerated() {
             let date = cal.date(byAdding: .day, value: i, to: todayStart) ?? todayStart
             context.insert(PlannedWorkout(
                 date: date, category: p.category, type: p.type, name: p.name, meta: p.meta,
-                intent: intent(for: p), targetZone: zone(for: p), why: p.why))
+                intent: intent(for: p), targetZone: zone(for: p), why: p.why, phase: phase))
         }
         try? context.save()
     }

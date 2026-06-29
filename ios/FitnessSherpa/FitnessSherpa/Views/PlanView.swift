@@ -31,6 +31,7 @@ struct PlanView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         if let loadError { Text("⚠ \(loadError)").font(.caption).foregroundStyle(Palette.red) }
+                        roadmapCard
                         ForEach(entries) { entry($0) }
                     }
                     .padding(.horizontal, 14).padding(.vertical, 10)
@@ -39,7 +40,7 @@ struct PlanView: View {
                 .refreshable { await load(force: true) }
                 .onChange(of: sessions.count) { if !didScroll { proxy.scrollTo("today", anchor: .top); didScroll = true } }
                 .task {
-                    PlannedWorkout.seedIfNeeded(profile: model.diagnosis?.profile, context: context)
+                    PlannedWorkout.seedIfNeeded(profile: model.diagnosis?.profile, daysToRace: model.settings.daysToRace, context: context)
                     await load(force: false)
                     proxy.scrollTo("today", anchor: .top)
                 }
@@ -60,6 +61,73 @@ struct PlanView: View {
                 Button("Keep mine", role: .cancel) { s.resolveKeepMine(); try? context.save(); conflict = nil }
             }
         }
+    }
+
+    // MARK: - Periodization roadmap
+
+    private var roadmap: [PhaseBlock] {
+        Periodization.roadmap(daysToRace: model.settings.daysToRace, profile: model.diagnosis?.profile)
+    }
+
+    @ViewBuilder private var roadmapCard: some View {
+        let blocks = roadmap
+        let totalWeeks = max(1, blocks.reduce(0) { $0 + $1.weeks })
+        if !blocks.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("PHASES TO RACE DAY")
+                        .font(.system(size: 11, weight: .heavy, design: .monospaced)).tracking(1.5)
+                        .foregroundStyle(Palette.textMuted)
+                    Spacer()
+                    if let n = model.settings.daysToRace, n > 0 {
+                        Text("\(n) days").font(.caption.weight(.semibold)).foregroundStyle(Palette.textFaint)
+                    }
+                }
+                // Proportional phase bar.
+                GeometryReader { geo in
+                    HStack(spacing: 2) {
+                        ForEach(blocks) { b in
+                            b.phase.color.opacity(b.isCurrent ? 1 : 0.45)
+                                .frame(width: max(3, (geo.size.width - CGFloat(blocks.count - 1) * 2) * CGFloat(b.weeks) / CGFloat(totalWeeks)))
+                        }
+                    }
+                }
+                .frame(height: 7).clipShape(Capsule())
+
+                ForEach(blocks) { phaseRow($0) }
+            }
+            .padding(14)
+            .background(Palette.surface, in: RoundedRectangle(cornerRadius: 14))
+            .padding(.bottom, 4)
+        }
+    }
+
+    private func phaseRow(_ b: PhaseBlock) -> some View {
+        let (s, e) = b.range(from: todayStart)
+        let endShown = cal.date(byAdding: .day, value: -1, to: e) ?? e
+        return HStack(alignment: .top, spacing: 10) {
+            Circle().fill(b.phase.color).frame(width: 8, height: 8).padding(.top, 5)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(b.phase.label)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(b.isCurrent ? Palette.text : Palette.textMuted)
+                    Text("· \(b.weeks) wk").font(.caption).foregroundStyle(Palette.textFaint)
+                    if b.isCurrent {
+                        Text("NOW").font(.system(size: 8, weight: .heavy, design: .monospaced)).tracking(1)
+                            .foregroundStyle(Palette.ink)
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(b.phase.color, in: Capsule())
+                    }
+                    Spacer()
+                    Text("\(s.formatted(.dateTime.month(.abbreviated).day())) – \(endShown.formatted(.dateTime.month(.abbreviated).day()))")
+                        .font(.caption2.monospaced()).foregroundStyle(Palette.textFaint)
+                }
+                Text(b.focus).font(.caption).foregroundStyle(Palette.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .opacity(b.isCurrent ? 1 : 0.9)
     }
 
     // MARK: - Timeline entries
