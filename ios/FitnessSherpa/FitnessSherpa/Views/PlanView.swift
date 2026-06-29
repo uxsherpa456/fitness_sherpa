@@ -21,28 +21,47 @@ struct PlanView: View {
     @State private var editingPlan: PlannedWorkout?
     @State private var showingAdd = false
     @State private var conflict: TrainingSession?
+    @State private var tab: PlanTab = .plan
+
+    private enum PlanTab { case plan, history }
 
     private let cal = Calendar.current
     private var todayStart: Date { cal.startOfDay(for: Date()) }
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10) {
-                        if let loadError { Text("⚠ \(loadError)").font(.caption).foregroundStyle(Palette.red) }
-                        roadmapCard
-                        ForEach(entries) { entry($0) }
-                    }
-                    .padding(.horizontal, 14).padding(.vertical, 10)
+            VStack(spacing: 0) {
+                Picker("", selection: $tab) {
+                    Text("Plan").tag(PlanTab.plan)
+                    Text("History").tag(PlanTab.history)
                 }
-                .background(Palette.bg)
-                .refreshable { await load(force: true) }
-                .onChange(of: sessions.count) { if !didScroll { proxy.scrollTo("today", anchor: .top); didScroll = true } }
-                .task {
-                    PlannedWorkout.seedIfNeeded(profile: model.diagnosis?.profile, settings: model.settings, context: context)
-                    await load(force: false)
-                    proxy.scrollTo("today", anchor: .top)
+                .pickerStyle(.segmented).tint(Palette.mint)
+                .padding(.horizontal, 14).padding(.top, 8)
+
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 10) {
+                            if let loadError { Text("⚠ \(loadError)").font(.caption).foregroundStyle(Palette.red) }
+                            if tab == .plan {
+                                roadmapCard
+                                ForEach(planEntries) { entry($0) }
+                            } else if historyEntries.isEmpty {
+                                Text("No workouts logged yet — wear your watch or add one with +.")
+                                    .font(.footnote).foregroundStyle(Palette.textMuted).padding(.top, 30)
+                            } else {
+                                ForEach(historyEntries) { entry($0) }
+                            }
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 10)
+                    }
+                    .background(Palette.bg)
+                    .refreshable { await load(force: true) }
+                    .onChange(of: sessions.count) { if !didScroll, tab == .plan { proxy.scrollTo("today", anchor: .top); didScroll = true } }
+                    .task {
+                        PlannedWorkout.seedIfNeeded(profile: model.diagnosis?.profile, settings: model.settings, context: context)
+                        await load(force: false)
+                        if tab == .plan { proxy.scrollTo("today", anchor: .top) }
+                    }
                 }
             }
             .appBar(model)
@@ -160,25 +179,27 @@ struct PlanView: View {
         d.formatted(.dateTime.month(.wide).year()).uppercased()
     }
 
-    /// Chronological timeline: actuals (time-ordered, month-bucketed) → LAST LOGGED → PLAN → future.
-    private var entries: [Entry] {
+    /// Plan tab: upcoming planned sessions, month-bucketed, today pinned (scroll anchor "today").
+    private var planEntries: [Entry] {
         var out: [Entry] = []
         var lastMonth = ""
-
-        let actuals = sessions.sorted { $0.date < $1.date }   // ascending = time-of-day order within a day
-        for s in actuals {
-            let m = monthKey(s.date)
-            if m != lastMonth { out.append(.month(m)); lastMonth = m }
-            out.append(.actual(s))
-        }
-        if let last = actuals.last { out.append(.lastLogged(last.date)) }
-
-        out.append(.planBegins)
         let upcoming = planned.filter { $0.date >= todayStart }.sorted { $0.date < $1.date }
         for p in upcoming {
             let m = monthKey(p.date)
             if m != lastMonth { out.append(.month(m)); lastMonth = m }
             out.append(.planned(p, today: cal.isDateInToday(p.date)))
+        }
+        return out
+    }
+
+    /// History tab: logged workouts, most recent first, month-bucketed.
+    private var historyEntries: [Entry] {
+        var out: [Entry] = []
+        var lastMonth = ""
+        for s in sessions.sorted(by: { $0.date > $1.date }) {
+            let m = monthKey(s.date)
+            if m != lastMonth { out.append(.month(m)); lastMonth = m }
+            out.append(.actual(s))
         }
         return out
     }
