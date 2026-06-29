@@ -14,6 +14,8 @@ struct SettingsView: View {
     @State private var goalH: Int
     @State private var goalM: Int
     @State private var raceDate: Date
+    @State private var bwText: String
+    @State private var bfText: String
 
     init(model: AppModel) {
         self.model = model
@@ -23,6 +25,9 @@ struct SettingsView: View {
         _goalH = State(initialValue: parts.count > 0 ? parts[0] : 1)
         _goalM = State(initialValue: parts.count > 1 ? parts[1] : 10)
         _raceDate = State(initialValue: DateFormatters.ymd.date(from: settings.raceDate) ?? Date())
+        let bw = settings.weightUnit == "kg" ? settings.bodyweightLb * 0.453592 : settings.bodyweightLb
+        _bwText = State(initialValue: settings.bodyweightLb > 0 ? String(format: "%.0f", bw) : "")
+        _bfText = State(initialValue: settings.bodyFatPct > 0 ? String(format: "%.0f", settings.bodyFatPct) : "")
     }
 
     private var genderOptions: [(String, String)] {
@@ -55,6 +60,14 @@ struct SettingsView: View {
                         }
                     }
                     Stepper("Age: \(s.age)", value: $s.age, in: 14...90)
+                    LabeledContent("Bodyweight (\(Units.weightUnit(s).uppercased()))") {
+                        TextField("Apple Health", text: $bwText)
+                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent("Body fat %") {
+                        TextField("optional", text: $bfText)
+                            .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                    }
                 }
 
                 Section("The race") {
@@ -115,6 +128,11 @@ struct SettingsView: View {
         s.raceDate = DateFormatters.ymd.string(from: raceDate)
         // Division must be valid for the chosen format (mixed only for doubles/relay).
         if !genderOptions.contains(where: { $0.0 == s.gender }) { s.gender = "mens" }
+        // Bodyweight stored canonically in lb; body fat as a plain %.
+        if let v = Double(bwText.trimmingCharacters(in: .whitespaces)), v > 0 {
+            s.bodyweightLb = s.weightUnit == "kg" ? v / 0.453592 : v
+        } else { s.bodyweightLb = 0 }
+        s.bodyFatPct = Double(bfText.trimmingCharacters(in: .whitespaces)) ?? 0
         model.settings = s
         model.saveSettings()
         model.pushToCloud()

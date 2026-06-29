@@ -126,6 +126,8 @@ struct AppSettings: Codable {
     var gender: String? = nil       // "mens" | "womens" | "mixed"
     var tier: String? = nil         // "open" | "pro"
     var age: Int? = nil
+    var weightLb: Double? = nil     // manual / confirmed bodyweight fallback (Apple Health wins when present)
+    var bodyFatPct: Double? = nil
 }
 
 // MARK: - Client

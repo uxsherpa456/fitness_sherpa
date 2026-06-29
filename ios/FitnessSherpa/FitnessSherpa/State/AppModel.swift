@@ -51,13 +51,21 @@ final class AppModel {
         refreshGoals()
     }
 
+    /// Bodyweight for the diagnosis + goals: Apple Health wins; otherwise the manually-entered value.
+    var effectiveBodyweightLb: Double? {
+        reading?.bodyMass?.value ?? (settings.bodyweightLb > 0 ? settings.bodyweightLb : nil)
+    }
+    var effectiveBodyFatPct: Double? {
+        reading?.bodyFat.map { $0.value * 100 } ?? (settings.bodyFatPct > 0 ? settings.bodyFatPct : nil)
+    }
+
     /// Seed the four profile goals if none exist, then update current values from live data.
     func refreshGoals() {
         if goals.isEmpty { goals = GoalLibrary.seed(for: diagnosis?.profile) }
         for i in goals.indices {
             switch goals[i].key {
-            case "weight":  if let w = reading?.bodyMass?.value { goals[i].current = .number(w.rounded()) }
-            case "bodyfat": if let bf = reading?.bodyFat?.value { goals[i].current = .number((bf * 100).rounded()) }
+            case "weight":  if let w = effectiveBodyweightLb { goals[i].current = .number(w.rounded()) }
+            case "bodyfat": if let bf = effectiveBodyFatPct { goals[i].current = .number(bf.rounded()) }
             case "fivek":   goals[i].current = .text(settings.recent5k)
             default: break
             }
@@ -199,7 +207,7 @@ final class AppModel {
         var metrics: [String: Any] = ["recent_5k": settings.recent5k,
                                       "stations_hold": settings.stationsHold,
                                       "strength_axis": (settings.strengthAxis * 100).rounded() / 100]
-        if let bw = reading?.bodyMass?.value { metrics["bodyweight_lb"] = Int(bw.rounded()) }
+        if let bw = effectiveBodyweightLb { metrics["bodyweight_lb"] = Int(bw.rounded()) }
         if let hrv = reading?.hrv?.value { metrics["hrv_ms"] = Int(hrv.rounded()) }
         if let rhr = reading?.restingHR?.value { metrics["resting_hr_bpm"] = Int(rhr.rounded()) }
         if let sleep = reading?.sleep?.value { metrics["sleep_hrs"] = (sleep * 10).rounded() / 10 }
@@ -370,7 +378,7 @@ final class AppModel {
                                     recent5kSeconds: DiagnosisEngine.parse5k(settings.recent5k),
                                     stationsHold: settings.stationsHold)
             // Diagnose off the precise continuous strength axis (the boolean Baseline snapshot is for history).
-            let input = DiagnosisInput(bodyweightLb: r.bodyMass?.value ?? 214,
+            let input = DiagnosisInput(bodyweightLb: effectiveBodyweightLb ?? 214,
                                        recent5k: DiagnosisEngine.parse5k(settings.recent5k),
                                        strengthAxis: settings.strengthAxis)
             let dx = DiagnosisEngine.diagnose(input)

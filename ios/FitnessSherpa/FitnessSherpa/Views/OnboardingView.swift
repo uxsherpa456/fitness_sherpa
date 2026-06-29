@@ -23,6 +23,8 @@ struct OnboardingView: View {
     @State private var step = 0
     @State private var connecting = false
     @State private var connected = false
+    @State private var bodyweightText = ""
+    @State private var bodyFatText = ""
     @State private var reading: HealthData.Reading?
     @State private var diagnosis: Diagnosis?
     @State private var finishing = false
@@ -55,6 +57,14 @@ struct OnboardingView: View {
         _goalH = State(initialValue: parts.count > 0 ? parts[0] : 1)
         _goalM = State(initialValue: parts.count > 1 ? parts[1] : 10)
         _raceDate = State(initialValue: DateFormatters.ymd.date(from: settings.raceDate) ?? Date())
+        // Re-runs pre-fill the entered weight; a fresh user starts blank (Health fills it on connect).
+        if !fresh, settings.bodyweightLb > 0 {
+            let v = settings.weightUnit == "kg" ? settings.bodyweightLb * 0.453592 : settings.bodyweightLb
+            _bodyweightText = State(initialValue: String(format: "%.0f", v))
+        }
+        if !fresh, settings.bodyFatPct > 0 {
+            _bodyFatText = State(initialValue: String(format: "%.0f", settings.bodyFatPct))
+        }
     }
 
     static let everKey = "onboardedBefore"
@@ -216,7 +226,6 @@ struct OnboardingView: View {
 
             if connected {
                 VStack(alignment: .leading, spacing: 8) {
-                    pulledRow("Bodyweight", reading?.bodyMass.map { "\(Int($0.value.rounded())) lb" })
                     pulledRow("Resting HR", reading?.restingHR.map { "\(Int($0.value.rounded())) bpm" })
                     pulledRow("HRV", reading?.hrv.map { "\(Int($0.value.rounded())) ms" })
                     pulledRow("Last run", reading?.lastRunDate.map { $0.formatted(.relative(presentation: .named)) })
@@ -224,8 +233,17 @@ struct OnboardingView: View {
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 12).fill(Palette.surface))
             } else {
-                Text("Optional — you can connect later in Settings. We'll fall back to sensible defaults for the map.")
+                Text("Optional — or enter your numbers below. We'll fall back to sensible defaults for anything blank.")
                     .font(.footnote).foregroundStyle(Palette.textFaint)
+            }
+
+            // Bodyweight drives power-to-weight (half your run axis) + your weight goal. Pre-filled
+            // from Health when it has it; editable, and enterable when it doesn't.
+            field("BODYWEIGHT (\(Units.weightUnit(s).uppercased()))") {
+                obField("e.g. 200", text: $bodyweightText).keyboardType(.decimalPad)
+            }
+            field("BODY FAT % · OPTIONAL") {
+                obField("e.g. 18", text: $bodyFatText).keyboardType(.decimalPad)
             }
         }
     }
@@ -548,7 +566,18 @@ struct OnboardingView: View {
             reading = try? await HealthData.readSnapshot()
             connecting = false
             connected = true
+            // Pre-fill the editable fields from Health (only if the athlete hasn't typed their own).
+            if bodyweightText.isEmpty, let bw = reading?.bodyMass?.value { bodyweightText = weightToInput(bw) }
+            if bodyFatText.isEmpty, let bf = reading?.bodyFat?.value { bodyFatText = String(format: "%.0f", bf * 100) }
         }
+    }
+
+    private func weightToInput(_ lb: Double) -> String {
+        String(format: "%.0f", s.weightUnit == "kg" ? lb * 0.453592 : lb)
+    }
+    private func inputToLb(_ text: String) -> Double? {
+        guard let v = Double(text.trimmingCharacters(in: .whitespaces)), v > 0 else { return nil }
+        return s.weightUnit == "kg" ? v / 0.453592 : v
     }
 
     private func computeDiagnosis() {
@@ -557,7 +586,10 @@ struct OnboardingView: View {
         s.strengthAxis = axis
         s.stationsHold = axis >= 0.5
         s.mobilityScore = mobilityScore ?? -1   // advisory flag; <0 = not assessed
-        let bw = reading?.bodyMass?.value ?? 214
+        // Persist the entered bodyweight / body fat (manual fallback when Health has none).
+        s.bodyweightLb = inputToLb(bodyweightText) ?? 0
+        s.bodyFatPct = Double(bodyFatText.trimmingCharacters(in: .whitespaces)) ?? 0
+        let bw = inputToLb(bodyweightText) ?? reading?.bodyMass?.value ?? 214
         let input = DiagnosisInput(bodyweightLb: bw,
                                    recent5k: DiagnosisEngine.parse5k(s.recent5k),
                                    strengthAxis: axis)
