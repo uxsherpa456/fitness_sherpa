@@ -35,10 +35,14 @@ struct QuadrantChart: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            axisLabel("STRENGTH / STATIONS →")
+            axisLabel("STRENGTH / STATIONS  ·  stronger ↑")
             GeometryReader { geo in
                 let w = geo.size.width, h = geo.size.height
                 ZStack {
+                    // the ideal corner — a faint glow in the top-right (strong + fast)
+                    RadialGradient(colors: [Palette.mint.opacity(0.12), .clear], center: .topTrailing,
+                                   startRadius: 0, endRadius: w * 0.55)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
                     // active quadrant highlight
                     if let active, let c = cells.first(where: { $0.profile == active }) {
                         Rectangle().fill(Palette.mint.opacity(0.10))
@@ -61,7 +65,15 @@ struct QuadrantChart: View {
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.surfaceLine, lineWidth: 1))
             }
             .aspectRatio(1, contentMode: .fit)
-            axisLabel("RUN / POWER-TO-WEIGHT →")
+            // run axis — both ends, in plain language
+            HStack {
+                axisLabel("← heavier · slower")
+                Spacer()
+                axisLabel("faster · lighter →")
+            }
+            Text("Up = stronger · right = faster. Top-right is the complete athlete; your corner names your limiter.")
+                .font(.system(size: 10)).foregroundStyle(Palette.textMuted)
+                .fixedSize(horizontal: false, vertical: true).padding(.top, 1)
         }
     }
 
@@ -72,7 +84,13 @@ struct QuadrantChart: View {
 
     private func cellLabel(_ c: Cell) -> some View {
         let isActive = c.profile == active
+        let isIdeal = c.profile == .goodAtEverything
         return VStack(alignment: c.textAlign == .leading ? .leading : .trailing, spacing: 3) {
+            if isIdeal {
+                Text("✦ IDEAL")
+                    .font(.system(size: 8, weight: .heavy, design: .monospaced)).tracking(1.5)
+                    .foregroundStyle(Palette.mint.opacity(0.8))
+            }
             Text(c.title)
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(isActive ? Palette.mint : Palette.text)
