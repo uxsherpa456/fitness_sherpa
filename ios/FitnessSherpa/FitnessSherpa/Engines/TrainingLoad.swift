@@ -86,13 +86,13 @@ enum TrainingLoad {
         let da = exp(-1.0 / 7), dc = exp(-1.0 / 42)
         for t in daily { atl = atl * da + t * (1 - da); ctl = ctl * dc + t * (1 - dc) }
         let ratio = ctl > 0 ? atl / ctl : (atl > 0 ? 2 : 1)
-        let loadMult = ratio <= 1 ? 1.0 : max(0.6, 1 - (ratio - 1) * 0.4)
+        let loadMult = ratio <= 1 ? 1.0 : max(0.7, 1 - (ratio - 1) * 0.25)   // gentler acute-overload dampener
 
-        // Hardest effort in the last 72h + how long ago (peak HR preferred).
+        // Hardest effort in the last 48h + how long ago (peak HR preferred).
         var lastHardPct: Double?, lastHardHours: Double?
         for s in sessions {
             let hours = Date().timeIntervalSince(s.date) / 3600
-            guard hours >= 0, hours <= 72 else { continue }
+            guard hours >= 0, hours <= 48 else { continue }
             let pct: Double
             if let mx = s.maxHR { pct = Double(mx) / hrMax }
             else if let a = s.avgHR { pct = Double(a) / hrMax + 0.05 }
@@ -109,10 +109,10 @@ enum TrainingLoad {
 
         var effortMult = 1.0, cappedGreen = false
         if let pct = lastHardPct, let hours = lastHardHours {
-            let severity = min(max((pct - 0.90) / 0.10, 0), 1) * 0.35    // up to −0.35 at maximal effort
-            let decay = max(0, 1 - hours / 72)                           // fades over 3 days
+            let severity = min(max((pct - 0.90) / 0.10, 0), 1) * 0.22    // up to −0.22 at maximal effort
+            let decay = max(0, 1 - hours / 48)                          // mostly gone by ~2 days
             effortMult = 1 - severity * decay
-            if pct >= 0.95, hours < 24 { cappedGreen = true }
+            if pct >= 0.95, hours < 18 { cappedGreen = true }           // hard cap only the day-of window
         }
 
         return LoadResult(
