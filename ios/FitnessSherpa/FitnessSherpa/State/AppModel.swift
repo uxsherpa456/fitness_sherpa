@@ -161,6 +161,14 @@ final class AppModel {
                 var rr: [String: Any] = ["state": rec.state.key, "readout": rec.headline]
                 if let z = rec.hrvZ { rr["hrv_log_z"] = (z * 100).rounded() / 100 }
                 if let z = rec.rhrZ { rr["rhr_z"] = (z * 100).rounded() / 100 }
+                if let a = rec.hrv {
+                    rr["hrv"] = ["today": Int(a.today.rounded()),
+                                 "normal_low": Int(a.low.rounded()), "normal_high": Int(a.high.rounded()), "unit": "ms"]
+                }
+                if let a = rec.rhr {
+                    rr["rhr"] = ["today": Int(a.today.rounded()),
+                                 "normal_low": Int(a.low.rounded()), "normal_high": Int(a.high.rounded()), "unit": "bpm"]
+                }
                 r["recovery"] = rr   // two-axis HRV/RHR readout (log-normal HRV vs own morning baseline)
             }
             ctx["readiness"] = r

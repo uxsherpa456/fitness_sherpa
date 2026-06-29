@@ -108,23 +108,49 @@ struct TodayView: View {
         }
     }
 
-    /// Two-axis recovery readout (state + body + the HRV/RHR z-scores), in the readiness card's light style.
+    /// Two-axis recovery readout: state, today's value vs your own normal band (the numbers to beat),
+    /// and the plain-English body. Rendered in the readiness card's light style.
     @ViewBuilder private func recoveryReadout(_ rec: RecoveryResult) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 8) {
-                Text(rec.headline).font(.caption.weight(.bold)).foregroundStyle(Palette.ink)
-                if let hz = rec.hrvZ, let rz = rec.rhrZ {
-                    Text("HRV \(sigma(hz)) · RHR \(sigma(rz))")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(Palette.inkSoft)
-                }
-            }
+        VStack(alignment: .leading, spacing: 4) {
+            Text(rec.headline).font(.caption.weight(.bold)).foregroundStyle(Palette.ink)
+            if let hrv = rec.hrv { axisRow("HRV", hrv, z: rec.hrvZ) }
+            if let rhr = rec.rhr { axisRow("RHR", rhr, z: rec.rhrZ) }
             Text(rec.body)
                 .font(.caption2).foregroundStyle(Palette.inkSoft)
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 2)
+    }
+
+    /// "HRV  ↓ 39 ms   normal 41–83   −1.2σ" — today's number + an arrow when it's outside your band.
+    private func axisRow(_ label: String, _ a: AxisRange, z: Double?) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(Palette.inkSoft).frame(width: 30, alignment: .leading)
+            HStack(spacing: 2) {
+                if let arrow = bandArrow(a) {
+                    Text(arrow).font(.system(size: 11, weight: .heavy)).foregroundStyle(Palette.ink)
+                }
+                Text("\(Int(a.today.rounded())) \(a.unit)")
+                    .font(.system(size: 13, weight: .heavy)).foregroundStyle(Palette.ink)
+            }
+            Text("normal \(Int(a.low.rounded()))–\(Int(a.high.rounded()))")
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(Palette.inkSoft)
+            Spacer(minLength: 0)
+            if let z { Text(sigma(z)).font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Palette.inkSoft) }
+        }
+    }
+
+    /// ↓ when below the normal band, ↑ when above; nil when inside it.
+    private func bandArrow(_ a: AxisRange) -> String? {
+        if a.today < a.low  { return "↓" }
+        if a.today > a.high { return "↑" }
+        return nil
     }
 
     private func sigma(_ z: Double) -> String { String(format: "%+.1fσ", z) }

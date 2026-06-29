@@ -78,12 +78,24 @@ struct OrbHint {
 
 // MARK: - Result payload
 
+/// Today's value against the athlete's own "normal" band (±`band`σ) in real units — so the UI can
+/// show the actual numbers to beat (e.g. HRV 39 ms · normal 41–83), not just a z-score.
+struct AxisRange {
+    let today: Double
+    let low: Double         // −band edge of normal
+    let high: Double        // +band edge of normal
+    let unit: String
+    let higherIsBetter: Bool
+}
+
 struct RecoveryResult {
     let state: RecoveryState
     let headline: String
     let body: String
     let hrvZ: Double?      // nil when insufficient data
     let rhrZ: Double?
+    let hrv: AxisRange?    // nil when insufficient data
+    let rhr: AxisRange?
     let orbHint: OrbHint
 }
 
@@ -117,6 +129,8 @@ enum RecoveryEngine {
                 body: emptyStateBody(have: window.count, need: minimumDays),
                 hrvZ: nil,
                 rhrZ: nil,
+                hrv: nil,
+                rhr: nil,
                 orbHint: state.orbHint
             )
         }
@@ -136,12 +150,24 @@ enum RecoveryEngine {
         let state = classify(hrvZ: hrvZ, rhrZ: rhrZ)
         let copy = readout(for: state)
 
+        // Normal band in real units. HRV band lives in log space → exponentiate back to ms.
+        let hrvRange = AxisRange(today: today.sdnnMS,
+                                 low: exp(hrvMean - band * hrvSD),
+                                 high: exp(hrvMean + band * hrvSD),
+                                 unit: "ms", higherIsBetter: true)
+        let rhrRange = AxisRange(today: today.rhrBPM,
+                                 low: rhrMean - band * rhrSD,
+                                 high: rhrMean + band * rhrSD,
+                                 unit: "bpm", higherIsBetter: false)
+
         return RecoveryResult(
             state: state,
             headline: copy.headline,
             body: copy.body,
             hrvZ: hrvZ,
             rhrZ: rhrZ,
+            hrv: hrvRange,
+            rhr: rhrRange,
             orbHint: state.orbHint
         )
     }
