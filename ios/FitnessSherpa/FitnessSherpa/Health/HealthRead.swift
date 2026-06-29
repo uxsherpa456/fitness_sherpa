@@ -106,6 +106,27 @@ extension HealthData {
         }
     }
 
+    /// The most-recent day's *average* for a discrete metric — the number the Health app shows on its
+    /// tile (e.g. HRV averages all of the day's SDNN readings, not the latest one). Anchored to the
+    /// calendar day of the newest sample, and stamped with that sample's time for freshness.
+    static func dailyAverageSample(_ id: HKQuantityTypeIdentifier, unit: HKUnit) async throws -> Sample? {
+        guard let type = HKQuantityType.quantityType(forIdentifier: id),
+              let latest = try await latestSample(id, unit: unit) else { return nil }
+        let cal = Calendar.current
+        let dayStart = cal.startOfDay(for: latest.date)
+        let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart) ?? Date()
+        let pred = HKQuery.predicateForSamples(withStart: dayStart, end: dayEnd)
+        let avg: Double? = try await withCheckedThrowingContinuation { cont in
+            let q = HKStatisticsQuery(quantityType: type, quantitySamplePredicate: pred, options: .discreteAverage) { _, stats, error in
+                if let error { cont.resume(throwing: error); return }
+                cont.resume(returning: stats?.averageQuantity()?.doubleValue(for: unit))
+            }
+            store.execute(q)
+        }
+        // Average over the day, but keep the freshness stamp on the latest reading.
+        return Sample(value: avg ?? latest.value, date: latest.date)
+    }
+
     /// Merge overlapping date intervals (de-dupes overlapping samples from multiple sources).
     private static func merge(_ ivs: [(start: Date, end: Date)]) -> [(start: Date, end: Date)] {
         let sorted = ivs.sorted { $0.start < $1.start }
@@ -379,7 +400,7 @@ extension HealthData {
     /// Read the milestone metrics in one call, stamped with the query time.
     static func readSnapshot() async throws -> Reading {
         let bpm = HKUnit.count().unitDivided(by: .minute())
-        async let hrv   = latestSample(.heartRateVariabilitySDNN, unit: .secondUnit(with: .milli))
+        async let hrv   = dailyAverageSample(.heartRateVariabilitySDNN, unit: .secondUnit(with: .milli))
         async let rhr   = latestSample(.restingHeartRate, unit: bpm)
         async let mass  = latestSample(.bodyMass, unit: .pound())
         async let bf    = latestSample(.bodyFatPercentage, unit: .percent())

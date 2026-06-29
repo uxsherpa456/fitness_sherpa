@@ -12,6 +12,7 @@ import SwiftData
 struct TodayView: View {
     let model: AppModel
     @Environment(\.modelContext) private var context
+    @Query(sort: \PlannedWorkout.date, order: .forward) private var plan: [PlannedWorkout]
 
     var body: some View {
         NavigationStack {
@@ -266,19 +267,45 @@ struct TodayView: View {
 
     // MARK: - D. Next session (why-this driven by the live diagnosis)
 
+    /// The next thing on the actual plan: earliest incomplete session from today onward, falling back
+    /// to today's session even if it's already done. Same store the Plan tab renders.
+    private var nextSession: PlannedWorkout? {
+        let todayStart = Calendar.current.startOfDay(for: Date())
+        return plan.first { !$0.completed && $0.date >= todayStart }
+            ?? plan.last { Calendar.current.isDateInToday($0.date) }
+    }
+
     private var nextSessionCard: some View {
         Card(style: .light) {
             VStack(alignment: .leading, spacing: 8) {
-                ModuleLabel("Next session · today", onLight: true)
-                Text("Tempo run + strides").font(.system(size: 17, weight: .bold))
-                Text("8 km tempo · 40 min · RPE 7").font(.footnote).foregroundStyle(Palette.inkSoft)
-                Text(whyThis).font(.footnote).foregroundStyle(Palette.inkSoft).padding(.top, 2)
-                sampleCaption("Sample session — plan engine pending", onLight: true)
+                if let s = nextSession {
+                    ModuleLabel(nextSessionLabel(s), onLight: true)
+                    Text(s.name.isEmpty ? s.type.capitalized : s.name).font(.system(size: 17, weight: .bold))
+                    if !s.meta.isEmpty {
+                        Text(s.meta).font(.footnote).foregroundStyle(Palette.inkSoft)
+                    }
+                    Text(whyThis(s)).font(.footnote).foregroundStyle(Palette.inkSoft).padding(.top, 2)
+                    if s.completed {
+                        Text("✓ Logged").font(.caption2.weight(.semibold)).foregroundStyle(Palette.inkSoft)
+                    }
+                } else {
+                    ModuleLabel("Next session", onLight: true)
+                    Text("Open the Plan tab to generate your week").font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Palette.inkSoft)
+                }
             }
         }
     }
 
-    private var whyThis: String {
+    private func nextSessionLabel(_ s: PlannedWorkout) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(s.date)    { return "Next session · today" }
+        if cal.isDateInTomorrow(s.date) { return "Next session · tomorrow" }
+        return "Next session · \(s.date.formatted(.dateTime.weekday(.wide)))"
+    }
+
+    private func whyThis(_ s: PlannedWorkout) -> String {
+        if let w = s.why, !w.isEmpty { return "Why this: \(w)" }
         if let d = model.diagnosis {
             return "Why this, today: your limiter is \(d.limiter). Focus — \(d.focus)."
         }
