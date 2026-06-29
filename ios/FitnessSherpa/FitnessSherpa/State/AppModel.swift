@@ -89,6 +89,52 @@ final class AppModel {
         }
     }
 
+    // MARK: Sandbox — experience the app as a brand-new user without losing your data
+
+    var inSandbox: Bool { StateClient.isSandbox }
+
+    /// Back current settings + goals up to the live cloud row, isolate onto a sandbox cloud key, wipe
+    /// the local store, and reset to a fresh (un-onboarded) state — so onboarding runs from scratch.
+    @MainActor
+    func resetToFreshUser(context: ModelContext) async {
+        // 1) Save the real profile to the LIVE row and wait, so the backup lands before we switch keys.
+        StateClient.userKey = StateClient.liveKey
+        let backup = AppState(onboarded: true, profile: settings.toProfile(),
+                              goals: goals, settings: settings.toAppSettings())
+        try? await StateClient.save(backup)
+        // 2) Point cloud at the isolated sandbox row (its own empty state → onboarding).
+        StateClient.userKey = StateClient.sandboxKey
+        // 3) Wipe local + reset in-memory state.
+        wipeLocal(context: context)
+        settings = UserSettings()        // onboarded == false
+        goals = []; diagnosis = nil; reading = nil; readiness = nil
+        feelingRaw = nil; status = ""
+        saveSettings(); saveGoals()
+    }
+
+    /// Switch back to the live cloud row and restore settings + goals from it (workouts re-import
+    /// from HealthKit; the plan regenerates).
+    @MainActor
+    func restoreMyData(context: ModelContext) async {
+        StateClient.userKey = StateClient.liveKey
+        wipeLocal(context: context)
+        settings = UserSettings(); goals = []
+        await bootstrapCloud()
+        await refresh(context: context)
+    }
+
+    private func wipeLocal(context: ModelContext) {
+        let d = UserDefaults.standard
+        ["userSettings.v1", "goals.v1"].forEach { d.removeObject(forKey: $0) }
+        for key in d.dictionaryRepresentation().keys where key.hasPrefix("feeling.") { d.removeObject(forKey: key) }
+        func deleteAll<T: PersistentModel>(_ type: T.Type) {
+            if let rows = try? context.fetch(FetchDescriptor<T>()) { rows.forEach { context.delete($0) } }
+        }
+        deleteAll(TrainingSession.self); deleteAll(PlannedWorkout.self); deleteAll(DailyReadiness.self)
+        deleteAll(Baseline.self); deleteAll(DiagnosisRecord.self); deleteAll(HealthSnapshot.self)
+        try? context.save()
+    }
+
     // MARK: Subjective feeling (per day)
 
     var todayFeeling: Feeling? { feelingRaw.flatMap(Feeling.init) }

@@ -100,12 +100,17 @@ struct GlobalMenu: View {
         .background(Palette.bg)
         .ignoresSafeArea(edges: .bottom)
         .sheet(isPresented: $showingSettings) { SettingsView(model: model) }
-        .sheet(isPresented: $showingInfo) { AppInfoView() }
+        .sheet(isPresented: $showingInfo) { AppInfoView(model: model) }
     }
 }
 
 struct AppInfoView: View {
+    let model: AppModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+    @State private var confirmReset = false
+    @State private var working = false
+
     var body: some View {
         NavigationStack {
             List {
@@ -116,9 +121,40 @@ struct AppInfoView: View {
                     Text("Reads Apple Health (HRV, resting HR, sleep, workouts). Your edits and manual entries are stored locally and are never overwritten by HealthKit imports.")
                         .font(.footnote)
                 }
+
+                Section {
+                    if model.inSandbox {
+                        LabeledContent("Mode", value: "Sandbox (new-user test)")
+                        Button {
+                            working = true
+                            Task { await model.restoreMyData(context: context); working = false; dismiss() }
+                        } label: { Label("Restore my data", systemImage: "arrow.uturn.backward") }
+                    } else {
+                        LabeledContent("Mode", value: "Your data")
+                        Button {
+                            confirmReset = true
+                        } label: { Label("Experience as a new user", systemImage: "person.crop.circle.badge.plus") }
+                    }
+                    if working { ProgressView() }
+                } header: {
+                    Text("Developer")
+                } footer: {
+                    Text(model.inSandbox
+                         ? "You're on an isolated sandbox. Your real settings + goals are safe in the cloud — restore returns you to them."
+                         : "Backs your settings + goals up to the cloud, then resets to a fresh onboarding on an isolated sandbox. Reversible. Local workout/plan/readiness history is cleared (workouts re-import from Apple Health).")
+                }
             }
             .navigationTitle("App info").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+            .confirmationDialog("Start a fresh new-user experience?", isPresented: $confirmReset, titleVisibility: .visible) {
+                Button("Back up & start fresh", role: .destructive) {
+                    working = true
+                    Task { await model.resetToFreshUser(context: context); working = false; dismiss() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Your settings + goals are saved to the cloud first and can be restored. Local history is cleared.")
+            }
         }
         .preferredColorScheme(.dark)
     }

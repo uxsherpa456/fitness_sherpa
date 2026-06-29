@@ -90,8 +90,18 @@ struct AppSettings: Codable {
 enum StateClient {
     /// Same endpoint the prototype uses; deployed --no-verify-jwt, so no key is required yet.
     static let endpoint = URL(string: "https://rcbjfjgffzadagndxthp.supabase.co/functions/v1/state")!
-    /// Single-user for now — swap for the authenticated user id once sign-in lands.
-    static var userKey = "ryan"
+
+    /// The real, durable cloud row + an isolated sandbox row used by "experience as a new user".
+    static let liveKey = "ryan"
+    static let sandboxKey = "ryan-sandbox"
+
+    /// Single-user for now — persisted so a sandbox switch survives relaunch. Swap for the
+    /// authenticated user id once sign-in lands.
+    static var userKey: String {
+        get { UserDefaults.standard.string(forKey: "dev.userKey") ?? liveKey }
+        set { UserDefaults.standard.set(newValue, forKey: "dev.userKey") }
+    }
+    static var isSandbox: Bool { userKey == sandboxKey }
 
     /// Pull the durable copy on launch. `updated_at == nil` ⇒ nothing in the cloud yet → run onboarding.
     static func load() async throws -> AppState {
