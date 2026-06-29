@@ -21,6 +21,7 @@ struct CoachView: View {
     @State private var streaming = ""
     @State private var sending = false
     @State private var showingHistory = false
+    @State private var atBottom = true
     @FocusState private var inputFocused: Bool
 
     var body: some View {
@@ -169,10 +170,16 @@ struct CoachView: View {
                         assistantBubble(streaming)
                     }
                     Color.clear.frame(height: 1).id("bottom")
+                        .onAppear { atBottom = true }
+                        .onDisappear { atBottom = false }
                 }
                 .padding(.horizontal, 14).padding(.vertical, 12)
             }
             .scrollDismissesKeyboard(.interactively)
+            .overlay(alignment: .bottomTrailing) {
+                if !atBottom && !messages.isEmpty { scrollToLatest(proxy) }
+            }
+            .animation(.easeInOut(duration: 0.2), value: atBottom)
             .onChange(of: messages.count) { if !messages.isEmpty { withAnimation { proxy.scrollTo("bottom") } } }
             .onChange(of: streaming) { if !streaming.isEmpty { proxy.scrollTo("bottom") } }
             .onChange(of: current?.id) {
@@ -180,6 +187,22 @@ struct CoachView: View {
                 else { proxy.scrollTo("bottom") }
             }
         }
+    }
+
+    private func scrollToLatest(_ proxy: ScrollViewProxy) -> some View {
+        Button {
+            withAnimation { proxy.scrollTo("bottom") }
+        } label: {
+            Image(systemName: "arrow.down")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Palette.text)
+                .frame(width: 36, height: 36)
+                .background(Palette.surface2, in: Circle())
+                .overlay(Circle().stroke(Palette.surfaceLine, lineWidth: 1))
+                .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
+        }
+        .padding(.trailing, 14).padding(.bottom, 10)
+        .transition(.scale.combined(with: .opacity))
     }
 
     private var emptyState: some View {
