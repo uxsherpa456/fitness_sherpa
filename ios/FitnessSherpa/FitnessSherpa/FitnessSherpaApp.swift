@@ -11,11 +11,12 @@ import SwiftData
 @main
 struct FitnessSherpaApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema(versionedSchema: AppSchemaV1.self)
+        let schema = Schema(versionedSchema: AppSchemaV2.self)
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
             return try ModelContainer(for: schema, migrationPlan: AppMigrationPlan.self, configurations: [config])
+            // (AppSchemaV2 adds DailyReadiness; additive → lightweight migration from V1.)
         } catch {
             // Last-resort recovery only: a true migration failure (not handled by the plan) wipes the
             // dev store and recreates it. Real breaking changes should add an AppSchemaV2 stage instead.

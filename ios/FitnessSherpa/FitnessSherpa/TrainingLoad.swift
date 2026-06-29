@@ -21,28 +21,58 @@ struct LoadResult {
 }
 
 enum TrainingLoad {
-    static func compute(sessions: [TrainingSession], restingHR: Double?, age: Int) -> LoadResult {
-        let observedMax = sessions.compactMap { $0.maxHR }.max() ?? 0
-        let hrMax = Double(max(observedMax, 220 - age, 120))
-        let rest = restingHR ?? 55
-
-        func trimp(_ s: TrainingSession) -> Double {
-            let dur = Double(s.durationMin)
-            guard dur > 0 else { return 0 }
-            let avg: Double
-            if let a = s.avgHR { avg = Double(a) } else {
-                let frac: Double
-                switch s.cat {
-                case .hiit, .sim: frac = 0.85
-                case .run, .row:  frac = 0.72
-                case .strength:   frac = 0.60
-                default:          frac = 0.0
-                }
-                avg = rest + frac * (hrMax - rest)
+    // Shared helpers (also used by the form-series chart).
+    static func hrMaxFor(sessions: [TrainingSession], age: Int) -> Double {
+        Double(max(sessions.compactMap { $0.maxHR }.max() ?? 0, 220 - age, 120))
+    }
+    static func trimp(_ s: TrainingSession, rest: Double, hrMax: Double) -> Double {
+        let dur = Double(s.durationMin)
+        guard dur > 0 else { return 0 }
+        let avg: Double
+        if let a = s.avgHR { avg = Double(a) } else {
+            let frac: Double
+            switch s.cat {
+            case .hiit, .sim: frac = 0.85
+            case .run, .row:  frac = 0.72
+            case .strength:   frac = 0.60
+            default:          frac = 0.0
             }
-            let hrr = min(max((avg - rest) / (hrMax - rest), 0), 1)
-            return dur * hrr * 0.64 * exp(1.92 * hrr)        // Banister TRIMP (intensity-weighted)
+            avg = rest + frac * (hrMax - rest)
         }
+        let hrr = min(max((avg - rest) / (hrMax - rest), 0), 1)
+        return dur * hrr * 0.64 * exp(1.92 * hrr)            // Banister TRIMP (intensity-weighted)
+    }
+
+    /// Daily CTL/ATL/form/ratio over the last `days` — replays the EWMA across workout history.
+    static func series(sessions: [TrainingSession], restingHR: Double?, age: Int, days: Int = 30) -> [FormPoint] {
+        let rest = restingHR ?? 55
+        let hrMax = hrMaxFor(sessions: sessions, age: age)
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let total = days + 42                                 // warmup so EWMA is settled by the window
+        var daily = [Double](repeating: 0, count: total)
+        for s in sessions {
+            let diff = cal.dateComponents([.day], from: cal.startOfDay(for: s.date), to: today).day ?? 99999
+            if diff >= 0, diff < total { daily[total - 1 - diff] += trimp(s, rest: rest, hrMax: hrMax) }
+        }
+        var atl = 0.0, ctl = 0.0, out: [FormPoint] = []
+        let da = exp(-1.0 / 7), dc = exp(-1.0 / 42)
+        for i in 0..<total {
+            atl = atl * da + daily[i] * (1 - da)
+            ctl = ctl * dc + daily[i] * (1 - dc)
+            if i >= total - days {
+                let date = cal.date(byAdding: .day, value: -(total - 1 - i), to: today) ?? today
+                out.append(FormPoint(date: date, ctl: ctl, atl: atl, form: ctl - atl,
+                                     ratio: ctl > 0 ? atl / ctl : 1))
+            }
+        }
+        return out
+    }
+
+    static func compute(sessions: [TrainingSession], restingHR: Double?, age: Int) -> LoadResult {
+        let hrMax = hrMaxFor(sessions: sessions, age: age)
+        let rest = restingHR ?? 55
+        func trimp(_ s: TrainingSession) -> Double { TrainingLoad.trimp(s, rest: rest, hrMax: hrMax) }
 
         // Daily TRIMP for the last 42 days, then exponentially-weighted acute/chronic load.
         let cal = Calendar.current

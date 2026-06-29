@@ -252,6 +252,7 @@ final class AppModel {
             let sessions = (try? context.fetch(FetchDescriptor<TrainingSession>())) ?? []
             let load = TrainingLoad.compute(sessions: sessions, restingHR: r.restingHR?.value, age: settings.age)
             readiness = await ReadinessEngine.compute(reading: r, load: load)
+            logDailyReadiness(context: context, reading: r, load: load)
 
             let baseline = Baseline(bodyweightLb: r.bodyMass?.value,
                                     recent5kSeconds: DiagnosisEngine.parse5k(Self.manual5k),
@@ -269,6 +270,23 @@ final class AppModel {
             status = "Error: \(error.localizedDescription)"
             print("AppModel.refresh error: \(error)")
         }
+    }
+
+    /// Upsert one readiness row for today (the trend that can't be reconstructed from Health).
+    private func logDailyReadiness(context: ModelContext, reading r: HealthData.Reading, load: LoadResult) {
+        guard let score = readinessScore else { return }
+        let day = Calendar.current.startOfDay(for: Date())
+        var desc = FetchDescriptor<DailyReadiness>(predicate: #Predicate { $0.day == day })
+        desc.fetchLimit = 1
+        let row = (try? context.fetch(desc))?.first
+        if let row {
+            row.score = score; row.hrv = r.hrv?.value ?? row.hrv
+            row.ctl = load.ctl; row.atl = load.atl; row.form = load.form; row.acr = load.ratio
+        } else {
+            context.insert(DailyReadiness(day: day, score: score, hrv: r.hrv?.value ?? 0,
+                                          ctl: load.ctl, atl: load.atl, form: load.form, acr: load.ratio))
+        }
+        try? context.save()
     }
 
     /// Save a snapshot + (on change) a diagnosis & its baseline, skipping unchanged dupes.

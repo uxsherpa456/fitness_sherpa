@@ -301,6 +301,81 @@ extension HealthData {
         return MetricBaseline(mean: mean, sd: max(sqrt(variance), 0.0001), n: values.count)
     }
 
+    /// Daily aggregated series (date + value) for a metric — for trend charts.
+    static func dailySeries(_ id: HKQuantityTypeIdentifier, unit: HKUnit, days: Int,
+                            options: HKStatisticsOptions) async throws -> [TrendPoint] {
+        guard let type = HKQuantityType.quantityType(forIdentifier: id) else { return [] }
+        let cal = Calendar.current
+        let end = cal.startOfDay(for: Date()).addingTimeInterval(86400)
+        guard let start = cal.date(byAdding: .day, value: -days, to: end) else { return [] }
+        var interval = DateComponents(); interval.day = 1
+        return try await withCheckedThrowingContinuation { cont in
+            let q = HKStatisticsCollectionQuery(
+                quantityType: type,
+                quantitySamplePredicate: HKQuery.predicateForSamples(withStart: start, end: end),
+                options: options, anchorDate: cal.startOfDay(for: Date()), intervalComponents: interval)
+            q.initialResultsHandler = { _, results, error in
+                if let error { cont.resume(throwing: error); return }
+                var points: [TrendPoint] = []
+                results?.enumerateStatistics(from: start, to: end) { stat, _ in
+                    let qty = options.contains(.cumulativeSum) ? stat.sumQuantity() : stat.averageQuantity()
+                    if let qty { points.append(TrendPoint(date: stat.startDate, value: qty.doubleValue(for: unit))) }
+                }
+                cont.resume(returning: points)
+            }
+            store.execute(q)
+        }
+    }
+
+    /// Per-night sleep over the last `days` (asleep / deep / REM hours), grouped into sleep sessions.
+    static func sleepNights(days: Int = 30) async throws -> [SleepNight] {
+        guard let type = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else { return [] }
+        let pred = HKQuery.predicateForSamples(withStart: Date().addingTimeInterval(-Double(days + 1) * 86400), end: Date())
+        let samples: [HKCategorySample] = try await withCheckedThrowingContinuation { cont in
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+            let q = HKSampleQuery(sampleType: type, predicate: pred, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, s, e in
+                if let e { cont.resume(throwing: e); return }
+                cont.resume(returning: (s as? [HKCategorySample]) ?? [])
+            }
+            store.execute(q)
+        }
+        guard !samples.isEmpty else { return [] }
+        func intervals(_ values: Set<Int>) -> [(start: Date, end: Date)] {
+            merge(samples.filter { values.contains($0.value) }.map { (start: $0.startDate, end: $0.endDate) })
+        }
+        let asleep = intervals([
+            HKCategoryValueSleepAnalysis.asleepREM.rawValue, HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+            HKCategoryValueSleepAnalysis.asleepDeep.rawValue, HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue])
+        guard !asleep.isEmpty else { return [] }
+        let remIv = intervals([HKCategoryValueSleepAnalysis.asleepREM.rawValue])
+        let deepIv = intervals([HKCategoryValueSleepAnalysis.asleepDeep.rawValue])
+
+        // Group asleep intervals into nights (split on gaps > 4h).
+        var nightsRanges: [(start: Date, end: Date)] = []
+        var cur: (start: Date, end: Date)?
+        for iv in asleep {
+            if var c = cur, iv.start.timeIntervalSince(c.end) <= 4 * 3600 {
+                c.end = max(c.end, iv.end); cur = c
+            } else {
+                if let c = cur { nightsRanges.append(c) }
+                cur = iv
+            }
+        }
+        if let c = cur { nightsRanges.append(c) }
+
+        func clipHours(_ ivs: [(start: Date, end: Date)], _ win: (start: Date, end: Date)) -> Double {
+            ivs.reduce(0.0) { acc, iv in
+                let s = max(iv.start, win.start), e = min(iv.end, win.end)
+                return acc + max(0, e.timeIntervalSince(s))
+            } / 3600
+        }
+        let cal = Calendar.current
+        return nightsRanges.map { win in
+            SleepNight(date: cal.startOfDay(for: win.end), asleep: clipHours(asleep, win),
+                       deep: clipHours(deepIv, win), rem: clipHours(remIv, win))
+        }.sorted { $0.date < $1.date }
+    }
+
     /// Read the milestone metrics in one call, stamped with the query time.
     static func readSnapshot() async throws -> Reading {
         let bpm = HKUnit.count().unitDivided(by: .minute())

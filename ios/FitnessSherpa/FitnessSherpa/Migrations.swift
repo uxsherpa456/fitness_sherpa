@@ -17,7 +17,16 @@ enum AppSchemaV1: VersionedSchema {
     }
 }
 
+enum AppSchemaV2: VersionedSchema {
+    static var versionIdentifier = Schema.Version(2, 0, 0)
+    static var models: [any PersistentModel.Type] {
+        AppSchemaV1.models + [DailyReadiness.self]      // additive: daily readiness log
+    }
+}
+
 enum AppMigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] { [AppSchemaV1.self] }
-    static var stages: [MigrationStage] { [] }   // add stages here when bumping to V2
+    static var schemas: [any VersionedSchema.Type] { [AppSchemaV1.self, AppSchemaV2.self] }
+    static var stages: [MigrationStage] {
+        [.lightweight(fromVersion: AppSchemaV1.self, toVersion: AppSchemaV2.self)]
+    }
 }
