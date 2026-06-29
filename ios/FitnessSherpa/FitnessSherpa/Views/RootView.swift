@@ -13,6 +13,23 @@ struct RootView: View {
     @State private var model = AppModel()
 
     var body: some View {
+        Group {
+            if model.settings.onboarded {
+                shell
+            } else {
+                OnboardingView(model: model)
+            }
+        }
+        .tint(Palette.mint)
+        .task {
+            await model.bootstrapCloud()          // pull durable settings first (cloud wins if it has data)
+            if model.settings.onboarded {         // a fresh athlete refreshes at the end of onboarding instead
+                await model.refresh(context: context)
+            }
+        }
+    }
+
+    private var shell: some View {
         GeometryReader { geo in
             let menuWidth = min(300, geo.size.width * 0.82)
             HStack(spacing: 0) {
@@ -30,11 +47,6 @@ struct RootView: View {
             .frame(width: menuWidth + geo.size.width, alignment: .leading)
             .offset(x: model.showingMenu ? 0 : -menuWidth)
             .animation(.easeInOut(duration: 0.28), value: model.showingMenu)
-        }
-        .tint(Palette.mint)
-        .task {
-            await model.bootstrapCloud()          // pull durable settings first (cloud wins if it has data)
-            await model.refresh(context: context)
         }
     }
 

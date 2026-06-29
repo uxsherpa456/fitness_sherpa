@@ -11,9 +11,6 @@ import SwiftData
 @MainActor
 @Observable
 final class AppModel {
-    /// Chip-timed 5k PR — manual for now (a race result, not in HealthKit). Moves to onboarding later.
-    static let manual5k = "24:31"
-
     var reading: HealthData.Reading?
     var diagnosis: Diagnosis?
     var readiness: ReadinessResult?
@@ -54,7 +51,7 @@ final class AppModel {
             switch goals[i].key {
             case "weight":  if let w = reading?.bodyMass?.value { goals[i].current = .number(w.rounded()) }
             case "bodyfat": if let bf = reading?.bodyFat?.value { goals[i].current = .number((bf * 100).rounded()) }
-            case "fivek":   goals[i].current = .text(Self.manual5k)
+            case "fivek":   goals[i].current = .text(settings.recent5k)
             default: break
             }
         }
@@ -68,6 +65,7 @@ final class AppModel {
         guard let state = try? await StateClient.load(), state.updated_at != nil else { return }
         var s = settings
         s.apply(state.settings)
+        if state.onboarded { s.onboarded = true }   // a returning/synced athlete skips onboarding
         settings = s
         s.save()
         if !state.goals.isEmpty { goals = state.goals; saveGoals() }
@@ -112,7 +110,7 @@ final class AppModel {
     func coachContext(recentWorkouts: [TrainingSession] = [], plan: [PlannedWorkout] = []) -> [String: Any] {
         let iso = ISO8601DateFormatter()
 
-        var metrics: [String: Any] = ["recent_5k": Self.manual5k, "stations_hold": true]
+        var metrics: [String: Any] = ["recent_5k": settings.recent5k, "stations_hold": settings.stationsHold]
         if let bw = reading?.bodyMass?.value { metrics["bodyweight_lb"] = Int(bw.rounded()) }
         if let hrv = reading?.hrv?.value { metrics["hrv_ms"] = Int(hrv.rounded()) }
         if let rhr = reading?.restingHR?.value { metrics["resting_hr_bpm"] = Int(rhr.rounded()) }
@@ -263,8 +261,8 @@ final class AppModel {
             logDailyReadiness(context: context, reading: r, load: load)
 
             let baseline = Baseline(bodyweightLb: r.bodyMass?.value,
-                                    recent5kSeconds: DiagnosisEngine.parse5k(Self.manual5k),
-                                    stationsHold: true)
+                                    recent5kSeconds: DiagnosisEngine.parse5k(settings.recent5k),
+                                    stationsHold: settings.stationsHold)
             let dx = DiagnosisEngine.diagnose(baseline.asInput())
             diagnosis = dx
             refreshGoals()

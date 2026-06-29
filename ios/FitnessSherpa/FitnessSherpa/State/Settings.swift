@@ -18,6 +18,9 @@ struct UserSettings: Codable, Equatable {
     var raceLocation = "Washington DC"
     var weightUnit = "lb"         // lb | kg
     var distanceUnit = "mi"       // mi | km
+    var recent5k = "24:31"        // chip-timed 5k PR (baseline input)
+    var stationsHold = true       // do the stations hold under fatigue (strength axis)
+    var onboarded = false
 
     static let key = "userSettings.v1"
 

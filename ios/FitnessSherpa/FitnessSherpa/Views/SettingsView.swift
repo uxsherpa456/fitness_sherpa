@@ -91,6 +91,18 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Button(role: .none) {
+                        model.settings.onboarded = false
+                        model.saveSettings()
+                        dismiss()
+                    } label: {
+                        Label("Re-run baseline assessment", systemImage: "arrow.clockwise")
+                    }
+                } footer: {
+                    Text("Walk back through the baseline to re-place yourself on the HYROX map.")
+                }
+
+                Section {
                     Text("Fitness Sherpa").font(.footnote).foregroundStyle(.secondary)
                 }
             }
