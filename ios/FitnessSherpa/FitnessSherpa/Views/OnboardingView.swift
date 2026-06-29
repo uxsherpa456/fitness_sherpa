@@ -231,13 +231,16 @@ struct OnboardingView: View {
     // Barbell max-strength is asked on BOTH paths — it's the most reliable strength signal, so a strong
     // lifter (e.g. a CrossFitter) always registers regardless of HYROX experience. The experience gate
     // then adds either station capacity (experienced) or bodyweight movements (new). Answers average to 0…1.
+    // Barbell option values are BODYWEIGHT MULTIPLES (not axis values) — StrengthStandards scores them
+    // against the athlete's division to decide "strong enough." Station/bodyweight questions below
+    // still carry direct 0…1 axis values.
     private static let barbellQuestions: [(id: String, label: String, options: [(String, Double?)])] = [
         ("squat", "BACK SQUAT vs BODYWEIGHT",
-         [("under bodyweight", 0.20), ("~bodyweight", 0.50), ("1.25× BW", 0.75), ("1.5×+ BW", 0.95), ("not sure", nil)]),
+         [("under bodyweight", 0.8), ("~bodyweight", 1.0), ("1.25× BW", 1.25), ("1.5×+ BW", 1.6), ("not sure", nil)]),
         ("bench", "BENCH PRESS vs BODYWEIGHT",
-         [("under 0.75× BW", 0.20), ("~bodyweight", 0.55), ("1.25× BW", 0.80), ("1.5×+ BW", 0.95), ("not sure", nil)]),
+         [("under 0.75× BW", 0.6), ("~bodyweight", 1.0), ("1.25× BW", 1.25), ("1.5×+ BW", 1.6), ("not sure", nil)]),
         ("deadlift", "DEADLIFT vs BODYWEIGHT",
-         [("under bodyweight", 0.20), ("1.5× BW", 0.50), ("2× BW", 0.80), ("2.5×+ BW", 0.95), ("not sure", nil)]),
+         [("under bodyweight", 0.8), ("1.5× BW", 1.5), ("2× BW", 2.0), ("2.5×+ BW", 2.6), ("not sure", nil)]),
     ]
     private static let hyroxQuestions: [(id: String, label: String, options: [(String, Double?)])] = [
         ("wallballs", "WALL BALLS — UNBROKEN, FRESH",
@@ -270,6 +273,9 @@ struct OnboardingView: View {
             }
 
             if let exp = experienced {
+                Text("Lifts are scored against your division — \(StrengthStandards.divisionLabel(s)). Hit your division's numbers and you're \u{201C}strong enough.\u{201D}")
+                    .font(.footnote).foregroundStyle(Palette.textFaint)
+                    .fixedSize(horizontal: false, vertical: true)
                 ForEach(Self.barbellQuestions + (exp ? Self.hyroxQuestions : Self.generalQuestions), id: \.id) { q in
                     strQuestion(q.id, q.label, q.options)
                 }
@@ -327,11 +333,24 @@ struct OnboardingView: View {
         else { strAnswers.removeValue(forKey: qid); strNotSure.insert(qid) }
     }
 
-    /// Average the answered questions (skipping "not sure"); neutral 0.5 if nothing was answered.
+    private static let liftIds: Set<String> = ["squat", "bench", "deadlift"]
+
+    /// Strength axis: the barbell lifts vs your division standards drive it (StrengthStandards). The
+    /// station/bodyweight answers are a fallback when the lifts are skipped, and otherwise can only
+    /// nudge a strong-enough lifter higher — never drag you below the line if your lifts clear it.
     private var computedStrengthAxis: Double {
-        let vals = Array(strAnswers.values)
-        guard !vals.isEmpty else { return 0.5 }
-        return vals.reduce(0, +) / Double(vals.count)
+        let liftPairs = strAnswers.compactMap { k, v -> (StrengthLift, Double)? in
+            Self.liftIds.contains(k) ? StrengthLift(rawValue: k).map { ($0, v) } : nil
+        }
+        let capacity = strAnswers.filter { !Self.liftIds.contains($0.key) }.map(\.value)
+        let capAxis = capacity.isEmpty ? nil : capacity.reduce(0, +) / Double(capacity.count)
+
+        guard let liftAxis = StrengthStandards.liftAxis(Dictionary(uniqueKeysWithValues: liftPairs), s) else {
+            return capAxis ?? 0.5   // no lifts answered → fall back to station/bodyweight capacity
+        }
+        guard let cap = capAxis else { return liftAxis }
+        let blended = liftAxis * 0.75 + cap * 0.25
+        return liftAxis >= 0.5 ? max(blended, 0.5) : blended   // clearing your lifts keeps you "strong enough"
     }
 
     @ViewBuilder private var revealStep: some View {
