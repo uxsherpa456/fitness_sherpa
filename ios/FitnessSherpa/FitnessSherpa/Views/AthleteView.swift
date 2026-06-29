@@ -41,6 +41,11 @@ struct AthleteView: View {
                                 kv("Limiter", d.limiter)
                                 kv("Focus", d.focus)
                                 kv("Evidence", d.evidence)
+                                if let m = model.settings.mobilityFlag {
+                                    kv("Mobility", m.label)
+                                    Text(m.read).font(.caption).foregroundStyle(Palette.textMuted)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
                             }
                         }
                     }

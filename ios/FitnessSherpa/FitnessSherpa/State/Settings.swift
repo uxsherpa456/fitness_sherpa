@@ -21,7 +21,11 @@ struct UserSettings: Codable, Equatable {
     var recent5k = "24:31"        // chip-timed 5k PR (baseline input)
     var strengthAxis = 0.78       // 0…1 strength + station capacity, averaged from onboarding (the Health-blind axis)
     var stationsHold = true       // legacy boolean snapshot, kept in sync with strengthAxis for the coach context
+    var mobilityScore = -1.0      // 0…1 squat-depth / ankle / posterior-chain range; <0 = not assessed
     var onboarded = false
+
+    /// Advisory mobility flag (nil until assessed in onboarding). Does not affect the quadrant/score.
+    var mobilityFlag: MobilityFlag? { mobilityScore >= 0 ? Mobility.flag(score: mobilityScore) : nil }
 
     static let key = "userSettings.v1"
 
@@ -43,6 +47,7 @@ struct UserSettings: Codable, Equatable {
         recent5k      = v(.recent5k, "24:31")
         stationsHold  = v(.stationsHold, true)
         strengthAxis  = v(.strengthAxis, stationsHold ? 0.78 : 0.30)
+        mobilityScore = v(.mobilityScore, -1.0)
         onboarded     = v(.onboarded, false)
     }
 

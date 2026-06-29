@@ -30,10 +30,14 @@ struct OnboardingView: View {
 
     // Strength assessment (branched questionnaire → continuous strength axis).
     @State private var experienced: Bool?          // nil until the gate is answered
-    @State private var strAnswers: [String: Double] = [:]   // qid → 0…1 (omitted when "not sure")
+    @State private var strAnswers: [String: Double] = [:]   // qid → value (omitted when "not sure")
     @State private var strNotSure: Set<String> = []         // qids explicitly marked "not sure"
 
-    private static let lastStep = 5
+    // Mobility assessment (advisory flag — never touches the quadrant/score).
+    @State private var mobilityAnswers: [String: Double] = [:]
+    @State private var mobilityNotSure: Set<String> = []
+
+    private static let lastStep = 6
 
     init(model: AppModel) {
         self.model = model
@@ -57,6 +61,7 @@ struct OnboardingView: View {
                     case 2: healthStep
                     case 3: runStep
                     case 4: strengthStep
+                    case 5: mobilityStep
                     default: revealStep
                     }
                 }
@@ -277,8 +282,33 @@ struct OnboardingView: View {
                     .font(.footnote).foregroundStyle(Palette.textFaint)
                     .fixedSize(horizontal: false, vertical: true)
                 ForEach(Self.barbellQuestions + (exp ? Self.hyroxQuestions : Self.generalQuestions), id: \.id) { q in
-                    strQuestion(q.id, q.label, q.options)
+                    questionRow(q.id, q.label, q.options, answers: $strAnswers, notSure: $strNotSure)
                 }
+            }
+        }
+    }
+
+    // Mobility — an advisory flag, not a quadrant axis. Range gates how you express fitness in the
+    // stations (wall-ball depth, lunges, burpees), so it's surfaced as a flag + coach signal only.
+    private static let mobilityQuestions: [(id: String, label: String, options: [(String, Double?)])] = [
+        ("squatdepth", "BODYWEIGHT SQUAT DEPTH",
+         [("below parallel", 1.0), ("to parallel", 0.7), ("above parallel", 0.4), ("can't get low", 0.1), ("not sure", nil)]),
+        ("ankle", "HEELS STAY DOWN AT THE BOTTOM",
+         [("grounded deep", 1.0), ("partway", 0.6), ("heels lift early", 0.3), ("not sure", nil)]),
+        ("toetouch", "TOE TOUCH · LEGS STRAIGHT",
+         [("palms to floor", 1.0), ("fingers to toes", 0.75), ("mid-shin", 0.45), ("above knee", 0.2), ("not sure", nil)]),
+    ]
+
+    private var mobilityStep: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            stepTitle("Your mobility", "Range gates how you express it — wall-ball depth, lunges, burpees. This won't move your quadrant; it flags where stations might no-rep or strain.")
+            ForEach(Self.mobilityQuestions, id: \.id) { q in
+                questionRow(q.id, q.label, q.options, answers: $mobilityAnswers, notSure: $mobilityNotSure)
+            }
+            if let flag = liveMobilityFlag {
+                Text("Reads as: \(flag.label) — \(flag.read)")
+                    .font(.footnote).foregroundStyle(Palette.textFaint)
+                    .fixedSize(horizontal: false, vertical: true).padding(.top, 2)
             }
         }
     }
@@ -305,7 +335,9 @@ struct OnboardingView: View {
         .buttonStyle(.plain)
     }
 
-    private func strQuestion(_ qid: String, _ label: String, _ options: [(String, Double?)]) -> some View {
+    /// One pill-group question, writing into the given answers/not-sure state (strength or mobility).
+    private func questionRow(_ qid: String, _ label: String, _ options: [(String, Double?)],
+                             answers: Binding<[String: Double]>, notSure: Binding<Set<String>>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
                 .font(.system(size: 11, weight: .semibold, design: .monospaced)).tracking(1.5)
@@ -313,8 +345,11 @@ struct OnboardingView: View {
             FlowLayout(spacing: 8) {
                 ForEach(options.indices, id: \.self) { i in
                     let (txt, val) = options[i]
-                    let isSel = val == nil ? strNotSure.contains(qid) : (strAnswers[qid] == val)
-                    Button { pickStrength(qid, val) } label: {
+                    let isSel = val == nil ? notSure.wrappedValue.contains(qid) : (answers.wrappedValue[qid] == val)
+                    Button {
+                        if let val { answers.wrappedValue[qid] = val; notSure.wrappedValue.remove(qid) }
+                        else { answers.wrappedValue.removeValue(forKey: qid); notSure.wrappedValue.insert(qid) }
+                    } label: {
                         Text(txt)
                             .font(.subheadline.weight(.medium))
                             .foregroundStyle(isSel ? Palette.ink : (val == nil ? Palette.textFaint : Palette.text))
@@ -326,11 +361,6 @@ struct OnboardingView: View {
                 }
             }
         }
-    }
-
-    private func pickStrength(_ qid: String, _ val: Double?) {
-        if let val { strAnswers[qid] = val; strNotSure.remove(qid) }
-        else { strAnswers.removeValue(forKey: qid); strNotSure.insert(qid) }
     }
 
     private static let liftIds: Set<String> = ["squat", "bench", "deadlift"]
@@ -353,6 +383,14 @@ struct OnboardingView: View {
         return liftAxis >= 0.5 ? max(blended, 0.5) : blended   // clearing your lifts keeps you "strong enough"
     }
 
+    /// Average of the answered mobility questions (nil if none answered → not assessed).
+    private var mobilityScore: Double? {
+        let vals = Array(mobilityAnswers.values)
+        guard !vals.isEmpty else { return nil }
+        return vals.reduce(0, +) / Double(vals.count)
+    }
+    private var liveMobilityFlag: MobilityFlag? { mobilityScore.map { Mobility.flag(score: $0) } }
+
     @ViewBuilder private var revealStep: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("YOUR LIMITER")
@@ -368,6 +406,15 @@ struct OnboardingView: View {
                         ModuleLabel("Your focus")
                         Text(d.focus).font(.subheadline).foregroundStyle(Palette.text)
                             .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                if let m = liveMobilityFlag {
+                    Card(style: .dark) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ModuleLabel("Mobility · \(m.label)")
+                            Text(m.read).font(.subheadline).foregroundStyle(Palette.text)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
                 Text("We'll seed your focus metrics from this and keep them on the Athlete tab. The AI Coach can refine them anytime.")
@@ -466,6 +513,7 @@ struct OnboardingView: View {
         let axis = computedStrengthAxis
         s.strengthAxis = axis
         s.stationsHold = axis >= 0.5
+        s.mobilityScore = mobilityScore ?? -1   // advisory flag; <0 = not assessed
         let bw = reading?.bodyMass?.value ?? 214
         let input = DiagnosisInput(bodyweightLb: bw,
                                    recent5k: DiagnosisEngine.parse5k(s.recent5k),

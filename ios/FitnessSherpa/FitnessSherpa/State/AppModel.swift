@@ -145,6 +145,10 @@ final class AppModel {
         if let days = settings.daysToRace { race["days_out"] = days }
         ctx["race"] = race
 
+        if let m = settings.mobilityFlag {   // advisory: gates station execution (wall-ball depth, lunges, burpees)
+            ctx["mobility"] = ["flag": m.rawValue, "note": m.read]
+        }
+
         if let rd = readiness {
             func r1(_ v: Double) -> Double { (v * 10).rounded() / 10 }
             var r: [String: Any] = ["baseline_relative": true]
