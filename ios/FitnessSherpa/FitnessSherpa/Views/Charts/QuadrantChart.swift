@@ -36,21 +36,30 @@ struct QuadrantChart: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                // strength axis — vertical, both ends (weak at the bottom, strong at the top)
-                Text("WEAKER  →  STRONGER")
+                // strength axis — spans the chart height: WEAKER pinned to the bottom, STRONGER to the top.
+                // Built horizontally across a width = the chart's height, then rotated so the ends land
+                // on the top and bottom edges.
+                GeometryReader { g in
+                    HStack(spacing: 0) {
+                        Text("WEAKER")
+                        Spacer(minLength: 0)
+                        Text("STRONGER")
+                    }
                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                     .tracking(1).foregroundStyle(Palette.textFaint)
-                    .fixedSize().rotationEffect(.degrees(-90)).frame(width: 16)
-
-                VStack(spacing: 6) {
-                    chart
-                    // run axis — mirrors the strength label's style
-                    Text("SLOWER  →  FASTER")
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .tracking(1).foregroundStyle(Palette.textFaint)
-                        .frame(maxWidth: .infinity)
+                    .frame(width: g.size.height)
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: g.size.width, height: g.size.height)
                 }
+                .frame(width: 14)
+
+                chart
             }
+            // run axis — centered under the chart
+            Text("SLOWER  →  FASTER")
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .tracking(1).foregroundStyle(Palette.textFaint)
+                .frame(maxWidth: .infinity).padding(.leading, 20)
             Text("Up = stronger · right = faster. Top-right is the complete athlete; your corner names your limiter.")
                 .font(.system(size: 10)).foregroundStyle(Palette.textMuted)
                 .fixedSize(horizontal: false, vertical: true).padding(.top, 1)
