@@ -228,7 +228,17 @@ struct OnboardingView: View {
     }
 
     // The strength axis is the one thing Apple Health can't see, so the athlete answers for it.
-    // An experience gate picks a question set you can actually answer; the answers average to 0…1.
+    // Barbell max-strength is asked on BOTH paths — it's the most reliable strength signal, so a strong
+    // lifter (e.g. a CrossFitter) always registers regardless of HYROX experience. The experience gate
+    // then adds either station capacity (experienced) or bodyweight movements (new). Answers average to 0…1.
+    private static let barbellQuestions: [(id: String, label: String, options: [(String, Double?)])] = [
+        ("squat", "BACK SQUAT vs BODYWEIGHT",
+         [("under bodyweight", 0.20), ("~bodyweight", 0.50), ("1.25× BW", 0.75), ("1.5×+ BW", 0.95), ("not sure", nil)]),
+        ("bench", "BENCH PRESS vs BODYWEIGHT",
+         [("under 0.75× BW", 0.20), ("~bodyweight", 0.55), ("1.25× BW", 0.80), ("1.5×+ BW", 0.95), ("not sure", nil)]),
+        ("deadlift", "DEADLIFT vs BODYWEIGHT",
+         [("under bodyweight", 0.20), ("1.5× BW", 0.50), ("2× BW", 0.80), ("2.5×+ BW", 0.95), ("not sure", nil)]),
+    ]
     private static let hyroxQuestions: [(id: String, label: String, options: [(String, Double?)])] = [
         ("wallballs", "WALL BALLS — UNBROKEN, FRESH",
          [("<20", 0.20), ("20–40", 0.50), ("40–70", 0.75), ("70+", 0.95), ("not sure", nil)]),
@@ -240,8 +250,6 @@ struct OnboardingView: View {
     private static let generalQuestions: [(id: String, label: String, options: [(String, Double?)])] = [
         ("pushups", "MAX PUSH-UPS · UNBROKEN",
          [("<10", 0.20), ("10–25", 0.50), ("25–40", 0.75), ("40+", 0.95), ("not sure", nil)]),
-        ("squat", "BACK SQUAT vs BODYWEIGHT",
-         [("under bodyweight", 0.20), ("~bodyweight", 0.50), ("1.25× BW", 0.75), ("1.5×+ BW", 0.95), ("not sure", nil)]),
         ("pullups", "STRICT PULL-UPS · UNBROKEN",
          [("0–2", 0.20), ("3–8", 0.50), ("9–15", 0.80), ("15+", 0.95), ("not sure", nil)]),
     ]
@@ -262,7 +270,7 @@ struct OnboardingView: View {
             }
 
             if let exp = experienced {
-                ForEach(exp ? Self.hyroxQuestions : Self.generalQuestions, id: \.id) { q in
+                ForEach(Self.barbellQuestions + (exp ? Self.hyroxQuestions : Self.generalQuestions), id: \.id) { q in
                     strQuestion(q.id, q.label, q.options)
                 }
             }
@@ -456,8 +464,8 @@ struct OnboardingView: View {
 
         model.settings = s
         model.saveSettings()
-        model.diagnosis = diagnosis           // so goals seed from the right profile
-        model.refreshGoals()                  // seeds GoalLibrary.seed(for: profile) + live currents
+        model.diagnosis = diagnosis                       // so goals seed from the right profile
+        model.reseedGoals(for: diagnosis?.profile)        // re-seed the goal set (profile may have changed) + live currents
         model.pushToCloud()
 
         Task { await model.refresh(context: context) }   // first real read now that we're in

@@ -44,6 +44,13 @@ final class AppModel {
         if let d = try? JSONEncoder().encode(goals) { UserDefaults.standard.set(d, forKey: "goals.v1") }
     }
 
+    /// Replace the goal set to match a (re)diagnosed profile, then fill live currents. Used by
+    /// onboarding / re-running the baseline, where the profile (and thus the right metrics) can change.
+    func reseedGoals(for profile: AthleteProfile?) {
+        goals = GoalLibrary.seed(for: profile)
+        refreshGoals()
+    }
+
     /// Seed the four profile goals if none exist, then update current values from live data.
     func refreshGoals() {
         if goals.isEmpty { goals = GoalLibrary.seed(for: diagnosis?.profile) }
