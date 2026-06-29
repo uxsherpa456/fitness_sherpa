@@ -48,7 +48,13 @@ struct PlanView: View {
             .appBar(model)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingAdd = true } label: { Image(systemName: "plus") }
+                    Menu {
+                        Button { showingAdd = true } label: { Label("Add session", systemImage: "plus") }
+                        Button {
+                            PlannedWorkout.regeneratePlan(profile: model.diagnosis?.profile,
+                                                          daysToRace: model.settings.daysToRace, context: context)
+                        } label: { Label("Regenerate plan", systemImage: "arrow.triangle.2.circlepath") }
+                    } label: { Image(systemName: "ellipsis.circle") }
                 }
             }
             .sheet(item: $editing) { SessionEditView(session: $0, unitSettings: model.settings) }

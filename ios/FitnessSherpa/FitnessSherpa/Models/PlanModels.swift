@@ -62,42 +62,36 @@ final class PlannedWorkout: Identifiable {
     var intent: PlanIntent { PlanIntent(rawValue: intentRaw) ?? .easy }
     var source: PlanSource { PlanSource(rawValue: sourceRaw) ?? .ai_generated }
 
-    /// Seed the next 7 days from the diagnosis-driven template if the store has no upcoming plan.
-    /// Each session is tagged with the current periodization phase (from days-to-race + profile).
+    /// Generate the full periodized plan to race day if the store has no upcoming plan.
     @MainActor
     static func seedIfNeeded(profile: AthleteProfile?, daysToRace: Int?, context: ModelContext) {
-        let cal = Calendar.current
-        let todayStart = cal.startOfDay(for: Date())
+        let todayStart = Calendar.current.startOfDay(for: Date())
         var desc = FetchDescriptor<PlannedWorkout>(predicate: #Predicate { $0.date >= todayStart })
         desc.fetchLimit = 1
         if let existing = try? context.fetch(desc), !existing.isEmpty { return }
+        insertGeneratedPlan(profile: profile, daysToRace: daysToRace, context: context)
+    }
 
-        let phase = Periodization.currentPhase(daysToRace: daysToRace, profile: profile).rawValue
-        for (i, p) in PlanEngine.recommendedWeek(for: profile).enumerated() {
-            let date = cal.date(byAdding: .day, value: i, to: todayStart) ?? todayStart
+    /// Rebuild the future plan from scratch (after a re-diagnosis / changed race date). Preserves
+    /// coach- and athlete-authored sessions; only the auto-generated future ones are replaced.
+    @MainActor
+    static func regeneratePlan(profile: AthleteProfile?, daysToRace: Int?, context: ModelContext) {
+        let todayStart = Calendar.current.startOfDay(for: Date())
+        let aiRaw = PlanSource.ai_generated.rawValue
+        let desc = FetchDescriptor<PlannedWorkout>(
+            predicate: #Predicate { $0.date >= todayStart && $0.sourceRaw == aiRaw })
+        if let existing = try? context.fetch(desc) { existing.forEach { context.delete($0) } }
+        insertGeneratedPlan(profile: profile, daysToRace: daysToRace, context: context)
+    }
+
+    @MainActor
+    private static func insertGeneratedPlan(profile: AthleteProfile?, daysToRace: Int?, context: ModelContext) {
+        let generated = PlanEngine.generate(profile: profile, daysToRace: daysToRace ?? 56, startDate: Date())
+        for g in generated {
             context.insert(PlannedWorkout(
-                date: date, category: p.category, type: p.type, name: p.name, meta: p.meta,
-                intent: intent(for: p), targetZone: zone(for: p), why: p.why, phase: phase))
+                date: g.date, category: g.category, type: g.type, name: g.name, meta: g.meta,
+                intent: g.intent, targetZone: g.zone, why: g.why, phase: g.phase.rawValue, weekNumber: g.weekNumber))
         }
         try? context.save()
-    }
-
-    private static func intent(for p: PlannedSession) -> PlanIntent {
-        switch p.category {
-        case .rest: return .rest
-        case .strength: return .strength
-        case .sim: return .race_sim
-        default:
-            let t = p.type.uppercased()
-            if t.contains("TEMPO") || t.contains("THRESHOLD") || t.contains("INTERVAL") { return .quality }
-            return .easy
-        }
-    }
-    private static func zone(for p: PlannedSession) -> String? {
-        let t = p.type.uppercased()
-        if t.contains("Z2") || t.contains("EASY") || t.contains("LONG") { return "Z2" }
-        if t.contains("THRESHOLD") { return "threshold" }
-        if t.contains("TEMPO") { return "tempo" }
-        return nil
     }
 }
