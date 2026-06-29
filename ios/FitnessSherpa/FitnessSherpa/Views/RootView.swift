@@ -22,7 +22,7 @@ struct RootView: View {
         }
         .tint(Palette.mint)
         .task {
-            await model.bootstrapCloud()          // pull durable settings first (cloud wins if it has data)
+            await model.bootstrapCloud(context: context)   // pull durable settings + history first (cloud wins)
             if model.settings.onboarded {         // a fresh athlete refreshes at the end of onboarding instead
                 await model.refresh(context: context)
             }

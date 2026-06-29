@@ -68,7 +68,9 @@ final class AppModel {
     // MARK: Cloud sync (StateClient ↔ app_state row)
 
     /// Pull the durable copy on launch — cloud wins when it has data (carries across devices/prototype).
-    func bootstrapCloud() async {
+    /// Workout + readiness history is restored only into an empty local store, so it repopulates a
+    /// fresh/reset device without clobbering one that already has data.
+    func bootstrapCloud(context: ModelContext? = nil) async {
         guard let state = try? await StateClient.load(), state.updated_at != nil else { return }
         var s = settings
         s.apply(state.settings)
@@ -76,6 +78,36 @@ final class AppModel {
         settings = s
         s.save()
         if !state.goals.isEmpty { goals = state.goals; saveGoals() }
+
+        guard let context else { return }
+        if (try? context.fetchCount(FetchDescriptor<TrainingSession>())) == 0, !state.sessions.isEmpty {
+            state.sessions.forEach { context.insert($0.makeModel()) }
+        }
+        if (try? context.fetchCount(FetchDescriptor<DailyReadiness>())) == 0, !state.readiness.isEmpty {
+            state.readiness.forEach { context.insert($0.makeModel()) }
+        }
+        try? context.save()
+    }
+
+    /// The user-authored history worth syncing: manual or edited workouts (the rest re-imports from
+    /// HealthKit) + every readiness-log day (which can't be reconstructed).
+    private func gatherHistory(context: ModelContext) -> (sessions: [SessionDTO], readiness: [ReadinessDTO]) {
+        let sessions = ((try? context.fetch(FetchDescriptor<TrainingSession>())) ?? [])
+            .filter { $0.isManual || $0.isEdited }.map(SessionDTO.init)
+        let readiness = ((try? context.fetch(FetchDescriptor<DailyReadiness>())) ?? []).map(ReadinessDTO.init)
+        return (sessions, readiness)
+    }
+
+    /// Mirror workout + readiness history up (fire-and-forget). The backend merges, so this never
+    /// touches settings/goals.
+    func pushHistory(context: ModelContext) {
+        let (sessions, readiness) = gatherHistory(context: context)
+        let s = settings, g = goals
+        Task {
+            let state = AppState(onboarded: true, profile: s.toProfile(), goals: g,
+                                 settings: s.toAppSettings(), sessions: sessions, readiness: readiness)
+            try? await StateClient.save(state, includeHistory: true)
+        }
     }
 
     /// Mirror settings + goals up after an edit.
@@ -97,11 +129,12 @@ final class AppModel {
     /// the local store, and reset to a fresh (un-onboarded) state — so onboarding runs from scratch.
     @MainActor
     func resetToFreshUser(context: ModelContext) async {
-        // 1) Save the real profile to the LIVE row and wait, so the backup lands before we switch keys.
+        // 1) Save the real profile + history to the LIVE row and wait, so the full backup lands first.
         StateClient.userKey = StateClient.liveKey
-        let backup = AppState(onboarded: true, profile: settings.toProfile(),
-                              goals: goals, settings: settings.toAppSettings())
-        try? await StateClient.save(backup)
+        let history = gatherHistory(context: context)
+        let backup = AppState(onboarded: true, profile: settings.toProfile(), goals: goals,
+                              settings: settings.toAppSettings(), sessions: history.sessions, readiness: history.readiness)
+        try? await StateClient.save(backup, includeHistory: true)
         // 2) Point cloud at the isolated sandbox row (its own empty state → onboarding).
         StateClient.userKey = StateClient.sandboxKey
         // 3) Wipe local + reset in-memory state.
@@ -119,7 +152,7 @@ final class AppModel {
         StateClient.userKey = StateClient.liveKey
         wipeLocal(context: context)
         settings = UserSettings(); goals = []
-        await bootstrapCloud()
+        await bootstrapCloud(context: context)   // restores settings + goals + history
         await refresh(context: context)
     }
 
@@ -350,6 +383,8 @@ final class AppModel {
             status = r.readinessFresh
                 ? "Recovery data fresh ✓"
                 : "Readiness not trusted — stale/missing: \(r.staleMetrics.joined(separator: ", "))."
+
+            pushHistory(context: context)   // keep the cloud's workout + readiness history current
         } catch {
             status = "Error: \(error.localizedDescription)"
             print("AppModel.refresh error: \(error)")

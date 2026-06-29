@@ -22,7 +22,50 @@ struct AppState: Codable {
     var profile: ProfileData = .init()
     var goals: [GoalArc] = []
     var settings: AppSettings = .init()
+    var sessions: [SessionDTO] = []        // workout history (only manual / edited — the rest re-imports)
+    var readiness: [ReadinessDTO] = []     // readiness-over-time log (can't be reconstructed)
     var updated_at: String? = nil          // nil ⇒ the cloud has nothing for this user yet
+}
+
+/// Workout history mirror — the user-authored fields + provenance, so edits survive a restore.
+struct SessionDTO: Codable {
+    var healthkitUUID: String?
+    var date: Date
+    var category: String
+    var title: String
+    var durationMin: Int
+    var distanceKm: Double?
+    var caloriesKcal: Double?
+    var avgHR: Int?
+    var maxHR: Int?
+    var rpe: Int?
+    var notes: String?
+    var provenance: Provenance
+
+    init(_ s: TrainingSession) {
+        healthkitUUID = s.healthkitUUID?.uuidString
+        date = s.date; category = s.category; title = s.title
+        durationMin = s.durationMin; distanceKm = s.distanceKm; caloriesKcal = s.caloriesKcal
+        avgHR = s.avgHR; maxHR = s.maxHR; rpe = s.rpe; notes = s.notes
+        provenance = s.provenance
+    }
+    func makeModel() -> TrainingSession {
+        let m = TrainingSession(healthkitUUID: healthkitUUID.flatMap { UUID(uuidString: $0) },
+                                date: date, category: category, title: title, durationMin: durationMin,
+                                distanceKm: distanceKm, caloriesKcal: caloriesKcal, avgHR: avgHR,
+                                maxHR: maxHR, rpe: rpe, notes: notes, source: .user)
+        m.provenance = provenance
+        return m
+    }
+}
+
+/// One readiness-log day.
+struct ReadinessDTO: Codable {
+    var day: Date, score: Int, hrv: Double, ctl: Double, atl: Double, form: Double, acr: Double
+    init(_ r: DailyReadiness) { day = r.day; score = r.score; hrv = r.hrv; ctl = r.ctl; atl = r.atl; form = r.form; acr = r.acr }
+    func makeModel() -> DailyReadiness {
+        DailyReadiness(day: day, score: score, hrv: hrv, ctl: ctl, atl: atl, form: form, acr: acr)
+    }
 }
 
 struct ProfileData: Codable {
@@ -103,17 +146,21 @@ enum StateClient {
     }
     static var isSandbox: Bool { userKey == sandboxKey }
 
+    private static var encoder: JSONEncoder { let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601; return e }
+    private static var decoder: JSONDecoder { let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601; return d }
+
     /// Pull the durable copy on launch. `updated_at == nil` ⇒ nothing in the cloud yet → run onboarding.
     static func load() async throws -> AppState {
         var req = request()
         req.httpBody = try JSONSerialization.data(withJSONObject: ["action": "load", "user_key": userKey])
         let (data, resp) = try await URLSession.shared.data(for: req)
         try check(resp)
-        return try JSONDecoder().decode(AppState.self, from: data)
+        return try decoder.decode(AppState.self, from: data)
     }
 
-    /// Mirror the full state up after onboarding / any settings or goals edit.
-    static func save(_ state: AppState) async throws {
+    /// Mirror state up. The backend merges per field, so a settings/goals push leaves history alone;
+    /// `includeHistory` adds the workout + readiness history (omitted otherwise → preserved).
+    static func save(_ state: AppState, includeHistory: Bool = false) async throws {
         struct SavePayload: Encodable {
             let action = "save"
             let user_key: String
@@ -121,11 +168,15 @@ enum StateClient {
             let profile: ProfileData
             let goals: [GoalArc]
             let settings: AppSettings
+            let sessions: [SessionDTO]?
+            let readiness: [ReadinessDTO]?
         }
         var req = request()
-        req.httpBody = try JSONEncoder().encode(
+        req.httpBody = try encoder.encode(
             SavePayload(user_key: userKey, onboarded: state.onboarded,
-                        profile: state.profile, goals: state.goals, settings: state.settings))
+                        profile: state.profile, goals: state.goals, settings: state.settings,
+                        sessions: includeHistory ? state.sessions : nil,
+                        readiness: includeHistory ? state.readiness : nil))
         let (_, resp) = try await URLSession.shared.data(for: req)
         try check(resp)
     }
