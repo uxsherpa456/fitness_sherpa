@@ -16,11 +16,13 @@ struct AthleteView: View {
     @State private var hrvTrend: [TrendPoint] = []
     @State private var sleepNights: [SleepNight] = []
     @State private var formTrend: [FormPoint] = []
+    @State private var vo2max: Double?
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 12) {
+                    athleteFactsCard
                     Card(style: .dark) {
                         VStack(alignment: .leading, spacing: 12) {
                             ModuleLabel("Diagnosis · quadrant")
@@ -66,6 +68,7 @@ struct AthleteView: View {
                             }
                         }
                     }
+                    statsCard
                     trendCharts
                 }
                 .padding(.horizontal, 14).padding(.vertical, 8)
@@ -89,6 +92,86 @@ struct AthleteView: View {
         hrvTrend = (try? await HealthData.dailySeries(.heartRateVariabilitySDNN,
                     unit: .secondUnit(with: .milli), days: 30, options: .discreteAverage)) ?? []
         sleepNights = (try? await HealthData.sleepNights(days: 21)) ?? []
+        vo2max = (try? await HealthData.latestSample(.vo2Max, unit: HKUnit(from: "mL/kg*min")))??.value
+    }
+
+    // MARK: - Athlete facts
+
+    private func fmt(_ s: String, _ map: [String: String]) -> String { map[s] ?? s.capitalized }
+    private var formatLabel: String {
+        fmt(model.settings.format, ["singles": "Singles", "doubles": "Doubles", "relay": "Relay", "elite15": "Elite 15"])
+    }
+    private var genderLabel: String {
+        fmt(model.settings.gender, ["mens": "Men's", "womens": "Women's", "mixed": "Mixed"])
+    }
+    private var divisionText: String {
+        var parts = [formatLabel, genderLabel]
+        if model.settings.format == "singles" { parts.append(fmt(model.settings.tier, ["open": "Open", "pro": "Pro"])) }
+        return parts.joined(separator: " · ")
+    }
+    private var raceDateText: String {
+        guard let d = DateFormatters.ymd.date(from: model.settings.raceDate) else { return model.settings.raceDate }
+        return d.formatted(.dateTime.month(.abbreviated).day().year())
+    }
+
+    private var athleteFactsCard: some View {
+        Card(style: .dark) {
+            VStack(alignment: .leading, spacing: 10) {
+                ModuleLabel("Athlete")
+                kv("Location", model.settings.location)
+                kv("Division", divisionText)
+                kv("Age", "\(model.settings.age)")
+                kv("Race", "\(raceDateText) · \(model.settings.raceLocation)")
+                kv("Goal", model.settings.goalTime)
+            }
+        }
+    }
+
+    // MARK: - Training stats (from the workout store)
+
+    private var runs: [TrainingSession] { sessions.filter { $0.cat == .run } }
+    private func inThisMonth(_ d: Date) -> Bool { Calendar.current.isDate(d, equalTo: Date(), toGranularity: .month) }
+    private var monthRunKm: Double { runs.filter { inThisMonth($0.date) }.compactMap(\.distanceKm).reduce(0, +) }
+    private var monthRunMin: Int { runs.filter { inThisMonth($0.date) }.reduce(0) { $0 + $1.durationMin } }
+    private var monthWorkouts: Int { sessions.filter { inThisMonth($0.date) }.count }
+    private var yearRunKm: Double {
+        let cutoff = Date().addingTimeInterval(-365 * 86400)
+        return runs.filter { $0.date >= cutoff }.compactMap(\.distanceKm).reduce(0, +)
+    }
+    private var longestRunKm: Double { runs.compactMap(\.distanceKm).max() ?? 0 }
+    private var paceDisplay: String {
+        guard monthRunKm > 0, monthRunMin > 0 else { return "—" }
+        let perKm = Double(monthRunMin) / monthRunKm
+        let per = model.settings.distanceUnit == "mi" ? perKm * 1.609344 : perKm
+        let sec = Int((per * 60).rounded())
+        return String(format: "%d:%02d /%@", sec / 60, sec % 60, Units.distanceUnit(model.settings))
+    }
+
+    private var statsCard: some View {
+        Card(style: .dark) {
+            VStack(alignment: .leading, spacing: 12) {
+                ModuleLabel("Training · this month")
+                HStack(spacing: 0) {
+                    statTile("RUN", Units.displayDistance(km: monthRunKm, model.settings) ?? "—")
+                    statTile("AVG PACE", paceDisplay)
+                    statTile("WORKOUTS", "\(monthWorkouts)")
+                }
+                Rectangle().fill(Palette.surfaceLine).frame(height: 1)
+                kv("Run · last 12 mo", Units.displayDistance(km: yearRunKm, model.settings) ?? "—")
+                kv("Longest run", Units.displayDistance(km: longestRunKm, model.settings) ?? "—")
+                if let v = vo2max { kv("VO₂max", String(format: "%.0f mL/kg·min", v)) }
+                if let rhr = model.reading?.restingHR?.value { kv("Resting HR", "\(Int(rhr)) bpm") }
+            }
+        }
+    }
+
+    private func statTile(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(value).font(.system(size: 18, weight: .heavy)).foregroundStyle(Palette.text)
+            Text(label).font(.system(size: 9, weight: .medium, design: .monospaced)).tracking(0.5)
+                .foregroundStyle(Palette.textFaint)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder private var trendCharts: some View {

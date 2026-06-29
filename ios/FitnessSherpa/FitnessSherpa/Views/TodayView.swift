@@ -48,6 +48,8 @@ struct TodayView: View {
                 Text("HYROX \(model.settings.raceLocation)")
                     .font(.caption).foregroundStyle(Palette.textMuted)
             }
+            Text("Goal \(model.settings.goalTime)")
+                .font(.caption.weight(.semibold)).foregroundStyle(Palette.mint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 2).padding(.bottom, 2)
