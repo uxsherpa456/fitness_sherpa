@@ -111,7 +111,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Text("Fitness Sherpa").font(.footnote).foregroundStyle(.secondary)
+                    Text("Ravns").font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Settings").navigationBarTitleDisplayMode(.inline)

@@ -72,7 +72,7 @@ struct GlobalMenu: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Fitness Sherpa")
+            Text("Ravns")
                 .font(.title3.bold()).foregroundStyle(Palette.text)
                 .padding(.horizontal, 18).padding(.top, 20).padding(.bottom, 14)
             Rectangle().fill(Palette.surfaceLine).frame(height: 1)
@@ -92,7 +92,7 @@ struct GlobalMenu: View {
             .background(Palette.bg)
 
             Spacer()
-            Text("Fitness Sherpa · prototype")
+            Text("Ravns · prototype")
                 .font(.caption2).foregroundStyle(Palette.textFaint)
                 .padding(18)
         }
@@ -114,7 +114,7 @@ struct AppInfoView: View {
     var body: some View {
         NavigationStack {
             List {
-                LabeledContent("App", value: "Fitness Sherpa")
+                LabeledContent("App", value: "Ravns")
                 LabeledContent("Focus", value: "HYROX readiness")
                 LabeledContent("Build", value: "v0 · prototype")
                 Section("How your data is handled") {

@@ -271,7 +271,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FitnessSherpa/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Ravn;
+				INFOPLIST_KEY_CFBundleDisplayName = Ravns;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Fitness Sherpa reads your recovery and workout data to diagnose what's limiting your race time and coach you off current, real numbers.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -309,7 +309,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FitnessSherpa/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Ravn;
+				INFOPLIST_KEY_CFBundleDisplayName = Ravns;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Fitness Sherpa reads your recovery and workout data to diagnose what's limiting your race time and coach you off current, real numbers.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
