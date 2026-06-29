@@ -13,6 +13,7 @@ struct TodayView: View {
     let model: AppModel
     @Environment(\.modelContext) private var context
     @Query(sort: \PlannedWorkout.date, order: .forward) private var plan: [PlannedWorkout]
+    @Query(sort: \TrainingSession.date, order: .reverse) private var sessions: [TrainingSession]
 
     var body: some View {
         NavigationStack {
@@ -283,29 +284,53 @@ struct TodayView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    // MARK: - C. Last workout read (last run is live; drift analysis pending)
+    // MARK: - C. Last workout (live — most recent session of any type, from the workout store)
+
+    private var lastWorkout: TrainingSession? { sessions.first }
 
     private var lastWorkoutCard: some View {
         Card(style: .dark) {
             VStack(alignment: .leading, spacing: 10) {
-                ModuleLabel("Last workout · the read")
-                Text(lastRunHeading).font(.system(size: 15, weight: .semibold))
-                Text("Base is solid — HR drift only 3.2%. Strength holds under fatigue, so the stations aren't the leak. The time you're leaving out there is bodyweight and run pace.")
-                    .font(.footnote).foregroundStyle(Palette.textMuted)
-                HStack(spacing: 6) {
-                    tag("✓ Base held", Palette.green)
-                    tag("Strength holds", Palette.green)
-                    tag("Pace vs goal", Palette.red)
+                ModuleLabel("Last workout")
+                if let s = lastWorkout {
+                    HStack(spacing: 6) {
+                        Image(systemName: s.cat.icon).font(.caption).foregroundStyle(s.cat.color)
+                        Text("\(s.date.formatted(.relative(presentation: .named))) — \(s.title)")
+                            .font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.text)
+                    }
+                    Text(workoutDetail(s)).font(.footnote).foregroundStyle(Palette.textMuted)
+                    if let (text, color) = effortChip(s) {
+                        HStack(spacing: 6) { tag(text, color) }
+                    }
+                } else {
+                    Text("No workouts logged yet — wear your watch or add one on the Plan tab.")
+                        .font(.footnote).foregroundStyle(Palette.textMuted)
                 }
-                sampleCaption("Last run is live; HR-drift analysis pending")
             }
         }
     }
 
-    private var lastRunHeading: String {
-        guard let r = model.reading, let date = r.lastRunDate else { return "No recent run found" }
-        let km = r.lastRunKm.flatMap { Units.displayDistance(km: $0, model.settings) } ?? "run"
-        return "\(date.formatted(.relative(presentation: .named))) — \(km)"
+    private func workoutDetail(_ s: TrainingSession) -> String {
+        var parts: [String] = []
+        if let km = s.distanceKm, km > 0, let d = Units.displayDistance(km: km, model.settings) { parts.append(d) }
+        parts.append("\(s.durationMin) min")
+        if let kcal = s.caloriesKcal, kcal > 0 { parts.append("\(Int(kcal)) kcal") }
+        if let hr = s.avgHR { parts.append("\(hr) bpm avg") }
+        if let mx = s.maxHR { parts.append("\(mx) max") }
+        if let rpe = s.rpe { parts.append("RPE \(rpe)") }
+        return parts.joined(separator: " · ")
+    }
+
+    /// A real effort read from average HR vs the athlete's observed max — not a fabricated analysis.
+    private func effortChip(_ s: TrainingSession) -> (String, Color)? {
+        guard let avg = s.avgHR else { return nil }
+        let hrMax = TrainingLoad.hrMaxFor(sessions: sessions, age: model.settings.age)
+        guard hrMax > 0 else { return nil }
+        switch Double(avg) / hrMax {
+        case 0.85...:    return ("Hard effort", Palette.red)
+        case 0.70..<0.85: return ("Moderate", Palette.orange)
+        default:         return ("Easy · Z2", Palette.green)
+        }
     }
 
     private func tag(_ text: String, _ color: Color) -> some View {
