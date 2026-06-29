@@ -44,12 +44,11 @@ struct QuadrantChart: View {
 
                 VStack(spacing: 6) {
                     chart
-                    // run axis — both ends, in plain language
-                    HStack {
-                        axisLabel("← heavier · slower")
-                        Spacer()
-                        axisLabel("faster · lighter →")
-                    }
+                    // run axis — mirrors the strength label's style
+                    Text("SLOWER  →  FASTER")
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .tracking(1).foregroundStyle(Palette.textFaint)
+                        .frame(maxWidth: .infinity)
                 }
             }
             Text("Up = stronger · right = faster. Top-right is the complete athlete; your corner names your limiter.")
