@@ -149,8 +149,28 @@ enum ReadinessEngine {
 
         guard reading.hrv != nil, !comps.isEmpty else { return result }
 
-        let totalW = comps.reduce(0) { $0 + $1.weight }
-        let recoveryPct = comps.reduce(0.0) { $0 + (($1.z + 2) / 4 * 100) * ($1.weight / totalW) }
+        // Recovery is driven by the continuous "how recovered" signals — HRV and sleep. The vitals
+        // (resting HR, respiratory rate, wrist temp) are illness / strain flags: like Apple Health,
+        // they only pull the score down when they're genuine outliers, not for the ordinary ±1σ
+        // wobble that a hard session, heat, or a late meal routinely cause.
+        let driverLabels: Set<String> = ["HRV", "Sleep"]
+        let drivers = comps.filter { driverLabels.contains($0.label) }
+        let vitals  = comps.filter { !driverLabels.contains($0.label) }
+
+        let driverW = drivers.reduce(0) { $0 + $1.weight }
+        let base = driverW > 0
+            ? drivers.reduce(0.0) { $0 + (($1.z + 2) / 4 * 100) * ($1.weight / driverW) }
+            : 50.0
+
+        // Dead-zoned vital penalty: nothing within ±deadzone σ, ramping to a full hit by ±fullAt σ.
+        // `z` is already sign-flipped (negative = worse: elevated RHR / resp, or temp deviation),
+        // so only bad outliers bite — a low resting HR or a normal reading never costs you.
+        let deadzone = 1.5, fullAt = 3.0
+        let penalty = vitals.reduce(0.0) { acc, c in
+            let excess = max(0, -c.z - deadzone)
+            return acc + min(excess / (fullAt - deadzone), 1) * c.weight
+        }
+        let recoveryPct = base * (1 - min(penalty, 0.6))   // vitals can dock at most 60%
         let scored = recoveryPct * load.recoveryMultiplier
         result.score = Int(min(100, max(0, scored.rounded())))
         return result

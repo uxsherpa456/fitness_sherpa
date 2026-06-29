@@ -110,8 +110,13 @@ enum RecoveryEngine {
     /// Window for the rolling baseline.
     static let baselineDays = 60
 
-    /// z-score band that counts as "normal range."
+    /// z-score band that counts as "normal range" for HRV (the primary recovery signal).
     static let band = 1.0
+
+    /// Resting HR is a vital / illness indicator, not a primary recovery dial — lots of benign
+    /// things nudge it. So it only reads as "elevated" once it's a real outlier, well past the HRV
+    /// band (the way Apple Health surfaces vitals only when they're notably off).
+    static let rhrBand = 1.5
 
     /// Compute today's recovery from a history of morning readings.
     /// `history` should already be filtered to morning readings (first reading
@@ -156,8 +161,8 @@ enum RecoveryEngine {
                                  high: exp(hrvMean + band * hrvSD),
                                  unit: "ms", higherIsBetter: true)
         let rhrRange = AxisRange(today: today.rhrBPM,
-                                 low: rhrMean - band * rhrSD,
-                                 high: rhrMean + band * rhrSD,
+                                 low: rhrMean - rhrBand * rhrSD,
+                                 high: rhrMean + rhrBand * rhrSD,
                                  unit: "bpm", higherIsBetter: false)
 
         return RecoveryResult(
@@ -177,7 +182,7 @@ enum RecoveryEngine {
     private static func classify(hrvZ: Double, rhrZ: Double) -> RecoveryState {
         let hrvHigh = hrvZ > band
         let hrvLow  = hrvZ < -band
-        let rhrHigh = rhrZ > band
+        let rhrHigh = rhrZ > rhrBand        // only a real outlier counts as elevated
 
         switch (hrvHigh, hrvLow, rhrHigh) {
         case (true,  _,    true):  return .watch       // up + elevated RHR = divergence
