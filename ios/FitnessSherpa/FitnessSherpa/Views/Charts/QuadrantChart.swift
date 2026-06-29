@@ -40,30 +40,34 @@ struct QuadrantChart: View {
                 // Built horizontally across a width = the chart's height, then rotated so the ends land
                 // on the top and bottom edges.
                 GeometryReader { g in
-                    HStack(spacing: 0) {
-                        Text("WEAKER")
-                        Spacer(minLength: 0)
-                        Text("STRONGER")
-                    }
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                    .tracking(1).foregroundStyle(Palette.textFaint)
-                    .frame(width: g.size.height)
-                    .rotationEffect(.degrees(-90))
-                    .frame(width: g.size.width, height: g.size.height)
+                    // built horizontally (WEAKER → STRONGER), rotated so it runs bottom → top
+                    axisArrow("WEAKER", "STRONGER")
+                        .frame(width: g.size.height)
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: g.size.width, height: g.size.height)
                 }
-                .frame(width: 14)
+                .frame(width: 16)
 
                 chart
             }
-            // run axis — centered under the chart
-            Text("SLOWER  →  FASTER")
-                .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                .tracking(1).foregroundStyle(Palette.textFaint)
-                .frame(maxWidth: .infinity).padding(.leading, 20)
-            Text("Up = stronger · right = faster. Top-right is the complete athlete; your corner names your limiter.")
+            // run axis — SLOWER pinned left, FASTER pinned right, arrow between
+            axisArrow("SLOWER", "FASTER").padding(.leading, 22)
+            Text("Top-right is the complete athlete — your corner names your limiter.")
                 .font(.system(size: 10)).foregroundStyle(Palette.textMuted)
                 .fixedSize(horizontal: false, vertical: true).padding(.top, 1)
         }
+    }
+
+    /// A directional axis: a label, a stretching line with an arrowhead, then a label.
+    private func axisArrow(_ from: String, _ to: String) -> some View {
+        HStack(spacing: 6) {
+            Text(from)
+            Rectangle().fill(Palette.textFaint).frame(height: 1)
+            Image(systemName: "arrowtriangle.right.fill").font(.system(size: 6))
+            Text(to)
+        }
+        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+        .tracking(1).foregroundStyle(Palette.textFaint)
     }
 
     private var chart: some View {
@@ -98,10 +102,6 @@ struct QuadrantChart: View {
             .aspectRatio(1, contentMode: .fit)
     }
 
-    private func axisLabel(_ t: String) -> some View {
-        Text(t).font(.system(size: 9, weight: .semibold, design: .monospaced))
-            .tracking(0.5).foregroundStyle(Palette.textFaint)
-    }
 
     private func cellLabel(_ c: Cell) -> some View {
         let isActive = c.profile == active
