@@ -383,6 +383,34 @@ struct OnboardingView: View {
         return liftAxis >= 0.5 ? max(blended, 0.5) : blended   // clearing your lifts keeps you "strong enough"
     }
 
+    // MARK: - Plan messaging (reveal)
+
+    /// Days to race from the picker's date (s.raceDate isn't committed until finish()).
+    private var daysToRace: Int? {
+        let cal = Calendar.current
+        return cal.dateComponents([.day], from: cal.startOfDay(for: Date()), to: cal.startOfDay(for: raceDate)).day
+    }
+
+    private var planIntro: String {
+        let base = "From your answers we'll build a phased training plan — base → build → peak → taper — that ramps to race day"
+        if let n = daysToRace, n > 0 { return base + ", across the \(n) days you've got." }
+        return base + "."
+    }
+
+    /// Every athlete's different — the plan's emphasis follows the diagnosed limiter.
+    private func planMessage(_ p: AthleteProfile) -> String {
+        switch p {
+        case .heavySlowStrong:
+            return "You've got the strength — your lever is strength-to-weight and pace. We'll periodize toward dropping weight and sharpening your run, with lifting held at maintenance."
+        case .lightFastWeak:
+            return "Your engine's there — what you need is strength and station capacity. We'll build those without costing you your run."
+        case .goodAtEverything:
+            return "You're already prime HYROX material — so the plan optimizes: race simulation, pacing, and compromised running to find the last minutes."
+        case .weakAtEverything:
+            return "You need both — engine and strength. We'll build a base on each, biggest deficit first, then re-check as you progress."
+        }
+    }
+
     /// Average of the answered mobility questions (nil if none answered → not assessed).
     private var mobilityScore: Double? {
         let vals = Array(mobilityAnswers.values)
@@ -405,6 +433,15 @@ struct OnboardingView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         ModuleLabel("Your focus")
                         Text(d.focus).font(.subheadline).foregroundStyle(Palette.text)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Card(style: .ai) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ModuleLabel("Your plan")
+                        Text(planIntro).font(.subheadline).foregroundStyle(Palette.text)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(planMessage(d.profile)).font(.subheadline).foregroundStyle(Palette.textMuted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
