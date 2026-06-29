@@ -130,9 +130,7 @@ struct QuadrantChart: View {
                 .shadow(color: Palette.mint.opacity(0.55), radius: 8)
             Text("YOU")
                 .font(.system(size: 8, weight: .heavy, design: .monospaced)).tracking(1)
-                .foregroundStyle(Palette.ink)
-                .padding(.horizontal, 7).padding(.vertical, 2)
-                .background(Palette.mint, in: Capsule())
+                .foregroundStyle(Palette.mint)
         }
     }
 }
