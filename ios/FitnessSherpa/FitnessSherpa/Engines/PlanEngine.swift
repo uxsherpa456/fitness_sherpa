@@ -141,21 +141,49 @@ enum PlanEngine {
 
     private enum Role { case easyRun, longRun, qualityRun, strength, sim, rest }
 
-    /// Training paces derived from the recent 5K, formatted per the athlete's distance unit.
-    /// Offsets (s/km) off 5K pace: easy/long well below; tempo & threshold near; race ≈ HYROX run pace.
+    /// Training paces for the athlete's distance unit. Easy/long/tempo/threshold come off the recent
+    /// 5K; the **race pace is back-solved from the goal finish** — `(goal − station time) / 8 km` —
+    /// so it reflects the time they're chasing, not just current 5K fitness.
     struct Paces {
         let easy: String, long: String, tempo: String, threshold: String, race: String, fiveK: String
+        let goalAmbitious: Bool   // goal demands running at/above fresh-5K pace (clamped)
     }
-    static func paces(recent5k: String, unit: String) -> Paces? {
-        let secs = DiagnosisEngine.parse5k(recent5k)   // "24:31" → 1471 s
-        guard secs > 0 else { return nil }
-        let perKm = secs / 5.0
-        func fmt(_ offset: Double) -> String {
-            let p = (perKm + offset) * (unit == "mi" ? 1.609344 : 1)
+
+    static func paces(_ settings: UserSettings) -> Paces? {
+        let secs5k = DiagnosisEngine.parse5k(settings.recent5k)   // "24:31" → 1471 s
+        guard secs5k > 0 else { return nil }
+        let perKm5k = secs5k / 5.0
+        let unit = Units.distanceUnit(settings)
+
+        // Estimate total station + roxzone time, then the run pace the goal finish requires.
+        var ambitious = false
+        let racePerKm: Double = {
+            guard let finish = parseFinishSeconds(settings.goalTime) else { return perKm5k + 28 }
+            let base = 1800.0                                              // ~30 min stations + transitions baseline
+            let strengthAdj = 1.25 - 0.4 * min(max(settings.strengthAxis, 0), 1)   // stronger → faster stations
+            let proAdj = (settings.tier == "pro" && settings.format == "singles") ? 1.12 : 1.0
+            let stationTime = base * strengthAdj * proAdj
+            let perKm = (finish - stationTime) / 8.0
+            if perKm < perKm5k { ambitious = true; return perKm5k }       // can't beat fresh-5K pace over compromised runs
+            return perKm
+        }()
+
+        func fmt(_ secPerKm: Double) -> String {
+            let p = secPerKm * (unit == "mi" ? 1.609344 : 1)
             let s = Int(p.rounded())
             return String(format: "%d:%02d/%@", s / 60, s % 60, unit)
         }
-        return Paces(easy: fmt(70), long: fmt(62), tempo: fmt(25), threshold: fmt(12), race: fmt(28), fiveK: fmt(0))
+        return Paces(easy: fmt(perKm5k + 70), long: fmt(perKm5k + 62), tempo: fmt(perKm5k + 25),
+                     threshold: fmt(perKm5k + 12), race: fmt(racePerKm), fiveK: fmt(perKm5k),
+                     goalAmbitious: ambitious)
+    }
+
+    /// "1:10" / "1:10:00" → seconds.
+    private static func parseFinishSeconds(_ t: String) -> Double? {
+        let p = t.split(separator: ":").compactMap { Double($0) }
+        if p.count == 3 { return p[0] * 3600 + p[1] * 60 + p[2] }
+        if p.count == 2 { return p[0] * 3600 + p[1] * 60 }
+        return nil
     }
 
     /// The weekly day-of-week skeleton (Mon…Sun) for a profile — its training-day mix follows the limiter.
@@ -179,7 +207,7 @@ enum PlanEngine {
         let startMonday = cal.date(byAdding: .day, value: -weekdayMon0, to: today) ?? today
         let blocks = Periodization.roadmap(daysToRace: totalDays, profile: profile)
         let skeleton = weeklySkeleton(profile)
-        let paces = paces(recent5k: settings.recent5k, unit: Units.distanceUnit(settings))
+        let paces = paces(settings)
         let stations = HyroxStations.weights(for: settings)
 
         var out: [GeneratedSession] = []
@@ -243,8 +271,10 @@ enum PlanEngine {
                 return make(.run, "TEMPO RUN", "Tempo + strides", "\(dist(8)) tempo · \(paces?.tempo ?? "RPE 7")", .quality, "tempo",
                             "Build — lifts the pace you can hold.")
             case .peak:
-                return make(.run, "GOAL-PACE INTERVALS", "Race-pace intervals", "5 × 1 km @ \(paces?.race ?? "goal") · 90s", .quality, "threshold",
-                            "Peak — locks in your HYROX run pace.")
+                let note = (paces?.goalAmbitious ?? false)
+                    ? "Peak — your goal needs near-5K running off the stations; ambitious."
+                    : "Peak — locks in the run pace your goal finish needs."
+                return make(.run, "GOAL-PACE INTERVALS", "Race-pace intervals", "5 × 1 km @ \(paces?.race ?? "goal") · 90s", .quality, "threshold", note)
             case .taper:
                 return make(.run, "SHARPENER", "Strides + openers", "20 min easy + 6 strides @ \(paces?.fiveK ?? "5k")", .quality, nil,
                             "Taper — stay sharp, arrive fresh.")
