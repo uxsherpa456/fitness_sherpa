@@ -72,7 +72,7 @@ struct QuadrantChart: View {
             .tracking(1).foregroundStyle(Palette.ink)
             .padding(.horizontal, 10)
         }
-        .clipShape(Capsule())
+        .clipShape(RoundedRectangle(cornerRadius: 3))
     }
 
     private var chart: some View {
