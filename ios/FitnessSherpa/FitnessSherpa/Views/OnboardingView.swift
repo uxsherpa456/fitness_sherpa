@@ -94,7 +94,11 @@ struct OnboardingView: View {
         case welcome
         case name, location, age, weight, height, bodyFat
         case format, division, weights, raceBooked, raceLocation, raceDate, goalTime
-        case health, run, strength, mobility, reveal
+        case health, run
+        case strengthGate            // the experience gate
+        case strengthQ(String)       // one lift / capacity question per screen
+        case mobilityQ(String)       // one mobility check per screen
+        case reveal
     }
 
     /// The ordered flow — conditional panels (Pro/Open weights, race location) appear only when relevant.
@@ -104,7 +108,13 @@ struct OnboardingView: View {
         if s.format == "singles" { p.append(.weights) }
         p.append(.raceBooked)
         if !s.noRace { p.append(.raceLocation) }
-        p += [.raceDate, .goalTime, .health, .run, .strength, .mobility, .reveal]
+        p += [.raceDate, .goalTime, .health, .run, .strengthGate]
+        if let exp = experienced {   // questions appear once the experience gate is answered
+            let qs = Self.barbellQuestions + (exp ? Self.hyroxQuestions : Self.generalQuestions)
+            p += qs.map { Panel.strengthQ($0.id) }
+        }
+        p += Self.mobilityQuestions.map { Panel.mobilityQ($0.id) }
+        p.append(.reveal)
         return p
     }
 
@@ -118,8 +128,8 @@ struct OnboardingView: View {
         case .format, .division, .weights, .raceBooked, .raceLocation, .raceDate, .goalTime: return "Your race"
         case .health: return "Apple Health"
         case .run: return "Your run"
-        case .strength: return "Your strength"
-        case .mobility: return "Your mobility"
+        case .strengthGate, .strengthQ: return "Your strength"
+        case .mobilityQ: return "Your mobility"
         case .reveal: return "Your result"
         }
     }
@@ -190,8 +200,27 @@ struct OnboardingView: View {
         case .goalTime: fieldPanel("Target finish time?", center: true) { goalTimePicker }
         case .health:   scrollPanel { healthStep }
         case .run:      fieldPanel("Recent 5k time?", center: true) { fiveKPicker }
-        case .strength: scrollPanel { strengthStep }
-        case .mobility: scrollPanel { mobilityStep }
+        case .strengthGate: fieldPanel("How much HYROX have you done?") {
+            VStack(alignment: .leading, spacing: 10) {
+                expChoice("Experienced", "I've raced HYROX or train the stations", value: true)
+                expChoice("New to it", "Haven't really trained the stations yet", value: false)
+                Text("Your lifts are scored against your division — \(StrengthStandards.divisionLabel(s)). Hit those numbers and you're \u{201C}strong enough.\u{201D}")
+                    .font(.footnote).foregroundStyle(Palette.textFaint)
+                    .fixedSize(horizontal: false, vertical: true).padding(.top, 4)
+            }
+        }
+        case .strengthQ(let qid): fieldPanel(questionTitle(qid)) {
+            answerPills(qid, strengthOptions(qid), answers: $strAnswers, notSure: $strNotSure)
+        }
+        case .mobilityQ(let qid): fieldPanel(questionTitle(qid)) {
+            VStack(alignment: .leading, spacing: 12) {
+                answerPills(qid, mobilityOptions(qid), answers: $mobilityAnswers, notSure: $mobilityNotSure)
+                if qid == Self.mobilityQuestions.last?.id, let flag = liveMobilityFlag {
+                    Text("Reads as: \(flag.label) — \(flag.read)")
+                        .font(.footnote).foregroundStyle(Palette.textFaint).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
         case .reveal:   scrollPanel { revealStep }
         }
     }
@@ -254,7 +283,9 @@ struct OnboardingView: View {
         switch panel {
         case .name:     return !s.name.trimmingCharacters(in: .whitespaces).isEmpty
         case .run:      return DiagnosisEngine.parse5k(s.recent5k) > 0
-        case .strength: return experienced != nil && !strAnswers.isEmpty
+        case .strengthGate: return experienced != nil
+        case .strengthQ(let qid): return strAnswers[qid] != nil || strNotSure.contains(qid)
+        case .mobilityQ(let qid): return mobilityAnswers[qid] != nil || mobilityNotSure.contains(qid)
         case .reveal:   return !finishing
         default:        return true
         }
@@ -430,28 +461,6 @@ struct OnboardingView: View {
          [("0–2", 0.20), ("3–8", 0.50), ("9–15", 0.80), ("15+", 0.95), ("not sure", nil)]),
     ]
 
-    private var strengthStep: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            stepTitle("Your strength", "The one axis Apple Health can't see. A couple of honest answers place you left-to-right on the map.")
-
-            field("HOW MUCH HYROX HAVE YOU DONE?") {
-                VStack(spacing: 8) {
-                    expChoice("Experienced", "I've raced HYROX or train the stations", value: true)
-                    expChoice("New to it", "Haven't really trained the stations yet", value: false)
-                }
-            }
-
-            if let exp = experienced {
-                Text("Lifts are scored against your division — \(StrengthStandards.divisionLabel(s)). Hit your division's numbers and you're \u{201C}strong enough.\u{201D}")
-                    .font(.footnote).foregroundStyle(Palette.textFaint)
-                    .fixedSize(horizontal: false, vertical: true)
-                ForEach(Self.barbellQuestions + (exp ? Self.hyroxQuestions : Self.generalQuestions), id: \.id) { q in
-                    questionRow(q.id, q.label, q.options, answers: $strAnswers, notSure: $strNotSure)
-                }
-            }
-        }
-    }
-
     // Mobility — an advisory flag, not a quadrant axis. Range gates how you express fitness in the
     // stations (wall-ball depth, lunges, burpees), so it's surfaced as a flag + coach signal only.
     private static let mobilityQuestions: [(id: String, label: String, options: [(String, Double?)])] = [
@@ -463,18 +472,28 @@ struct OnboardingView: View {
          [("palms to floor", 1.0), ("fingers to toes", 0.75), ("mid-shin", 0.45), ("above knee", 0.2), ("not sure", nil)]),
     ]
 
-    private var mobilityStep: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            stepTitle("Your mobility", "Range gates how you express it — wall-ball depth, lunges, burpees. This won't move your quadrant; it flags where stations might no-rep or strain.")
-            ForEach(Self.mobilityQuestions, id: \.id) { q in
-                questionRow(q.id, q.label, q.options, answers: $mobilityAnswers, notSure: $mobilityNotSure)
-            }
-            if let flag = liveMobilityFlag {
-                Text("Reads as: \(flag.label) — \(flag.read)")
-                    .font(.footnote).foregroundStyle(Palette.textFaint)
-                    .fixedSize(horizontal: false, vertical: true).padding(.top, 2)
-            }
+    /// Friendly per-screen heading for an assessment question id.
+    private func questionTitle(_ qid: String) -> String {
+        switch qid {
+        case "squat": return "Back squat vs bodyweight?"
+        case "bench": return "Bench press vs bodyweight?"
+        case "deadlift": return "Deadlift vs bodyweight?"
+        case "wallballs": return "Wall balls unbroken, fresh?"
+        case "sled": return "Race-weight sled push, 50 m?"
+        case "fatigue": return "Stations after a hard run?"
+        case "pushups": return "Max push-ups, unbroken?"
+        case "pullups": return "Strict pull-ups, unbroken?"
+        case "squatdepth": return "How deep is your squat?"
+        case "ankle": return "Heels stay down at the bottom?"
+        case "toetouch": return "Toe touch, legs straight?"
+        default: return "Your answer"
         }
+    }
+    private func strengthOptions(_ qid: String) -> [(String, Double?)] {
+        (Self.barbellQuestions + Self.hyroxQuestions + Self.generalQuestions).first { $0.id == qid }?.options ?? []
+    }
+    private func mobilityOptions(_ qid: String) -> [(String, Double?)] {
+        Self.mobilityQuestions.first { $0.id == qid }?.options ?? []
     }
 
     private func expChoice(_ title: String, _ detail: String, value: Bool) -> some View {
@@ -499,30 +518,25 @@ struct OnboardingView: View {
         .buttonStyle(.plain)
     }
 
-    /// One pill-group question, writing into the given answers/not-sure state (strength or mobility).
-    private func questionRow(_ qid: String, _ label: String, _ options: [(String, Double?)],
+    /// The answer pills for one question (strength or mobility), writing into the given state.
+    private func answerPills(_ qid: String, _ options: [(String, Double?)],
                              answers: Binding<[String: Double]>, notSure: Binding<Set<String>>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(label)
-                .font(.system(size: 11, weight: .semibold, design: .monospaced)).tracking(1.5)
-                .foregroundStyle(Palette.textMuted)
-            FlowLayout(spacing: 8) {
-                ForEach(options.indices, id: \.self) { i in
-                    let (txt, val) = options[i]
-                    let isSel = val == nil ? notSure.wrappedValue.contains(qid) : (answers.wrappedValue[qid] == val)
-                    Button {
-                        if let val { answers.wrappedValue[qid] = val; notSure.wrappedValue.remove(qid) }
-                        else { answers.wrappedValue.removeValue(forKey: qid); notSure.wrappedValue.insert(qid) }
-                    } label: {
-                        Text(txt)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(isSel ? Palette.ink : (val == nil ? Palette.textFaint : Palette.text))
-                            .padding(.vertical, 9).padding(.horizontal, 14)
-                            .background(Capsule().fill(isSel ? Palette.mint : Palette.surface))
-                            .overlay(Capsule().stroke(isSel ? Color.clear : Palette.surfaceLine, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
+        FlowLayout(spacing: 8) {
+            ForEach(options.indices, id: \.self) { i in
+                let (txt, val) = options[i]
+                let isSel = val == nil ? notSure.wrappedValue.contains(qid) : (answers.wrappedValue[qid] == val)
+                Button {
+                    if let val { answers.wrappedValue[qid] = val; notSure.wrappedValue.remove(qid) }
+                    else { answers.wrappedValue.removeValue(forKey: qid); notSure.wrappedValue.insert(qid) }
+                } label: {
+                    Text(txt)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(isSel ? Palette.ink : (val == nil ? Palette.textFaint : Palette.text))
+                        .padding(.vertical, 9).padding(.horizontal, 14)
+                        .background(Capsule().fill(isSel ? Palette.mint : Palette.surface))
+                        .overlay(Capsule().stroke(isSel ? Color.clear : Palette.surfaceLine, lineWidth: 1))
                 }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -633,15 +647,6 @@ struct OnboardingView: View {
             Text(title).font(.system(size: 26, weight: .heavy)).foregroundStyle(Palette.text)
             Text(sub).font(.subheadline).foregroundStyle(Palette.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func field<Content: View>(_ label: String, @ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(label)
-                .font(.system(size: 11, weight: .semibold, design: .monospaced)).tracking(1.5)
-                .foregroundStyle(Palette.textMuted)
-            content()
         }
     }
 
