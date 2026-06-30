@@ -11,6 +11,7 @@ struct QuadrantChart: View {
     let markerX: Double          // 0…1, left → right
     let markerY: Double          // 0…1, top → bottom
     let active: AthleteProfile?
+    var trail: [CGPoint] = []    // past positions (0…1), oldest → newest; the line of how you've moved
 
     private struct Cell {
         let profile: AthleteProfile
@@ -96,6 +97,22 @@ struct QuadrantChart: View {
                         cellLabel(cells[i])
                             .frame(width: w / 2, height: h / 2, alignment: cells[i].inner)
                             .position(x: cells[i].cx * w, y: cells[i].cy * h)
+                    }
+                    // progress trail — the path your position has taken over time
+                    if trail.count >= 2 {
+                        Path { p in
+                            p.move(to: CGPoint(x: trail[0].x * w, y: trail[0].y * h))
+                            for pt in trail.dropFirst() { p.addLine(to: CGPoint(x: pt.x * w, y: pt.y * h)) }
+                        }
+                        .stroke(.white.opacity(0.65),
+                                style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [5, 4]))
+                        ForEach(trail.indices.dropLast(), id: \.self) { i in   // dots at past stops (not the current = YOU)
+                            Circle()
+                                .strokeBorder(.white.opacity(0.65), lineWidth: 1.5)
+                                .background(Circle().fill(i == 0 ? .white.opacity(0.65) : .clear))
+                                .frame(width: 5, height: 5)
+                                .position(x: trail[i].x * w, y: trail[i].y * h)
+                        }
                     }
                     // YOU marker
                     marker.position(x: markerX * w, y: markerY * h)
