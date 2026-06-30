@@ -187,8 +187,8 @@ struct OnboardingView: View {
                 .font(.body).foregroundStyle(Palette.textMuted).fixedSize(horizontal: false, vertical: true)
 
             Button { showMyth = true } label: {
-                HStack(spacing: 8) {
-                    Image("whiteRVN").resizable().scaledToFit().frame(width: 22, height: 22)
+                HStack(spacing: 10) {
+                    Image("whiteRVN").resizable().scaledToFit().frame(width: 44, height: 44)
                     Text("Learn about Munin & Hugin in Norse mythology")
                         .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.mint)
                 }
