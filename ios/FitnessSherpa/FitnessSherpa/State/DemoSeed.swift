@@ -19,6 +19,16 @@ enum DemoSeed {
         #endif
     }
 
+    /// Capture mode for clean prototype/marketing screenshots: launch the simulator build with
+    /// `-screenshots YES -tab N` to land in the populated app on tab N (0 Today … 3 Coach).
+    static var isScreenshot: Bool {
+        #if targetEnvironment(simulator)
+        return UserDefaults.standard.bool(forKey: "screenshots")
+        #else
+        return false
+        #endif
+    }
+
     // MARK: Sample athlete
 
     static var sampleSettings: UserSettings {

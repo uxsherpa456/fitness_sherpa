@@ -21,10 +21,15 @@ final class AppModel {
     var settings = UserSettings.load()
 
     init() {
-        // The web demo always begins as a brand-new athlete: clear the un-onboarded gate + the
-        // "fields pre-fill" flag synchronously so onboarding shows blank with no flash. (SwiftData
-        // rows are wiped in RootView's .task, which has a ModelContext.)
-        if DemoSeed.isDemo {
+        // Screenshot mode (simulator + `-screenshots YES`): land straight in the populated app as the
+        // sample athlete, so marketing/prototype captures skip onboarding.
+        if DemoSeed.isScreenshot {
+            settings = DemoSeed.sampleSettings
+            settings.save()
+        } else if DemoSeed.isDemo {
+            // The web demo always begins as a brand-new athlete: clear the un-onboarded gate + the
+            // "fields pre-fill" flag synchronously so onboarding shows blank with no flash. (SwiftData
+            // rows are wiped in RootView's .task, which has a ModelContext.)
             let d = UserDefaults.standard
             ["onboardedBefore", RootView.pendingTourKey].forEach { d.removeObject(forKey: $0) }
             settings = UserSettings()

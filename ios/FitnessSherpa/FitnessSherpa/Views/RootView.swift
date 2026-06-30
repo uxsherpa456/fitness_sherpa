@@ -11,7 +11,7 @@ import SwiftData
 struct RootView: View {
     @Environment(\.modelContext) private var context
     @State private var model = AppModel()
-    @State private var selectedTab = 0
+    @State private var selectedTab = DemoSeed.isScreenshot ? UserDefaults.standard.integer(forKey: "tab") : 0
     @State private var tour = false
     @State private var tourStep = 0
 
