@@ -149,6 +149,7 @@ struct GlobalMenu: View {
     let model: AppModel
     @State private var showingSettings = false
     @State private var showingInfo = false
+    @State private var showingProfiles = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -158,6 +159,10 @@ struct GlobalMenu: View {
             Rectangle().fill(Palette.surfaceLine).frame(height: 1)
 
             List {
+                Button { showingProfiles = true } label: {
+                    Label("The four profiles", systemImage: "square.grid.2x2").foregroundStyle(Palette.text)
+                }
+                .listRowBackground(Palette.bg)
                 Button { showingSettings = true } label: {
                     Label("Settings", systemImage: "gearshape").foregroundStyle(Palette.text)
                 }
@@ -181,6 +186,7 @@ struct GlobalMenu: View {
         .ignoresSafeArea(edges: .bottom)
         .sheet(isPresented: $showingSettings) { SettingsView(model: model) }
         .sheet(isPresented: $showingInfo) { AppInfoView(model: model) }
+        .sheet(isPresented: $showingProfiles) { DiagnosisGuideView() }
     }
 }
 
