@@ -79,7 +79,7 @@ struct RootView: View {
             PlanView(model: model)
                 .tabItem { Label("Plan", systemImage: "dumbbell.fill") }.tag(2)
             CoachView(model: model)
-                .tabItem { Label("AI Coach", systemImage: "sparkles") }.tag(3)
+                .tabItem { Label("Hugin", systemImage: "bird.fill") }.tag(3)
         }
     }
 }
@@ -93,9 +93,9 @@ private struct TabTourOverlay: View {
 
     private let steps: [(title: String, body: String)] = [
         ("Today", "Your daily verdict — train hard or back off. Readiness, fuel, your last-workout read, and today's session at a glance."),
-        ("Athlete", "Who you are right now — your diagnosis quadrant, training status, and the metrics arcing toward race day. Re-run your baseline here anytime."),
+        ("Athlete", "Who you are right now — your diagnosis quadrant, training status, and Munin's memory: the metrics arcing toward race day. Re-run your baseline here anytime."),
         ("Plan", "Your plan to race day — base to taper, every session with real paces + station weights, shifting as your diagnosis changes."),
-        ("AI Coach", "A coach that already holds today's data — it cites your own numbers and won't reason off stale data."),
+        ("Hugin", "Thought, made into a coach. Hugin already holds today's data — it cites your own numbers and won't reason off stale data."),
     ]
 
     var body: some View {

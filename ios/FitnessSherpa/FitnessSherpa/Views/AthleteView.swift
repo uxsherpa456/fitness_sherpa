@@ -75,6 +75,14 @@ struct AthleteView: View {
                         }
                     }
                     statsCard
+                    HStack(spacing: 6) {
+                        Image(systemName: "bird.fill").font(.system(size: 10))
+                        Text("MUNIN · WHAT YOU'VE TRAINED, REMEMBERED")
+                            .font(.system(size: 10, weight: .heavy, design: .monospaced)).tracking(1.2)
+                    }
+                    .foregroundStyle(Palette.textFaint)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6)
                     trendCharts
                 }
                 .padding(.horizontal, 14).padding(.vertical, 8)

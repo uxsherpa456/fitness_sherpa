@@ -180,6 +180,12 @@ struct OnboardingView: View {
             + Text("Ravns.").font(.system(size: 30, weight: .heavy)).foregroundStyle(Palette.mint)
             Text("I read your training and recovery, find what's actually holding back your HYROX time, and build you a plan that ramps to race day — adjusting to how recovered you are each morning.")
                 .font(.body).foregroundStyle(Palette.textMuted).fixedSize(horizontal: false, vertical: true)
+            (Text("Two ravens do the work — ")
+             + Text("Munin").foregroundColor(Palette.mint)
+             + Text(" remembers everything you've trained, ")
+             + Text("Hugin").foregroundColor(Palette.mint)
+             + Text(" reads it and thinks ahead."))
+                .font(.subheadline).foregroundStyle(Palette.textMuted).fixedSize(horizontal: false, vertical: true)
             Text("First, a quick baseline — your real numbers, not a guess. About a minute.")
                 .font(.subheadline).foregroundStyle(Palette.textFaint).fixedSize(horizontal: false, vertical: true)
         }
@@ -492,7 +498,7 @@ struct OnboardingView: View {
                         }
                     }
                 }
-                Text("We'll seed your focus metrics from this and keep them on the Athlete tab. The AI Coach can refine them anytime.")
+                Text("We'll seed your focus metrics from this and keep them on the Athlete tab. Hugin can refine them anytime.")
                     .font(.footnote).foregroundStyle(Palette.textFaint).fixedSize(horizontal: false, vertical: true)
             } else {
                 ProgressView().tint(Palette.mint).frame(maxWidth: .infinity)

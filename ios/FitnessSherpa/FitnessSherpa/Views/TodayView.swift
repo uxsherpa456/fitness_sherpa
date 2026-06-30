@@ -397,10 +397,10 @@ struct TodayView: View {
     private var coachEntryCard: some View {
         Card(style: .ai) {
             HStack(spacing: 12) {
-                Image(systemName: "sparkles").font(.title2).foregroundStyle(Palette.mint)
+                Image(systemName: "bird.fill").font(.title2).foregroundStyle(Palette.mint)
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
-                        Text("AI Coach").font(.system(size: 15, weight: .bold))
+                        Text("Hugin").font(.system(size: 15, weight: .bold))
                         Text("✓ primed").font(.caption2).foregroundStyle(Palette.green)
                     }
                     Text(coachBlurb).font(.footnote).foregroundStyle(Palette.textMuted)
