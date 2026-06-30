@@ -16,14 +16,14 @@ import Foundation
 
 /// The four HYROX athlete profiles — the output of placing an athlete on the quadrant.
 enum AthleteProfile: Int, Codable, CaseIterable {
-    case heavySlowStrong = 1     // Heavy & slow, strong enough
+    case heavySlowStrong = 1     // Strong enough, but slower than goal pace
     case lightFastWeak   = 2     // Light & fast, not strong enough
     case goodAtEverything = 3
     case weakAtEverything = 4
 
     var title: String {
         switch self {
-        case .heavySlowStrong:  return "Heavy & slow — strong enough"
+        case .heavySlowStrong:  return "Strong but slow"
         case .lightFastWeak:    return "Light & fast — not strong enough"
         case .goodAtEverything: return "Good at everything"
         case .weakAtEverything: return "Weak at everything"

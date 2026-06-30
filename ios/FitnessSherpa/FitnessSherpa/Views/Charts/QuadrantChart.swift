@@ -25,7 +25,7 @@ struct QuadrantChart: View {
     }
 
     private let cells: [Cell] = [
-        Cell(profile: .heavySlowStrong, title: "Heavy & slow,\nstrong enough", limiter: "limiter: weight + pace",
+        Cell(profile: .heavySlowStrong, title: "Strong but\nslow", limiter: "limiter: run pace",
              cx: 0.25, cy: 0.25, inner: .topLeading, textAlign: .leading),
         Cell(profile: .goodAtEverything, title: "Good at\neverything", limiter: "limiter: integration",
              cx: 0.75, cy: 0.25, inner: .topTrailing, textAlign: .trailing),

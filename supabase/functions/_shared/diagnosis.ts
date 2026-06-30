@@ -87,7 +87,7 @@ export function recomputeDiagnosis(
   const pos = (r: number) => r <= ready ? r * 0.5 / ready : 0.5 + (r - ready) / (1 - ready) * 0.5;
   let profile: string, profileIndex: 1 | 2 | 3 | 4, limiter: string, focus: string;
   if (strong && !fast) {
-    profile = "Heavy & slow — strong enough"; profileIndex = 1;
+    profile = "Strong but slow"; profileIndex = 1;
     limiter = "running economy + power-to-weight";
     focus = "strong enough for your division — strength stays at maintenance, not a focus; the work is dropping weight and sharpening 5k pace";
   } else if (!strong && fast) {
