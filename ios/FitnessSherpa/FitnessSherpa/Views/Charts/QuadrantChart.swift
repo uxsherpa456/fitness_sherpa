@@ -77,11 +77,10 @@ struct QuadrantChart: View {
         GeometryReader { geo in
             let w = geo.size.width, h = geo.size.height
             ZStack {
-                    // negative→positive gradient: weak+slow (bottom-left, red) → ideal (top-right, green),
-                    // dimmed by a black layer so the labels + marker stay readable
-                    LinearGradient(colors: [Palette.red, Palette.orange, Palette.green],
+                    // negative→positive gradient (darkened): weak+slow (bottom-left, red) →
+                    // ideal (top-right, green); dark enough that labels + marker stay readable
+                    LinearGradient(colors: [Color(hex: 0x7A2D24), Color(hex: 0x7A5224), Color(hex: 0x245E3C)],
                                    startPoint: .bottomLeading, endPoint: .topTrailing)
-                        .overlay(Color.black.opacity(0.62))
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                     // active quadrant highlight
                     if let active, let c = cells.first(where: { $0.profile == active }) {
