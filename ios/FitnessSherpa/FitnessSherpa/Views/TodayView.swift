@@ -397,9 +397,8 @@ struct TodayView: View {
     private var coachEntryCard: some View {
         Card(style: .ai) {
             HStack(spacing: 12) {
-                Image("rvns").resizable().scaledToFit()
+                Image("whiteRVN").resizable().scaledToFit()
                     .frame(width: 34, height: 34)
-                    .background(Color.white).clipShape(Circle())
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text("Hugin").font(.system(size: 15, weight: .bold))

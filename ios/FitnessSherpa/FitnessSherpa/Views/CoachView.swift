@@ -207,17 +207,7 @@ struct CoachView: View {
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Image("rvns").resizable().scaledToFit()
-                    .frame(width: 40, height: 40)
-                    .background(Color.white).clipShape(Circle())
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Hugin").font(.headline).foregroundStyle(Palette.text)
-                    Text("Thought, made into a coach").font(.caption2).foregroundStyle(Palette.textMuted)
-                }
-            }
-            .padding(.bottom, 4)
-            Text("Ask your coach").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.textMuted)
+            Text("Ask your coach").font(.headline).foregroundStyle(Palette.text)
             ForEach(starters, id: \.self) { s in
                 Button { input = s; send() } label: {
                     Text(s).font(.footnote).foregroundStyle(Palette.mint)
