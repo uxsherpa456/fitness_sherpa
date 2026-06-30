@@ -41,7 +41,7 @@ enum AthleteProfile: Int, Codable, CaseIterable {
 
     var focus: String {
         switch self {
-        case .heavySlowStrong:  return "lose weight toward 200 lb, improve 5k pace; lifting capped"
+        case .heavySlowStrong:  return "strong enough for your division — strength stays at maintenance, not a focus; the work is dropping weight and sharpening 5k pace"
         case .lightFastWeak:    return "build strength + station work; hold run volume steady"
         case .goodAtEverything: return "race simulation, pacing, compromised running"
         case .weakAtEverything: return "fix the biggest deficit first, then re-diagnose"

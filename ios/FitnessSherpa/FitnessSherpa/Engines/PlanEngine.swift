@@ -69,8 +69,8 @@ enum PlanEngine {
                       meta: "8 km · easy", why: "Builds the engine that frees up race pace"),
                 .init(dow: "TUE", category: .run, type: "TEMPO RUN", name: "Tempo run + strides",
                       meta: "8 km tempo · RPE 7", why: "Moves your limiter — run pace + power-to-weight"),
-                .init(dow: "WED", category: .strength, type: "STRENGTH · CAPPED", name: "Maintenance lift",
-                      meta: "30 min · 3 big lifts", why: "Capped — holds strength without fighting weight loss"),
+                .init(dow: "WED", category: .strength, type: "STRENGTH · MAINTAIN", name: "Maintenance lift",
+                      meta: "30 min · 3 big lifts", why: "Strong enough for your division — strength is maintenance, not a focus"),
                 .init(dow: "THU", category: .run, type: "THRESHOLD", name: "5 × 1 km intervals",
                       meta: "@ threshold · 90s rest", why: "Lifts the pace you can hold"),
                 .init(dow: "FRI", category: .rest, type: "REST", name: "Rest day", meta: "recover", why: nil),
@@ -282,8 +282,8 @@ enum PlanEngine {
 
         case .strength:
             if profile == .heavySlowStrong {
-                return make(.strength, "STRENGTH · CAPPED", "Maintenance lift", "30 min · 3 big lifts", .strength, nil,
-                            "Capped — holds strength without fighting weight loss.")
+                return make(.strength, "STRENGTH · MAINTAIN", "Maintenance lift", "30 min · 3 big lifts", .strength, nil,
+                            "Strong enough for your division — strength is maintenance here, not a focus.")
             }
             switch phase {
             case .base:  return make(.strength, "STRENGTH · FOUNDATION", "Foundational strength", "45 min · squat/DL/press", .strength, nil, "Base — build the strength your stations need.")

@@ -439,7 +439,7 @@ struct OnboardingView: View {
     private func planMessage(_ p: AthleteProfile) -> String {
         switch p {
         case .heavySlowStrong:
-            return "You've got the strength — your lever is strength-to-weight and pace. We'll periodize toward dropping weight and sharpening your run, with lifting held at maintenance."
+            return "You're strong enough for your division, so strength stays at maintenance — not a focus. Your lever is strength-to-weight and pace, so we'll periodize toward dropping weight and sharpening your run."
         case .lightFastWeak:
             return "Your engine's there — what you need is strength and station capacity. We'll build those without costing you your run."
         case .goodAtEverything:

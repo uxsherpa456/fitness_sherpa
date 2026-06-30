@@ -44,7 +44,7 @@ export function recomputeDiagnosis(
   if (strong && !fast) {
     profile = "Heavy & slow — strong enough"; profileIndex = 1;
     limiter = "running economy + power-to-weight";
-    focus = "lose weight toward 200 lb, improve 5k pace; lifting capped";
+    focus = "strong enough for your division — strength stays at maintenance, not a focus; the work is dropping weight and sharpening 5k pace";
   } else if (!strong && fast) {
     profile = "Light & fast — not strong enough"; profileIndex = 2;
     limiter = "strength + station capacity";
