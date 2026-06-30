@@ -148,20 +148,31 @@ struct OnboardingView: View {
         }
     }
 
+    /// Whether a text-entry field is open (keyboard up) — the footer becomes a "Done" while editing.
+    private var editingText: Bool { ["name", "age", "weight"].contains(expandedField) }
+
     private var footer: some View {
         HStack(spacing: 12) {
-            if step > 0 {
-                Button("Back") { withAnimation { step -= 1 } }
-                    .font(.body.weight(.medium)).foregroundStyle(Palette.textMuted)
-            }
-            Spacer()
-            Button(action: advance) {
-                Text(nextTitle)
+            if editingText {
+                Spacer()
+                Button("Done") { expandedField = nil }
                     .font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
                     .padding(.vertical, 13).padding(.horizontal, 28)
-                    .background(Capsule().fill(nextEnabled ? Palette.mint : Palette.surfaceLine))
+                    .background(Capsule().fill(Palette.mint))
+            } else {
+                if step > 0 {
+                    Button("Back") { withAnimation { step -= 1 } }
+                        .font(.body.weight(.medium)).foregroundStyle(Palette.textMuted)
+                }
+                Spacer()
+                Button(action: advance) {
+                    Text(nextTitle)
+                        .font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
+                        .padding(.vertical, 13).padding(.horizontal, 28)
+                        .background(Capsule().fill(nextEnabled ? Palette.mint : Palette.surfaceLine))
+                }
+                .disabled(!nextEnabled)
             }
-            .disabled(!nextEnabled)
         }
         .padding(.horizontal, 22).padding(.top, 10).padding(.bottom, 14)
         .background(Palette.bg)
