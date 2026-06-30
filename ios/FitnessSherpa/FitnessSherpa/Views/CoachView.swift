@@ -455,22 +455,36 @@ struct CoachView: View {
     }
 }
 
-/// Three dots that pulse in sequence — the coach's "thinking" indicator.
+/// Three dots with a soft highlight sweeping across them — the coach's "thinking" indicator.
 private struct TypingDots: View {
-    @State private var animating = false
-    var body: some View {
+    @State private var animate = false
+
+    private var dots: some View {
         HStack(spacing: 5) {
-            ForEach(0..<3, id: \.self) { i in
-                Circle()
-                    .fill(Palette.textMuted)
-                    .frame(width: 6, height: 6)
-                    .scaleEffect(animating ? 1 : 0.55)
-                    .opacity(animating ? 1 : 0.4)
-                    .animation(.easeInOut(duration: 0.6).repeatForever().delay(Double(i) * 0.18),
-                               value: animating)
+            ForEach(0..<3, id: \.self) { _ in
+                Circle().fill(Palette.textFaint).frame(width: 6, height: 6)
             }
         }
-        .onAppear { animating = true }
+    }
+
+    var body: some View {
+        dots
+            .overlay {
+                GeometryReader { geo in
+                    let w = geo.size.width
+                    Rectangle()
+                        .fill(LinearGradient(colors: [.clear, Palette.text, .clear],
+                                             startPoint: .leading, endPoint: .trailing))
+                        .frame(width: w * 0.5)
+                        .offset(x: animate ? w * 0.9 : -w * 0.5)
+                        .blendMode(.plusLighter)
+                }
+                .mask(dots)
+            }
+            .compositingGroup()
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: false)) { animate = true }
+            }
     }
 }
 
