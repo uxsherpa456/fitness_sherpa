@@ -1,5 +1,5 @@
 //  OnboardingView.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  First-run baseline assessment, ported from the prototype's onboarding flow and adapted to what
 //  we actually have built: real Settings, a live HealthKit read, and the real DiagnosisEngine.

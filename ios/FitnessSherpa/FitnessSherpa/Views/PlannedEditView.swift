@@ -1,5 +1,5 @@
 //  PlannedEditView.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Edit a planned session. Any athlete edit re-stamps the source as `athlete` so the coach knows
 //  it was hand-set; the coach can still propose changes (which arrive tagged `coach`).

@@ -1,5 +1,5 @@
 //  DailyReadiness.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  One row per day, logged on refresh — the readiness score over time (the one trend that can't be
 //  reconstructed from Apple Health, because it includes the subjective "how you feel" input).

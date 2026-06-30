@@ -1,5 +1,5 @@
 //  AppModel.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Shared observable state: reads HealthKit, runs the DiagnosisEngine, persists to SwiftData,
 //  and exposes the current reading + diagnosis to every tab. Replaces the per-view logic that

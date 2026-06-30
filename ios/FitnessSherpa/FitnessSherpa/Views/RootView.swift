@@ -1,5 +1,5 @@
 //  RootView.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  The app shell: a four-tab TabView over a shared AppModel, wrapped in a global hamburger menu
 //  (Settings + App Info) that slides in from the left. Each tab's nav bar shows the global menu

@@ -1,5 +1,5 @@
 //  TodayView.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  The Today tab, ported from prototype/index.html (lines 1102–1222): readiness verdict, fuel,
 //  last-workout read, next session, AI coach entry. Live data (HRV/resting HR + freshness, the

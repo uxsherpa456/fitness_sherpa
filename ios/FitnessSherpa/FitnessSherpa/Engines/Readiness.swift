@@ -1,5 +1,5 @@
 //  Readiness.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Readiness v1.1 — baseline-relative recovery × training strain × how you feel.
 //  Each recovery signal is a z-score vs the athlete's own ~60-day baseline (population priors until

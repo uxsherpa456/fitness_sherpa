@@ -1,5 +1,5 @@
 //  GoalLibrary.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Focus-metric goals (the Athlete "arcs"), ported from the prototype's GOAL_LIBRARY + PROFILE_GOALS.
 //  Each diagnosis profile surfaces the four metrics that move its limiter. Stored as GoalArc (the

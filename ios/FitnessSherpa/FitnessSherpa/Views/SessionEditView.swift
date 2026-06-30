@@ -1,5 +1,5 @@
 //  SessionEditView.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Add or edit a training session. Per the Becoming spec, editing any field stamps it user-sourced
 //  (and isEdited), which then protects it from being overwritten by future HealthKit imports.

@@ -1,5 +1,5 @@
 //  Periodization.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Turns "days to race" + the diagnosis profile into a phased macro plan — base → build → peak →
 //  taper — allocating the weeks you actually have, weighted by your limiter. This is the roadmap the

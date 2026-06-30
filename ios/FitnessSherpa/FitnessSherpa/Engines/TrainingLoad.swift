@@ -1,5 +1,5 @@
 //  TrainingLoad.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Turns recent workouts into a training-strain picture so readiness reflects what you DID, not
 //  just this morning's vitals. Per-session TRIMP (intensity-weighted), EWMA acute (7d) / chronic

@@ -1,5 +1,5 @@
 //  GoalEditView.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Edit a focus-metric goal's current + target. Data-backed currents (weight, body fat) refresh
 //  from HealthKit; the target is yours to set. Saves locally and mirrors to the cloud app_state row.

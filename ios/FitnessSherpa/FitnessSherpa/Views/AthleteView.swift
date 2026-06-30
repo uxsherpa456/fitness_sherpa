@@ -1,5 +1,5 @@
 //  AthleteView.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  The Athlete tab: live diagnosis + quadrant, focus-metric goals (race log), and trend charts.
 

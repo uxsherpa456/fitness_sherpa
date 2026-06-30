@@ -1,5 +1,5 @@
 //  DateFormatters.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Shared formatters — DateFormatter allocation is expensive, so reuse a single instance.
 

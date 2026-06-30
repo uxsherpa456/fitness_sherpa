@@ -1,5 +1,5 @@
 //  DiagnosisEngine.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Pure-Swift port of the prototype's diagnostic engine (server.mjs / index.html).
 //  Places an athlete on the strength × running quadrant and names the binding constraint.

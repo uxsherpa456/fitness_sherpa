@@ -1,6 +1,6 @@
 //
 //  RecoveryEngine.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Two-axis recovery readout built on Apple HealthKit data. Feeds the recovery half of the
 //  readiness blend (ReadinessEngine): its log-z HRV + z RHR replace the raw z-scores when there's

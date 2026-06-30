@@ -1,5 +1,5 @@
 //  StrengthStandards.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Turns the onboarding barbell answers into the strength axis, measured against the athlete's
 //  HYROX division — so "strong enough for my division" is what puts you on the strong side of the

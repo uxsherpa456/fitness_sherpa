@@ -1,5 +1,5 @@
 //  StateSync.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Cloud persistence client — mirrors the same `public.app_state` row the prototype writes, via the
 //  deployed `state` Edge Function. Pull on launch (cloud wins when it has data), push after

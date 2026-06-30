@@ -1,5 +1,5 @@
 //  PlanEngine.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  A rule-based recommended training week derived from the athlete's diagnosis profile — the
 //  future half of the Plan tab. Each session says WHY it exists (it moves the limiter), mirroring

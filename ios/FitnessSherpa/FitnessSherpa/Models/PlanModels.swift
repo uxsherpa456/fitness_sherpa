@@ -1,5 +1,5 @@
 //  PlanModels.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  The persistent training plan. Each upcoming session is a stored, editable record (not generated
 //  on the fly), with the fields the coach reasons over: intent (gates intensity vs readiness),

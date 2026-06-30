@@ -1,5 +1,5 @@
 //  LocationField.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  A location picker with city/location type-ahead (MapKit MKLocalSearchCompleter). Used for home +
 //  race location so the athlete picks a real place instead of free-typing. Tapping opens a full

@@ -1,5 +1,5 @@
 //  WorkoutModels.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  The durable training-data layer (Becoming spec). Our store — not HealthKit — owns the data.
 //  HealthKit is an input that reconciles in field-by-field: user edits and manual entries are never

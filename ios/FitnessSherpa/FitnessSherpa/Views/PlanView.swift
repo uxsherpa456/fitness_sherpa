@@ -1,5 +1,5 @@
 //  PlanView.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  The training timeline (Becoming spec): one continuous chronological list — past above, today
 //  pinned as the anchor, recommended future below. Past sessions come from our durable store

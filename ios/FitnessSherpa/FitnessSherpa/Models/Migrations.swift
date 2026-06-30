@@ -1,10 +1,10 @@
 //  Migrations.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Versioned schema + migration plan so the SwiftData store survives app updates instead of being
 //  wiped on any change. Additive changes migrate lightweight automatically. For a breaking change
 //  (e.g. reshaping a Codable composite like Provenance), add AppSchemaV2 and a MigrationStage here
-//  instead of relying on the dev wipe-recovery in FitnessSherpaApp.
+//  instead of relying on the dev wipe-recovery in RavnsApp.
 
 import SwiftData
 

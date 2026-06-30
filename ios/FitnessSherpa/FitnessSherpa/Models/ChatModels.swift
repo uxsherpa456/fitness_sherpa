@@ -1,5 +1,5 @@
 //  ChatModels.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Persistent AI-coach conversations: a Conversation owns an ordered list of messages, saved to
 //  SwiftData so chat history survives launches and is browsable (like Claude's conversation list).

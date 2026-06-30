@@ -1,5 +1,5 @@
 //  Units.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Display + entry conversion for the athlete's unit preferences (lb/kg, mi/km). Data is stored
 //  canonically (km, lb); these convert only at the UI edges.

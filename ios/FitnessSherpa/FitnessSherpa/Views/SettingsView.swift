@@ -1,5 +1,5 @@
 //  SettingsView.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Settings sheet ported from the prototype: profile (location, race format/division/weights, age),
 //  the race (goal time, date, location), and units. Saves to AppModel.settings (UserDefaults).

@@ -1,5 +1,5 @@
 //  HealthRead.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Minimal HealthKit read helpers for the first milestone (SETUP.md §6) + freshness stamping
 //  (DATA_MAP.md §5): pull the latest recovery metrics + most recent run, each stamped with the

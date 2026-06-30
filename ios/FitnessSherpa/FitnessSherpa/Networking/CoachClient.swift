@@ -1,5 +1,5 @@
 //  CoachClient.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Streams the AI coach from the deployed Supabase Edge Function (…/functions/v1/coach,
 //  --no-verify-jwt). Sends { messages, context }, parses the SSE stream, and yields typed events.

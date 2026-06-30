@@ -1,5 +1,5 @@
 //  AthleteCharts.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Trend charts for the Athlete tab. HRV / sleep / form / acute:chronic come from Apple Health
 //  history (reconstructed); readiness comes from the daily log.

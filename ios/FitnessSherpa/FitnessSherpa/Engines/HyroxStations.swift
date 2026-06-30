@@ -1,5 +1,5 @@
 //  HyroxStations.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Official HYROX implement weights by division (gender × Open/Pro), in kg as the sport specifies.
 //  Lets the plan prescribe the exact loads the athlete will race — division-scaled station work,

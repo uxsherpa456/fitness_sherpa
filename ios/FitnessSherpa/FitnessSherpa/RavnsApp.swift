@@ -1,6 +1,6 @@
 //
-//  FitnessSherpaApp.swift
-//  FitnessSherpa
+//  RavnsApp.swift
+//  Ravns
 //
 //  Created by Ryan Lee on 6/27/26.
 //
@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct FitnessSherpaApp: App {
+struct RavnsApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema(versionedSchema: AppSchemaV3.self)
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)

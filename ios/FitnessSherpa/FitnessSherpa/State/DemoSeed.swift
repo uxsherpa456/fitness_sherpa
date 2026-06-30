@@ -1,5 +1,5 @@
 //  DemoSeed.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Web/demo data. Appetize streams the iOS SIMULATOR, which has no Apple Health — so the live
 //  readiness/recovery/diagnosis would be empty. In the simulator we instead synthesize a realistic

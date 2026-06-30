@@ -1,5 +1,5 @@
 //  LegacySchema.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Orphaned @Models kept ONLY so AppSchemaV1/V2 (Migrations.swift) still describe the shape that
 //  created existing stores. They are excluded from AppSchemaV3; the V2→V3 lightweight stage drops

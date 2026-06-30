@@ -1,5 +1,5 @@
 //  QuadrantChart.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  The strength × running quadrant, ported from prototype/index.html (.qchart). Places the athlete
 //  with a glowing "YOU" marker at (markerX, markerY) — both 0…1 — and highlights the active profile

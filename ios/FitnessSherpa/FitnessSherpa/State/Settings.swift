@@ -1,5 +1,5 @@
 //  Settings.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  User-editable profile / race / units settings, ported from the prototype's Settings screen.
 //  Persisted to UserDefaults for now; mirrors StateSync.AppSettings so it can sync to the cloud

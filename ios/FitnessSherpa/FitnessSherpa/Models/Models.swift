@@ -1,5 +1,5 @@
 //  Models.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  SwiftData schema — the local source of truth (offline-first) that the diagnosis,
 //  trends, and coach reason over. A "goal" is modeled as a concept with HYROX as the

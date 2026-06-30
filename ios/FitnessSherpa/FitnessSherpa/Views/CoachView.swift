@@ -1,5 +1,5 @@
 //  CoachView.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  The AI Coach tab: an evidence-gated chat over the deployed Edge Function, with persistent
 //  conversation history (SwiftData). A list icon (top-left) opens past chats; the pencil starts a

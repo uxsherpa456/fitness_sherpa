@@ -1,5 +1,5 @@
 //  Trends.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  Time-series points for the Athlete trend charts. HRV / sleep / form / acute:chronic are
 //  reconstructed from Apple Health history (no logging needed); readiness comes from a daily log.

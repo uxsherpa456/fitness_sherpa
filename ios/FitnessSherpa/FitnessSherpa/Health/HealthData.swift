@@ -1,5 +1,5 @@
 //  HealthData.swift
-//  Fitness Sherpa
+//  Ravns
 //
 //  HealthKit authorization layer. The app is read-only from HealthKit — manual entries
 //  live in SwiftData, not HealthKit. See DATA_MAP.md §6 for the metric set and rationale.
