@@ -56,6 +56,7 @@ struct AthleteView: View {
                             }
                         }
                     }
+                    economyCard
                     if !model.goals.isEmpty {
                         Card(style: .dark) {
                             VStack(alignment: .leading, spacing: 14) {
@@ -146,6 +147,80 @@ struct AthleteView: View {
                     kv("Race", "\(raceDateText) · \(model.settings.raceLocation)")
                 }
                 kv("Goal", model.settings.goalTimeDisplay)
+            }
+        }
+    }
+
+    // MARK: - Running economy
+
+    private var economy: EconomyResult {
+        RunningEconomy.compute(sessions: sessions, restingHR: model.reading?.restingHR?.value,
+                               age: model.settings.age, recent5k: DiagnosisEngine.parse5k(model.settings.recent5k))
+    }
+    private var goalEasyPaceSecPerKm: Double? {
+        PlanEngine.goalFresh5kSeconds(model.settings).map { $0 / 5 + 70 }   // easy = goal-5k pace + 70 s/km
+    }
+    private var goalVdot: Double {
+        DiagnosisEngine.vdot(seconds: PlanEngine.goalFresh5kSeconds(model.settings) ?? 22 * 60)
+    }
+
+    @ViewBuilder private var economyCard: some View {
+        let eco = economy
+        let unit = Units.distanceUnit(model.settings)
+        Card(style: .dark) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    ModuleLabel("Running economy")
+                    Spacer()
+                    if let d = eco.deltaPts, abs(d) >= 0.5 {
+                        let up = d > 0
+                        HStack(spacing: 3) {
+                            Image(systemName: up ? "arrow.up" : "arrow.down")
+                            Text("\(up ? "+" : "")\(Int(d.rounded())) pts")
+                        }
+                        .font(.caption.weight(.bold)).foregroundStyle(up ? Palette.green : Palette.red)
+                    }
+                }
+                if eco.validCount == 0 {
+                    Text("Log an easy run (≥ 2 km) with heart rate and your economy unlocks here — pace per heartbeat, trending against your own baseline.")
+                        .font(.subheadline).foregroundStyle(Palette.textMuted).fixedSize(horizontal: false, vertical: true)
+                } else if eco.building {
+                    Text("Building your baseline — \(eco.validCount)/\(RunningEconomy.minValidSamples) valid runs. Keep logging easy (Z2) runs with HR; your Economy Index unlocks at \(RunningEconomy.minValidSamples).")
+                        .font(.subheadline).foregroundStyle(Palette.textMuted).fixedSize(horizontal: false, vertical: true)
+                } else if let idx = eco.index {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Economy Index").font(.subheadline).foregroundStyle(Palette.textMuted)
+                        Spacer()
+                        Text("\(Int(idx.rounded())) / 100").font(.headline).foregroundStyle(Palette.text)
+                    }
+                    GeometryReader { g in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Palette.surfaceLine)
+                            Capsule().fill(Palette.mint).frame(width: g.size.width * idx / 100)
+                        }
+                    }.frame(height: 8)
+                    VStack(spacing: 8) {
+                        if let z2 = eco.z2PaceSecPerKm {
+                            economyRow("Z2 pace", RunningEconomy.paceLabel(z2, unit: unit),
+                                       goal: goalEasyPaceSecPerKm.map { RunningEconomy.paceLabel($0, unit: unit) })
+                        }
+                        economyRow("VDOT", "\(Int(eco.vdot.rounded()))", goal: "need ~\(Int(goalVdot.rounded()))")
+                        if let hr = eco.hrAtZ2 { economyRow("HR @ Z2", "\(hr) bpm", goal: nil) }
+                    }
+                    .padding(.top, 2)
+                }
+            }
+        }
+    }
+
+    private func economyRow(_ label: String, _ current: String, goal: String?) -> some View {
+        HStack(spacing: 6) {
+            Text(label).font(.subheadline).foregroundStyle(Palette.textMuted)
+            Spacer()
+            Text(current).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.text)
+            if let goal {
+                Image(systemName: "arrow.right").font(.caption2).foregroundStyle(Palette.textFaint)
+                Text(goal).font(.subheadline).foregroundStyle(Palette.mint)
             }
         }
     }

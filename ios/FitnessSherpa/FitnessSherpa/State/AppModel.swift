@@ -441,6 +441,25 @@ final class AppModel {
         }
 
         if !trends.isEmpty { ctx["trends"] = trends }
+
+        // Running economy: self-relative aerobic efficiency (pace per heartbeat) vs the athlete's own
+        // 28-day baseline, plus the Z2 floor + VDOT ceiling — the levers for getting faster.
+        let eco = RunningEconomy.compute(sessions: recentWorkouts, restingHR: reading?.restingHR?.value,
+                                         age: settings.age, recent5k: DiagnosisEngine.parse5k(settings.recent5k))
+        if eco.validCount > 0 {
+            let unit = Units.distanceUnit(settings)
+            var e: [String: Any] = ["valid_samples": eco.validCount, "building_baseline": eco.building,
+                                    "vdot": Int(eco.vdot.rounded())]
+            if let i = eco.index { e["economy_index"] = Int(i.rounded()) }   // 50 = own baseline; >50 improving
+            if let d = eco.deltaPts { e["delta_pts_4wk"] = Int(d.rounded()) }
+            if let z = eco.z2PaceSecPerKm { e["z2_pace"] = RunningEconomy.paceLabel(z, unit: unit) }
+            if let hr = eco.hrAtZ2 { e["hr_at_z2"] = hr }
+            if let g = PlanEngine.goalFresh5kSeconds(settings) {
+                e["goal_z2_pace"] = RunningEconomy.paceLabel(g / 5 + 70, unit: unit)
+                e["goal_vdot"] = Int(DiagnosisEngine.vdot(seconds: g).rounded())
+            }
+            ctx["running_economy"] = e
+        }
         return ctx
     }
 
