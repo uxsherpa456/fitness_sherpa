@@ -113,14 +113,14 @@ struct QuadrantChart: View {
             if isIdeal {
                 Text("✦ IDEAL")
                     .font(.system(size: 8, weight: .heavy, design: .monospaced)).tracking(1.5)
-                    .foregroundStyle(Palette.mint.opacity(0.8))
+                    .foregroundStyle(.white)
             }
             Text(c.title)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(isActive ? Palette.mint : Palette.text)
+                .font(.system(size: 12, weight: isActive ? .heavy : .bold))
+                .foregroundStyle(.white)
             Text(c.limiter)
                 .font(.system(size: 9))
-                .foregroundStyle(Palette.textFaint)
+                .foregroundStyle(.white.opacity(0.75))
         }
         .multilineTextAlignment(c.textAlign)
         .padding(11)
@@ -133,7 +133,7 @@ struct QuadrantChart: View {
                 .shadow(color: Palette.mint.opacity(0.55), radius: 8)
             Text("YOU")
                 .font(.system(size: 8, weight: .heavy, design: .monospaced)).tracking(1)
-                .foregroundStyle(Palette.mint)
+                .foregroundStyle(.white)
         }
     }
 }
