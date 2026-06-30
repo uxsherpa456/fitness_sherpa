@@ -79,7 +79,7 @@ struct RootView: View {
             PlanView(model: model)
                 .tabItem { Label("Plan", systemImage: "dumbbell.fill") }.tag(2)
             CoachView(model: model)
-                .tabItem { Label("Coach", image: "whiteRVNtab") }.tag(3)
+                .tabItem { Label("Coach", image: "coachRaven") }.tag(3)
         }
     }
 }
