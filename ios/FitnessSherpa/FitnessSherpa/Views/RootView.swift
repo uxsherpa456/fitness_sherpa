@@ -28,7 +28,7 @@ struct RootView: View {
         .tint(Palette.mint)
         .task {
             await model.bootstrapCloud(context: context)   // pull durable settings + history first (cloud wins)
-            if model.settings.onboarded {         // a fresh athlete refreshes at the end of onboarding instead
+            if model.settings.onboarded || DemoSeed.isDemo {   // demo seeds + lands populated; fresh athletes onboard
                 await model.refresh(context: context)
             }
         }

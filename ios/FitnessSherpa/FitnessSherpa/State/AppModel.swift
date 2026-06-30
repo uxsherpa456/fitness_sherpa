@@ -79,6 +79,7 @@ final class AppModel {
     /// Workout + readiness history is restored only into an empty local store, so it repopulates a
     /// fresh/reset device without clobbering one that already has data.
     func bootstrapCloud(context: ModelContext? = nil) async {
+        if DemoSeed.isDemo { return }   // demo runs on synthetic data, never the real cloud row
         guard let state = try? await StateClient.load(), state.updated_at != nil else { return }
         var s = settings
         s.apply(state.settings)
@@ -367,6 +368,7 @@ final class AppModel {
         guard !loading else { return }
         loading = true
         defer { loading = false }
+        if DemoSeed.isDemo { DemoSeed.populate(model: self, context: context); return }
         do {
             try await HealthData.requestAuthorization()
             let r = try await HealthData.readSnapshot()
