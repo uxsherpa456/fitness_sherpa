@@ -56,7 +56,7 @@ struct AthleteView: View {
                             }
                         }
                     }
-                    economyCard
+                    economySection
                     if !model.goals.isEmpty {
                         Card(style: .dark) {
                             VStack(alignment: .leading, spacing: 14) {
@@ -164,10 +164,16 @@ struct AthleteView: View {
         DiagnosisEngine.vdot(seconds: PlanEngine.goalFresh5kSeconds(model.settings) ?? 22 * 60)
     }
 
-    @ViewBuilder private var economyCard: some View {
+    @ViewBuilder private var economySection: some View {
         let eco = economy
+        economyCard(eco)
+        economyExplainer(eco)
+        economyTrendCard(eco)
+    }
+
+    private func economyCard(_ eco: EconomyResult) -> some View {
         let unit = Units.distanceUnit(model.settings)
-        Card(style: .dark) {
+        return Card(style: .dark) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     ModuleLabel("Running economy")
@@ -221,6 +227,55 @@ struct AthleteView: View {
             if let goal {
                 Image(systemName: "arrow.right").font(.caption2).foregroundStyle(Palette.textFaint)
                 Text(goal).font(.subheadline).foregroundStyle(Palette.mint)
+            }
+        }
+    }
+
+    // §5C — plain-language explainer, anchored to THIS athlete's numbers (never population averages).
+    @ViewBuilder private func economyExplainer(_ eco: EconomyResult) -> some View {
+        if !eco.building, let idx = eco.index {
+            Card(style: .ai) {
+                VStack(alignment: .leading, spacing: 6) {
+                    ModuleLabel("What this means")
+                    Text(economyExplainerText(eco, idx)).font(.subheadline).foregroundStyle(Palette.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private func economyExplainerText(_ eco: EconomyResult, _ idx: Double) -> String {
+        let unit = Units.distanceUnit(model.settings)
+        let i = Int(idx.rounded())
+        var out: [String] = []
+        if let d = eco.deltaPts, abs(d) >= 1 {
+            out.append("Your economy index is \(i) — \(d > 0 ? "up" : "down") \(abs(Int(d.rounded()))) points in the last few weeks.")
+            out.append(d > 0
+                ? "Your body's moving more efficiently at the same heart rate."
+                : "You're a touch less efficient at the same heart rate — usually fatigue or under-fueling, not lost fitness.")
+        } else {
+            out.append("Your economy index is \(i), holding near your own baseline.")
+        }
+        if let z2 = eco.z2PaceSecPerKm {
+            var s = "Your easy (Z2) pace is around \(RunningEconomy.paceLabel(z2, unit: unit))"
+            if let g = goalEasyPaceSecPerKm { s += " (goal \(RunningEconomy.paceLabel(g, unit: unit)))" }
+            s += ", and your VDOT sits at \(Int(eco.vdot.rounded()))."
+            out.append(s)
+        }
+        out.append("To hit your \(model.settings.goalTimeDisplay) target you're aiming for about VDOT \(Int(goalVdot.rounded()))"
+                   + (goalEasyPaceSecPerKm.map { " and a Z2 pace near \(RunningEconomy.paceLabel($0, unit: unit))" } ?? "")
+                   + ". Keep the Z2 volume consistent — that's the lever.")
+        return out.joined(separator: " ")
+    }
+
+    // §5B — dual-axis trend: Economy Index + (inverted) Z2 pace over the recent weeks.
+    @ViewBuilder private func economyTrendCard(_ eco: EconomyResult) -> some View {
+        let idxWeeks = eco.weeks.filter { $0.avgIndex != nil }
+        if idxWeeks.count >= 2 {
+            ChartCard(title: "Economy trend", subtitle: "index + Z2 pace", isEmpty: false) {
+                EconomyTrendChart(weeks: Array(eco.weeks.suffix(16)),
+                                  unit: Units.distanceUnit(model.settings),
+                                  raceDate: DateFormatters.ymd.date(from: model.settings.raceDate))
             }
         }
     }

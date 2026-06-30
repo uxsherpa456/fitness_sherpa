@@ -134,3 +134,81 @@ struct SleepChart: View {
         .darkChartAxes()
     }
 }
+
+/// Dual-axis economy trend: Economy Index (left, 0–100) + Z2 pace (right, inverted so faster reads
+/// higher — alongside the index). Pace is normalized into the index's plot space, with the trailing
+/// axis labelled in real pace via the inverse map. Baseline (50) and the race/goal date are marked.
+struct EconomyTrendChart: View {
+    let weeks: [EconomyWeek]
+    let unit: String
+    var raceDate: Date? = nil
+
+    private var idxPts: [(Date, Double)] { weeks.compactMap { w in w.avgIndex.map { (w.weekStart, $0) } } }
+    private var pacePts: [(Date, Double)] { weeks.compactMap { w in w.z2PaceSecPerKm.map { (w.weekStart, $0) } } }
+    private var hasPace: Bool { pacePts.count >= 2 }
+
+    private var paceBounds: (lo: Double, hi: Double) {
+        let ps = pacePts.map(\.1)
+        guard let mn = ps.min(), let mx = ps.max() else { return (300, 420) }
+        let pad = max(8, (mx - mn) * 0.25)
+        return (mn - pad, mx + pad)   // seconds/km; lo = faster end, hi = slower end
+    }
+    private func plot(_ p: Double) -> Double {           // pace → 0…100, faster (smaller p) higher
+        let b = paceBounds; guard b.hi > b.lo else { return 50 }
+        return min(max(100 * (b.hi - p) / (b.hi - b.lo), 0), 100)
+    }
+    private func paceAt(_ y: Double) -> Double {          // inverse, for the trailing labels
+        let b = paceBounds; return b.hi - (y / 100) * (b.hi - b.lo)
+    }
+
+    var body: some View {
+        Chart {
+            RuleMark(y: .value("baseline", 50))
+                .foregroundStyle(Palette.textFaint.opacity(0.5))
+                .lineStyle(.init(lineWidth: 1, dash: [4, 3]))
+
+            if hasPace {
+                ForEach(pacePts, id: \.0) { pt in
+                    LineMark(x: .value("Week", pt.0), y: .value("Z2 pace", plot(pt.1)),
+                             series: .value("s", "Z2 pace"))
+                        .foregroundStyle(Palette.orange).interpolationMethod(.catmullRom)
+                        .lineStyle(.init(lineWidth: 1.5, dash: [5, 3]))
+                }
+            }
+            ForEach(idxPts, id: \.0) { pt in
+                LineMark(x: .value("Week", pt.0), y: .value("Index", pt.1), series: .value("s", "Economy"))
+                    .foregroundStyle(Palette.mint).interpolationMethod(.catmullRom)
+                PointMark(x: .value("Week", pt.0), y: .value("Index", pt.1))
+                    .foregroundStyle(Palette.mint).symbolSize(24)
+            }
+            if let rd = raceDate, let first = idxPts.first?.0, let last = idxPts.last?.0,
+               rd >= first, rd <= last.addingTimeInterval(21 * 86400) {
+                RuleMark(x: .value("Race", rd))
+                    .foregroundStyle(Palette.red.opacity(0.65)).lineStyle(.init(lineWidth: 1.5))
+                    .annotation(position: .top, alignment: .trailing) { Text("🏁").font(.caption2) }
+            }
+        }
+        .chartYScale(domain: 0...100)
+        .chartYAxis {
+            AxisMarks(position: .leading, values: [0, 50, 100]) {
+                AxisGridLine().foregroundStyle(Palette.surfaceLine.opacity(0.5))
+                AxisValueLabel().foregroundStyle(Palette.mint.opacity(0.85))
+            }
+            if hasPace {
+                AxisMarks(position: .trailing, values: [15.0, 50.0, 85.0]) { v in
+                    if let y = v.as(Double.self) {
+                        AxisValueLabel {
+                            Text(RunningEconomy.paceLabel(paceAt(y), unit: unit))
+                                .foregroundStyle(Palette.orange.opacity(0.85))
+                        }
+                    }
+                }
+            }
+        }
+        .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 4)) {
+                AxisValueLabel(format: .dateTime.month().day()).foregroundStyle(Palette.textFaint)
+            }
+        }
+    }
+}
