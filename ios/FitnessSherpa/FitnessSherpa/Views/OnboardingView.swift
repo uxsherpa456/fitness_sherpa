@@ -31,6 +31,7 @@ struct OnboardingView: View {
     @State private var bodyFatSel = -1        // body-fat % wheel; -1 = "Not sure"
     @State private var fiveKMin = 25          // recent-5k wheels
     @State private var fiveKSec = 0
+    @State private var expandedField: String?  // accordion: which DisclosureField is open (one at a time)
     @State private var reading: HealthData.Reading?
     @State private var diagnosis: Diagnosis?
     @State private var finishing = false
@@ -114,6 +115,7 @@ struct OnboardingView: View {
         .background(Palette.bg.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showMyth) { ravenMyth }
+        .onChange(of: step) { _, _ in expandedField = nil }   // each step opens with everything collapsed
     }
 
     // MARK: - Chrome
@@ -257,23 +259,35 @@ struct OnboardingView: View {
     }
 
     private var aboutYouStep: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 16) {
             stepTitle("About you", "The basics, so everything's tailored to you.")
-            field("NAME") {
-                obField("Your name", text: $s.name).textInputAutocapitalization(.words)
+            DisclosureField(id: "name", label: "NAME", value: s.name,
+                            placeholder: "Add your name", expanded: $expandedField) {
+                FocusedTextField(placeholder: "Your name", text: $s.name, autocap: .words)
             }
-            field("HOME LOCATION") {
+            field("HOME LOCATION") {   // already opens a search sheet — read + edit by design
                 LocationField(placeholder: "Start typing a city…", text: $s.location)
             }
-            field("AGE") {
-                obField("years", text: $ageText).keyboardType(.numberPad)
+            DisclosureField(id: "age", label: "AGE", value: ageText.isEmpty ? "" : "\(ageText) years",
+                            expanded: $expandedField) {
+                FocusedTextField(placeholder: "years", text: $ageText, keyboard: .numberPad)
             }
-            field("BODYWEIGHT (\(Units.weightUnit(s).uppercased()))") {
-                obField("e.g. 200", text: $bodyweightText).keyboardType(.decimalPad)
+            DisclosureField(id: "weight", label: "BODYWEIGHT (\(Units.weightUnit(s).uppercased()))",
+                            value: bodyweightText.isEmpty ? "" : "\(bodyweightText) \(Units.weightUnit(s))",
+                            expanded: $expandedField) {
+                FocusedTextField(placeholder: "e.g. 200", text: $bodyweightText, keyboard: .decimalPad)
             }
-            field(s.weightUnit == "kg" ? "HEIGHT (CM)" : "HEIGHT") { heightPicker }
-            field("BODY FAT % · OPTIONAL") { bodyFatPicker }
+            DisclosureField(id: "height", label: s.weightUnit == "kg" ? "HEIGHT (CM)" : "HEIGHT",
+                            value: heightValueText, expanded: $expandedField) { heightPicker }
+            DisclosureField(id: "bodyfat", label: "BODY FAT % · OPTIONAL",
+                            value: bodyFatSel < 0 ? "Not sure" : "\(bodyFatSel)%", expanded: $expandedField) {
+                bodyFatPicker
+            }
         }
+    }
+
+    private var heightValueText: String {
+        s.weightUnit == "kg" ? "\(heightCm) cm" : "\(heightFeet)′ \(heightInches)″"
     }
 
     private var heightPicker: some View {
@@ -294,7 +308,6 @@ struct OnboardingView: View {
             }
         }
         .frame(height: 120).tint(Palette.text)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Palette.surface))
     }
 
     private var bodyFatPicker: some View {
@@ -303,7 +316,6 @@ struct OnboardingView: View {
             ForEach(5...50, id: \.self) { Text("\($0)%").tag($0) }
         }
         .pickerStyle(.wheel).frame(height: 120).tint(Palette.text)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Palette.surface))
     }
 
     /// Entered height in inches, from whichever wheel the unit shows.
@@ -336,13 +348,21 @@ struct OnboardingView: View {
                     LocationField(placeholder: "Start typing a city…", text: $s.raceLocation)
                 }
             }
-            field(s.noRace ? "GOAL DATE" : "RACE DATE") {
+            DisclosureField(id: "racedate", label: s.noRace ? "GOAL DATE" : "RACE DATE",
+                            value: raceDateValueText, expanded: $expandedField) {
                 DatePicker("", selection: $raceDate, in: Date()..., displayedComponents: [.date])
                     .labelsHidden().datePickerStyle(.wheel).tint(Palette.mint)
                     .frame(maxWidth: .infinity)
             }
-            field("TARGET FINISH TIME") { goalTimePicker }
+            DisclosureField(id: "goaltime", label: "TARGET FINISH TIME",
+                            value: "\(goalH)h \(String(format: "%02d", goalM))m", expanded: $expandedField) {
+                goalTimePicker
+            }
         }
+    }
+
+    private var raceDateValueText: String {
+        raceDate.formatted(.dateTime.month(.abbreviated).day().year())
     }
 
     private func checkbox(_ label: String, isOn: Bool, action: @escaping () -> Void) -> some View {
@@ -391,7 +411,10 @@ struct OnboardingView: View {
     private var runStep: some View {
         VStack(alignment: .leading, spacing: 18) {
             stepTitle("Your run", "Roughly half of a HYROX is running. Your recent 5k sets your run axis.")
-            field("RECENT 5K TIME") { fiveKPicker }
+            DisclosureField(id: "fivek", label: "RECENT 5K TIME",
+                            value: "\(fiveKMin):\(String(format: "%02d", fiveKSec))", expanded: $expandedField) {
+                fiveKPicker
+            }
             Text("Use a chip-timed result if you have one — it's more honest than a watch lap.")
                 .font(.footnote).foregroundStyle(Palette.textFaint)
         }
@@ -644,14 +667,6 @@ struct OnboardingView: View {
 
     private func pills(_ options: [(String, String)], selection: String, action: @escaping (String) -> Void) -> some View {
         FlowPills(options: options, selection: selection, action: action)
-    }
-
-    private func obField(_ placeholder: String, text: Binding<String>) -> some View {
-        TextField(placeholder, text: text)
-            .foregroundStyle(Palette.text)
-            .padding(.vertical, 12).padding(.horizontal, 14)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Palette.surface))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.surfaceLine, lineWidth: 1))
     }
 
     private var fiveKPicker: some View {
