@@ -29,6 +29,8 @@ struct OnboardingView: View {
     @State private var heightInches = 10
     @State private var heightCm = 178         // metric height wheel
     @State private var bodyFatSel = -1        // body-fat % wheel; -1 = "Not sure"
+    @State private var fiveKMin = 25          // recent-5k wheels
+    @State private var fiveKSec = 0
     @State private var reading: HealthData.Reading?
     @State private var diagnosis: Diagnosis?
     @State private var finishing = false
@@ -57,6 +59,13 @@ struct OnboardingView: View {
             settings.raceDate = DateFormatters.ymd.string(
                 from: Calendar.current.date(byAdding: .day, value: 56, to: Date()) ?? Date())
         }
+        // 5k wheels: parse the stored time (or default 25:00) and write it back canonical so it's valid
+        // from the first frame (the wheel always has a value, like the goal-time picker).
+        let fk = settings.recent5k.split(separator: ":").compactMap { Int($0) }
+        let fkMin = fk.count == 2 ? fk[0] : 25, fkSec = fk.count == 2 ? fk[1] : 0
+        settings.recent5k = "\(fkMin):\(String(format: "%02d", fkSec))"
+        _fiveKMin = State(initialValue: fkMin)
+        _fiveKSec = State(initialValue: fkSec)
         _s = State(initialValue: settings)
         let parts = settings.goalTime.split(separator: ":").map { Int($0) ?? 0 }
         _goalH = State(initialValue: parts.count > 0 ? parts[0] : 1)
@@ -363,9 +372,7 @@ struct OnboardingView: View {
     private var runStep: some View {
         VStack(alignment: .leading, spacing: 18) {
             stepTitle("Your run", "Roughly half of a HYROX is running. Your recent 5k sets your run axis.")
-            field("RECENT 5K TIME (MM:SS)") {
-                obField("e.g. 24:31", text: $s.recent5k).keyboardType(.numbersAndPunctuation)
-            }
+            field("RECENT 5K TIME") { fiveKPicker }
             Text("Use a chip-timed result if you have one — it's more honest than a watch lap.")
                 .font(.footnote).foregroundStyle(Palette.textFaint)
         }
@@ -627,6 +634,22 @@ struct OnboardingView: View {
             .background(RoundedRectangle(cornerRadius: 10).fill(Palette.surface))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.surfaceLine, lineWidth: 1))
     }
+
+    private var fiveKPicker: some View {
+        HStack(spacing: 6) {
+            Picker("M", selection: $fiveKMin) { ForEach(12...45, id: \.self) { Text("\($0)").tag($0) } }
+                .labelsHidden().frame(width: 60).clipped()
+            Text("min").foregroundStyle(Palette.textMuted)
+            Picker("S", selection: $fiveKSec) { ForEach(0...59, id: \.self) { Text(String(format: "%02d", $0)).tag($0) } }
+                .labelsHidden().frame(width: 60).clipped()
+            Text("sec").foregroundStyle(Palette.textMuted)
+            Spacer()
+        }
+        .pickerStyle(.wheel).frame(height: 96).tint(Palette.text)
+        .onChange(of: fiveKMin) { _, _ in commitFiveK() }
+        .onChange(of: fiveKSec) { _, _ in commitFiveK() }
+    }
+    private func commitFiveK() { s.recent5k = "\(fiveKMin):\(String(format: "%02d", fiveKSec))" }
 
     private var goalTimePicker: some View {
         HStack(spacing: 6) {
