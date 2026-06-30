@@ -15,6 +15,7 @@ struct CoachView: View {
     @Query(sort: \Conversation.updatedAt, order: .reverse) private var conversations: [Conversation]
     @Query(sort: \TrainingSession.date, order: .reverse) private var recentSessions: [TrainingSession]
     @Query(sort: \PlannedWorkout.date, order: .forward) private var planned: [PlannedWorkout]
+    @Query(sort: \DailyReadiness.day, order: .reverse) private var readinessLog: [DailyReadiness]
 
     @State private var current: Conversation?
     @State private var input = ""
@@ -323,8 +324,9 @@ struct CoachView: View {
             .filter { $0.role != .note }
             .map { ["role": $0.role == .user ? "user" : "assistant", "content": $0.text] }
         let upcoming = planned.filter { $0.date >= Calendar.current.startOfDay(for: Date()) }
-        let coachContext = model.coachContext(recentWorkouts: Array(recentSessions.prefix(12)),
-                                              plan: Array(upcoming.prefix(10)))
+        let coachContext = model.coachContext(recentWorkouts: Array(recentSessions.prefix(40)),
+                                              plan: Array(upcoming.prefix(10)),
+                                              readinessLog: Array(readinessLog.prefix(30)))
 
         sending = true
         streaming = ""

@@ -219,7 +219,8 @@ final class AppModel {
 
     /// The freshness-stamped snapshot the coach reasons over (matches the Edge Function contract).
     /// `workouts` lets the coach adapt off recent training load (calories, HR, effort).
-    func coachContext(recentWorkouts: [TrainingSession] = [], plan: [PlannedWorkout] = []) -> [String: Any] {
+    func coachContext(recentWorkouts: [TrainingSession] = [], plan: [PlannedWorkout] = [],
+                      readinessLog: [DailyReadiness] = []) -> [String: Any] {
         let iso = ISO8601DateFormatter()
 
         var metrics: [String: Any] = ["recent_5k": settings.recent5k,
@@ -372,6 +373,51 @@ final class AppModel {
                 return d
             }
         }
+
+        // TRENDS — direction over time, so the coach reasons about the trajectory, not just today.
+        let log = readinessLog.sorted { $0.day < $1.day }   // oldest → newest
+        var trends: [String: Any] = [:]
+
+        func dir(_ delta: Double, eps: Double) -> String {
+            delta > eps ? "rising" : (delta < -eps ? "falling" : "flat")
+        }
+        func avg(_ xs: [Double]) -> Double? { xs.isEmpty ? nil : xs.reduce(0, +) / Double(xs.count) }
+
+        if log.count >= 4 {
+            let scores = log.map { Double($0.score) }
+            let recent = Array(scores.suffix(7)), prior = Array(scores.dropLast(7).suffix(7))
+            if let r = avg(recent), let p = avg(prior) {
+                trends["readiness"] = ["recent_7d_avg": Int(r.rounded()),
+                                       "prior_7d_avg": Int(p.rounded()),
+                                       "direction": dir(r - p, eps: 1.5),
+                                       "series_14d": log.suffix(14).map { $0.score }]
+            }
+            let hrvs = log.compactMap { $0.hrv > 0 ? $0.hrv : nil }
+            if let r = avg(Array(hrvs.suffix(7))), let p = avg(Array(hrvs.dropLast(7).suffix(7))) {
+                trends["hrv"] = ["recent_7d_avg": Int(r.rounded()), "prior_7d_avg": Int(p.rounded()),
+                                 "direction": dir(r - p, eps: 1.0)]
+            }
+            if let nowCtl = log.last?.ctl, let thenCtl = log.suffix(15).first?.ctl {
+                trends["fitness_ctl"] = ["now": (nowCtl * 10).rounded() / 10,
+                                         "two_weeks_ago": (thenCtl * 10).rounded() / 10,
+                                         "direction": dir(nowCtl - thenCtl, eps: 1.0),
+                                         "current_form": ((log.last?.form ?? 0) * 10).rounded() / 10]
+            }
+        }
+
+        // Weekly run volume over the last 4 weeks (km), newest week first.
+        let runs = recentWorkouts.filter { $0.cat == .run }
+        if !runs.isEmpty {
+            let now = Date()
+            var weekly = [Double](repeating: 0, count: 4)
+            for s in runs {
+                let wk = Int(now.timeIntervalSince(s.date) / (7 * 86400))
+                if wk >= 0, wk < 4, let km = s.distanceKm { weekly[wk] += km }
+            }
+            trends["weekly_run_km"] = weekly.map { ($0 * 10).rounded() / 10 }
+        }
+
+        if !trends.isEmpty { ctx["trends"] = trends }
         return ctx
     }
 
