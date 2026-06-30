@@ -101,7 +101,7 @@ struct QuadrantChart: View {
                             .frame(width: w / 2, height: h / 2, alignment: cells[i].inner)
                             .position(x: cells[i].cx * w, y: cells[i].cy * h)
                     }
-                    // GOAL: where your goal finish puts you, and the gap (dashed mint) from YOU to it.
+                    // GOAL: the dot, plus the gap line (dashed mint) drawn between the dot CENTERS.
                     if let gx = goalX, let gy = goalY,
                        hypot(gx - markerX, gy - markerY) > 0.02 {
                         Path { p in
@@ -110,10 +110,12 @@ struct QuadrantChart: View {
                         }
                         .stroke(Palette.mint.opacity(0.9),
                                 style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [4, 3]))
-                        goalMarker.position(x: gx * w, y: gy * h)
+                        goalDot.position(x: gx * w, y: gy * h)
+                        markerLabel("GOAL").position(x: gx * w, y: gy * h + 15)
                     }
-                    // YOU marker
-                    marker.position(x: markerX * w, y: markerY * h)
+                    // YOU — dot centered on the point, label floated below so the line hits the center.
+                    youDot.position(x: markerX * w, y: markerY * h)
+                    markerLabel("YOU").position(x: markerX * w, y: markerY * h + 15)
                 }
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.surfaceLine, lineWidth: 1))
             }
@@ -123,13 +125,7 @@ struct QuadrantChart: View {
 
     private func cellLabel(_ c: Cell) -> some View {
         let isActive = c.profile == active
-        let isIdeal = c.profile == .goodAtEverything
         return VStack(alignment: c.textAlign == .leading ? .leading : .trailing, spacing: 3) {
-            if isIdeal {
-                Text("✦ IDEAL")
-                    .font(.system(size: 8, weight: .heavy, design: .monospaced)).tracking(1.5)
-                    .foregroundStyle(.white)
-            }
             Text(c.title)
                 .font(.system(size: 12, weight: isActive ? .heavy : .bold))
                 .foregroundStyle(.white)
@@ -138,26 +134,23 @@ struct QuadrantChart: View {
         .padding(11)
     }
 
-    private var marker: some View {
-        VStack(spacing: 4) {
-            Circle().fill(Palette.mint).frame(width: 14, height: 14)
-                .overlay(Circle().stroke(Palette.mint.opacity(0.18), lineWidth: 5))
-                .shadow(color: Palette.mint.opacity(0.55), radius: 8)
-            Text("YOU")
-                .font(.system(size: 8, weight: .heavy, design: .monospaced)).tracking(1)
-                .foregroundStyle(.white)
-        }
+    // The filled "YOU" dot — centered exactly on its point so the gap line meets its center.
+    private var youDot: some View {
+        Circle().fill(Palette.mint).frame(width: 14, height: 14)
+            .overlay(Circle().stroke(Palette.mint.opacity(0.18), lineWidth: 5))
+            .shadow(color: Palette.mint.opacity(0.55), radius: 8)
     }
 
     // A hollow target ring — "where your goal puts you."
-    private var goalMarker: some View {
-        VStack(spacing: 4) {
-            Circle().fill(.clear).frame(width: 14, height: 14)
-                .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                .overlay(Circle().fill(.white).frame(width: 4, height: 4))
-            Text("GOAL")
-                .font(.system(size: 8, weight: .heavy, design: .monospaced)).tracking(1)
-                .foregroundStyle(.white)
-        }
+    private var goalDot: some View {
+        Circle().fill(.clear).frame(width: 14, height: 14)
+            .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+            .overlay(Circle().fill(.white).frame(width: 4, height: 4))
+    }
+
+    private func markerLabel(_ s: String) -> some View {
+        Text(s)
+            .font(.system(size: 8, weight: .heavy, design: .monospaced)).tracking(1)
+            .foregroundStyle(.white)
     }
 }
