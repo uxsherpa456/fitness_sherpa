@@ -118,9 +118,6 @@ struct QuadrantChart: View {
             Text(c.title)
                 .font(.system(size: 12, weight: isActive ? .heavy : .bold))
                 .foregroundStyle(.white)
-            Text(c.limiter)
-                .font(.system(size: 9))
-                .foregroundStyle(.white.opacity(0.75))
         }
         .multilineTextAlignment(c.textAlign)
         .padding(11)
