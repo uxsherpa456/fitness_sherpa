@@ -12,6 +12,7 @@ struct RootView: View {
     @Environment(\.modelContext) private var context
     @State private var model = AppModel()
     @State private var selectedTab = DemoSeed.isScreenshot ? UserDefaults.standard.integer(forKey: "tab") : 0
+    @State private var shotProfiles = DemoSeed.isScreenshot && UserDefaults.standard.string(forKey: "sheet") == "profiles"
     @State private var tour = false
     @State private var tourStep = 0
 
@@ -57,6 +58,7 @@ struct RootView: View {
         .overlay {
             if tour { TabTourOverlay(step: tourStep, onSkip: endTour, onNext: advanceTour) }
         }
+        .sheet(isPresented: $shotProfiles) { DiagnosisGuideView() }   // screenshot hook for the four-profiles guide
         .onAppear {   // start the welcome tour once, right after a fresh onboarding
             if UserDefaults.standard.bool(forKey: Self.pendingTourKey) {
                 UserDefaults.standard.set(false, forKey: Self.pendingTourKey)

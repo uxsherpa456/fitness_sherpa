@@ -33,6 +33,7 @@ enum HealthData {
     }
 
     static func requestAuthorization() async throws {
+        if DemoSeed.isScreenshot { return }   // no Health permission dialog while capturing screenshots
         guard HKHealthStore.isHealthDataAvailable() else { return }
         try await store.requestAuthorization(toShare: [], read: readTypes)
     }
