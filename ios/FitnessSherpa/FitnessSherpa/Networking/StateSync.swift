@@ -129,6 +129,7 @@ struct AppSettings: Codable {
     var age: Int? = nil
     var weightLb: Double? = nil     // manual / confirmed bodyweight fallback (Apple Health wins when present)
     var bodyFatPct: Double? = nil
+    var heightIn: Double? = nil     // standing height (in); drives BMI on the run axis
 }
 
 // MARK: - Client

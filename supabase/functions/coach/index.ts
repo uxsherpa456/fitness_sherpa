@@ -25,7 +25,9 @@ const TOOLS = [{
     type: "object",
     properties: {
       bodyweight_lb: { type: "number" },
+      height_in: { type: "number", description: "standing height in inches (drives BMI / running economy)" },
       recent_5k: { type: "string", description: "mm:ss" },
+      goal_5k: { type: "string", description: "mm:ss — fresh-5K fitness the goal finish implies (the run-axis 'fast' anchor); pass to test a different goal" },
       stations_hold: { type: "boolean", description: "do the stations hold output under fatigue" },
       strength_axis: { type: "number", description: "0…1 continuous strength/station capacity; overrides stations_hold" },
       scenario_note: { type: "string", description: "short label for the scenario" },
@@ -216,7 +218,9 @@ Deno.serve(async (req: Request) => {
         }
         const base = {
           bodyweight_lb: context?.metrics?.bodyweight_lb ?? 214,
+          height_in: context?.metrics?.height_in ?? 0,
           recent_5k: context?.metrics?.recent_5k ?? "25:45",
+          goal_5k: context?.metrics?.goal_5k ?? "22:00",
           stations_hold: context?.metrics?.stations_hold ?? true,
           strength_axis: context?.metrics?.strength_axis ?? (context?.metrics?.stations_hold ?? true ? 0.78 : 0.30),
           goal: (context?.nutrition?.goal ?? "lose") as "lose" | "maintain" | "gain",

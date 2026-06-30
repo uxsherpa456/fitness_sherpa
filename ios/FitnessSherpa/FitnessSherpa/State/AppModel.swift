@@ -70,6 +70,10 @@ final class AppModel {
     var effectiveBodyFatPct: Double? {
         reading?.bodyFat.map { $0.value * 100 } ?? (settings.bodyFatPct > 0 ? settings.bodyFatPct : nil)
     }
+    /// Standing height (in) for BMI on the run axis: Apple Health wins; otherwise the entered value.
+    var effectiveHeightIn: Double? {
+        reading?.height?.value ?? (settings.heightIn > 0 ? settings.heightIn : nil)
+    }
 
     /// Seed the four profile goals if none exist, then update current values from live data.
     func refreshGoals() {
@@ -227,6 +231,14 @@ final class AppModel {
                                       "stations_hold": settings.stationsHold,
                                       "strength_axis": (settings.strengthAxis * 100).rounded() / 100]
         if let bw = effectiveBodyweightLb { metrics["bodyweight_lb"] = Int(bw.rounded()) }
+        if let ht = effectiveHeightIn { metrics["height_in"] = (ht * 10).rounded() / 10 }
+        if let g5k = PlanEngine.goalFresh5kSeconds(settings) {   // fresh-5K fitness the goal finish implies (run-axis anchor)
+            metrics["goal_5k"] = DiagnosisEngine.format5k(g5k)
+        }
+        if let dx = diagnosis {   // Daniels VDOT + BMI that drive the run axis (height-normalized)
+            if dx.vdot > 0 { metrics["vdot"] = Int(dx.vdot.rounded()) }
+            if dx.bmi > 0 { metrics["bmi"] = (dx.bmi * 10).rounded() / 10 }
+        }
         if let hrv = reading?.hrv?.value { metrics["hrv_ms"] = Int(hrv.rounded()) }
         if let rhr = reading?.restingHR?.value { metrics["resting_hr_bpm"] = Int(rhr.rounded()) }
         if let sleep = reading?.sleep?.value { metrics["sleep_hrs"] = (sleep * 10).rounded() / 10 }
@@ -444,8 +456,10 @@ final class AppModel {
                                     stationsHold: settings.stationsHold)
             // Diagnose off the precise continuous strength axis (the boolean Baseline snapshot is for history).
             let input = DiagnosisInput(bodyweightLb: effectiveBodyweightLb ?? 214,
+                                       heightIn: effectiveHeightIn ?? 0,
                                        recent5k: DiagnosisEngine.parse5k(settings.recent5k),
-                                       strengthAxis: settings.strengthAxis)
+                                       strengthAxis: settings.strengthAxis,
+                                       goal5k: PlanEngine.goalFresh5kSeconds(settings) ?? 22 * 60)
             let dx = DiagnosisEngine.diagnose(input)
             diagnosis = dx
             refreshGoals()

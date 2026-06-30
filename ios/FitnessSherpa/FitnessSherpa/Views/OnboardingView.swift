@@ -25,6 +25,7 @@ struct OnboardingView: View {
     @State private var connected = false
     @State private var ageText = ""
     @State private var bodyweightText = ""
+    @State private var heightText = ""
     @State private var bodyFatText = ""
     @State private var reading: HealthData.Reading?
     @State private var diagnosis: Diagnosis?
@@ -67,6 +68,9 @@ struct OnboardingView: View {
         }
         if !fresh, settings.bodyFatPct > 0 {
             _bodyFatText = State(initialValue: String(format: "%.0f", settings.bodyFatPct))
+        }
+        if !fresh, settings.heightIn > 0 {
+            _heightText = State(initialValue: OnboardingView.heightToInput(settings.heightIn, unit: settings.weightUnit))
         }
     }
 
@@ -252,6 +256,15 @@ struct OnboardingView: View {
             }
             field("BODYWEIGHT (\(Units.weightUnit(s).uppercased()))") {
                 obField("e.g. 200", text: $bodyweightText).keyboardType(.decimalPad)
+            }
+            if s.weightUnit == "kg" {
+                field("HEIGHT (CM)") {
+                    obField("e.g. 180", text: $heightText).keyboardType(.decimalPad)
+                }
+            } else {
+                field("HEIGHT (FT'IN)") {
+                    obField("e.g. 5'11", text: $heightText).keyboardType(.numbersAndPunctuation)
+                }
             }
             field("BODY FAT % · OPTIONAL") {
                 obField("e.g. 18", text: $bodyFatText).keyboardType(.decimalPad)
@@ -632,6 +645,7 @@ struct OnboardingView: View {
             connected = true
             // Pre-fill the editable fields from Health (only if the athlete hasn't typed their own).
             if bodyweightText.isEmpty, let bw = reading?.bodyMass?.value { bodyweightText = weightToInput(bw) }
+            if heightText.isEmpty, let ht = reading?.height?.value { heightText = OnboardingView.heightToInput(ht, unit: s.weightUnit) }
             if bodyFatText.isEmpty, let bf = reading?.bodyFat?.value { bodyFatText = String(format: "%.0f", bf * 100) }
         }
     }
@@ -644,7 +658,32 @@ struct OnboardingView: View {
         return s.weightUnit == "kg" ? v / 0.453592 : v
     }
 
+    /// Parse a height entry to inches. Metric (kg) = centimetres. Imperial accepts feet'inches
+    /// ("5'11", "5' 11\"", "5 11") or plain inches ("71").
+    private func inputToHeightIn(_ text: String) -> Double? {
+        let t = text.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty else { return nil }
+        if s.weightUnit == "kg" {
+            guard let cm = Double(t), cm > 0 else { return nil }
+            return cm / 2.54
+        }
+        // Split on the first foot marker (' or space); a bare number is inches.
+        let parts = t.replacingOccurrences(of: "\"", with: "")
+            .split(whereSeparator: { $0 == "'" || $0 == " " }).map { Double($0) }
+        if parts.count >= 2, let ft = parts[0], let inch = parts[1] { return ft * 12 + inch }
+        guard let n = parts.first ?? nil, n > 0 else { return nil }
+        return n > 12 ? n : n * 12   // "6" → 6 ft; "71" → 71 in
+    }
+
+    private static func heightToInput(_ inches: Double, unit: String) -> String {
+        if unit == "kg" { return String(format: "%.0f", inches * 2.54) }
+        let ft = Int(inches) / 12, rem = Int(inches.rounded()) % 12
+        return "\(ft)'\(rem)"
+    }
+
     private func computeDiagnosis() {
+        // The goal-finish anchor needs the picker's current value (only committed in finish()).
+        s.goalTime = "\(goalH):\(String(format: "%02d", goalM))"
         // Fold the questionnaire into the continuous strength axis (and keep the legacy boolean in sync).
         let axis = computedStrengthAxis
         s.strengthAxis = axis
@@ -653,10 +692,13 @@ struct OnboardingView: View {
         // Persist the entered bodyweight / body fat (manual fallback when Health has none).
         s.bodyweightLb = inputToLb(bodyweightText) ?? 0
         s.bodyFatPct = Double(bodyFatText.trimmingCharacters(in: .whitespaces)) ?? 0
+        s.heightIn = inputToHeightIn(heightText) ?? 0
         let bw = inputToLb(bodyweightText) ?? reading?.bodyMass?.value ?? 214
-        let input = DiagnosisInput(bodyweightLb: bw,
+        let ht = inputToHeightIn(heightText) ?? reading?.height?.value ?? 0
+        let input = DiagnosisInput(bodyweightLb: bw, heightIn: ht,
                                    recent5k: DiagnosisEngine.parse5k(s.recent5k),
-                                   strengthAxis: axis)
+                                   strengthAxis: axis,
+                                   goal5k: PlanEngine.goalFresh5kSeconds(s) ?? 22 * 60)
         diagnosis = DiagnosisEngine.diagnose(input)
     }
 

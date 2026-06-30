@@ -19,7 +19,7 @@ enum HealthData {
             .heartRate, .restingHeartRate, .heartRateVariabilitySDNN, .vo2Max,
             .distanceWalkingRunning, .runningSpeed, .runningPower,
             .activeEnergyBurned, .basalEnergyBurned,
-            .bodyMass, .bodyFatPercentage,
+            .bodyMass, .bodyFatPercentage, .height,
             .stepCount, .respiratoryRate,
             .appleSleepingWristTemperature, .oxygenSaturation
         ]

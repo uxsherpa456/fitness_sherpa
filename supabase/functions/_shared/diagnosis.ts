@@ -3,7 +3,9 @@
 
 export interface DiagnosisInput {
   bodyweight_lb?: number;
+  height_in?: number; // standing height (in); 0/absent → BMI falls back to a weight anchor
   recent_5k?: string; // mm:ss
+  goal_5k?: string;   // mm:ss — fresh-5K fitness the goal finish implies (run-axis "fast" anchor)
   stations_hold?: boolean;
   strength_axis?: number; // 0…1 continuous strength/station capacity; overrides stations_hold when present
 }
@@ -14,6 +16,8 @@ export interface Diagnosis {
   limiter: string;
   focus: string;
   marker: { x: number; y: number };
+  vdot: number;
+  bmi: number;
   evidence: string;
 }
 
@@ -23,18 +27,38 @@ const sec = (t: string): number => {
 };
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
+// Daniels–Gilbert "VDOT" — a pseudo-VO2max from a race performance (default a 5k), blending aerobic
+// capacity and running economy into one fitness index (Jack Daniels' Running Formula). Keep this in
+// sync with DiagnosisEngine.vdot in the iOS app.
+const vdot = (seconds: number, meters = 5000): number => {
+  if (seconds <= 0) return 0;
+  const t = seconds / 60;        // minutes
+  const v = meters / t;          // m/min
+  const vo2 = -4.60 + 0.182258 * v + 0.000104 * v * v;
+  const pctMax = 0.8 + 0.1894393 * Math.exp(-0.012778 * t) + 0.2989558 * Math.exp(-0.1932605 * t);
+  return vo2 / pctMax;
+};
+
 export function recomputeDiagnosis(
   o: DiagnosisInput,
   base: Required<DiagnosisInput>,
 ): Diagnosis {
   const w = o.bodyweight_lb ?? base.bodyweight_lb;
+  const h = o.height_in ?? base.height_in;
   const fk = sec(o.recent_5k ?? base.recent_5k);
   const sh = o.stations_hold ?? base.stations_hold;
   const sa = o.strength_axis ?? base.strength_axis;
 
-  const goal = sec("22:00");
-  const ps = clamp(1 - (fk - goal) / (sec("28:00") - goal), 0, 1); // 22:00->1, 28:00->0
-  const ws = clamp(1 - (w - 185) / (225 - 185), 0, 1); // 185lb->1, 225->0
+  // Performance via VDOT vs the VDOT the goal 5k needs (1 at goal fitness, 0 ~12 VDOT points below).
+  // The goal anchor tracks the athlete's actual goal finish (back-solved to a fresh 5k); 22:00 default.
+  const goalStr = o.goal_5k ?? base.goal_5k ?? "22:00";
+  const dot = vdot(fk), goalDot = vdot(sec(goalStr));
+  const ps = clamp((dot - (goalDot - 12)) / 12, 0, 1);
+  // Body / running-economy via BMI (height-normalized): BMI 23 → lean (1), 31 → heavy (0).
+  // Falls back to the legacy weight anchor when height is unknown.
+  const bmi = h > 0 ? 703 * w / (h * h) : 0;
+  const ws = bmi > 0 ? clamp(1 - (bmi - 23) / (31 - 23), 0, 1)
+                     : clamp(1 - (w - 185) / (225 - 185), 0, 1);
   const run = ps * 0.6 + ws * 0.4;
   // Continuous strength axis when the app sends one; otherwise the legacy boolean snaps to 0.78 / 0.30.
   const str = (sa != null) ? clamp(sa, 0, 1) : (sh ? 0.78 : 0.30);
@@ -59,12 +83,15 @@ export function recomputeDiagnosis(
     focus = "fix the biggest deficit first, then re-diagnose";
   }
 
+  const body = bmi > 0 ? `BMI ${bmi.toFixed(1)}` : `${w} lb`;
   return {
     profile, profileIndex, limiter, focus,
     marker: {
       x: Math.round((0.12 + run * 0.76) * 100),
       y: Math.round((0.12 + (1 - str) * 0.76) * 100),
     },
-    evidence: `${o.recent_5k ?? base.recent_5k} 5k, ${w} lb, stations ${str >= 0.5 ? "hold" : "fade"} vs 22:00 goal`,
+    vdot: Math.round(dot),
+    bmi: Math.round(bmi * 10) / 10,
+    evidence: `VDOT ${Math.round(dot)} · ${o.recent_5k ?? base.recent_5k} 5k · ${body} · stations ${str >= 0.5 ? "hold" : "fade"} vs ${goalStr} goal`,
   };
 }

@@ -22,6 +22,7 @@ struct UserSettings: Codable, Equatable {
     var recent5k = "24:31"        // chip-timed 5k PR (baseline input)
     var bodyweightLb = 0.0        // manual / confirmed bodyweight (lb); 0 = unset → use Apple Health
     var bodyFatPct = 0.0          // manual body fat %; 0 = unset → use Apple Health
+    var heightIn = 0.0            // standing height (in); 0 = unset → use Apple Health (drives BMI)
     var strengthAxis = 0.78       // 0…1 strength + station capacity, averaged from onboarding (the Health-blind axis)
     var stationsHold = true       // legacy boolean snapshot, kept in sync with strengthAxis for the coach context
     var mobilityScore = -1.0      // 0…1 squat-depth / ankle / posterior-chain range; <0 = not assessed
@@ -51,6 +52,7 @@ struct UserSettings: Codable, Equatable {
         recent5k      = v(.recent5k, "24:31")
         bodyweightLb  = v(.bodyweightLb, 0.0)
         bodyFatPct    = v(.bodyFatPct, 0.0)
+        heightIn      = v(.heightIn, 0.0)
         stationsHold  = v(.stationsHold, true)
         strengthAxis  = v(.strengthAxis, stationsHold ? 0.78 : 0.30)
         mobilityScore = v(.mobilityScore, -1.0)
@@ -76,7 +78,8 @@ struct UserSettings: Codable, Equatable {
                     weightUnit: weightUnit, distUnit: distanceUnit, format: format, gender: gender,
                     tier: tier, age: age,
                     weightLb: bodyweightLb > 0 ? bodyweightLb : nil,
-                    bodyFatPct: bodyFatPct > 0 ? bodyFatPct : nil)
+                    bodyFatPct: bodyFatPct > 0 ? bodyFatPct : nil,
+                    heightIn: heightIn > 0 ? heightIn : nil)
     }
     func toProfile() -> ProfileData {
         ProfileData(format: format, gender: gender, tier: tier, age: age)
@@ -95,6 +98,7 @@ struct UserSettings: Codable, Equatable {
         if let v = s.age { age = v }
         if let v = s.weightLb { bodyweightLb = v }
         if let v = s.bodyFatPct { bodyFatPct = v }
+        if let v = s.heightIn { heightIn = v }
     }
 
     /// Goal finish as H:MM — seconds dropped (HYROX targets are minute-level). Tolerates a stored

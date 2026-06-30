@@ -159,11 +159,7 @@ enum PlanEngine {
         var ambitious = false
         let racePerKm: Double = {
             guard let finish = parseFinishSeconds(settings.goalTime) else { return perKm5k + 28 }
-            let base = 1800.0                                              // ~30 min stations + transitions baseline
-            let strengthAdj = 1.25 - 0.4 * min(max(settings.strengthAxis, 0), 1)   // stronger → faster stations
-            let proAdj = (settings.tier == "pro" && settings.format == "singles") ? 1.12 : 1.0
-            let stationTime = base * strengthAdj * proAdj
-            let perKm = (finish - stationTime) / 8.0
+            let perKm = (finish - goalStationSeconds(settings)) / 8.0
             if perKm < perKm5k { ambitious = true; return perKm5k }       // can't beat fresh-5K pace over compromised runs
             return perKm
         }()
@@ -176,6 +172,27 @@ enum PlanEngine {
         return Paces(easy: fmt(perKm5k + 70), long: fmt(perKm5k + 62), tempo: fmt(perKm5k + 25),
                      threshold: fmt(perKm5k + 12), race: fmt(racePerKm), fiveK: fmt(perKm5k),
                      goalAmbitious: ambitious)
+    }
+
+    /// Station + roxzone time the goal finish implies (stronger athletes hold the stations faster;
+    /// Pro singles carry heavier). Shared by the pace back-solve and the diagnosis goal anchor.
+    private static func goalStationSeconds(_ settings: UserSettings) -> Double {
+        let base = 1800.0                                                  // ~30 min stations + transitions baseline
+        let strengthAdj = 1.25 - 0.4 * min(max(settings.strengthAxis, 0), 1)
+        let proAdj = (settings.tier == "pro" && settings.format == "singles") ? 1.12 : 1.0
+        return base * strengthAdj * proAdj
+    }
+
+    /// The fresh-5K time (seconds) the goal finish implies: race pace is back-solved from the goal
+    /// `(finish − stations) / 8 km`, then un-compromised — a fresh 5K runs ~27 s/km faster than HYROX
+    /// race-run pace. This anchors the diagnosis run axis to the *goal the athlete is chasing* rather
+    /// than a fixed pace. `nil` if the goal can't be parsed.
+    static func goalFresh5kSeconds(_ settings: UserSettings) -> Double? {
+        guard let finish = parseFinishSeconds(settings.goalTime) else { return nil }
+        let racePerKm = (finish - goalStationSeconds(settings)) / 8.0
+        let freshPerKm = racePerKm - 28        // un-compromise: a fresh 5K runs ~28 s/km faster than race pace
+        guard freshPerKm > 0 else { return nil }
+        return freshPerKm * 5.0
     }
 
     /// "1:10" / "1:10:00" → seconds.

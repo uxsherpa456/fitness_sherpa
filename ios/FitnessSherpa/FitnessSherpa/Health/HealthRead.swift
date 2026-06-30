@@ -36,6 +36,7 @@ extension HealthData {
         var restingHR: Sample?      // bpm
         var bodyMass: Sample?       // lb
         var bodyFat: Sample?        // fraction 0…1
+        var height: Sample? = nil   // in
         var sleepSummary: SleepSummary?
         var lastRunDate: Date?
 
@@ -457,6 +458,7 @@ extension HealthData {
         async let rhr   = latestSample(.restingHeartRate, unit: bpm)
         async let mass  = latestSample(.bodyMass, unit: .pound())
         async let bf    = latestSample(.bodyFatPercentage, unit: .percent())
+        async let height = latestSample(.height, unit: .inch())
         async let sleep = latestSleep()
 
         let run = try await latestRun()
@@ -472,6 +474,7 @@ extension HealthData {
             restingHR: try await rhr,
             bodyMass: try await mass,
             bodyFat: try await bf,
+            height: try await height,
             sleepSummary: try await sleep,
             lastRunDate: run?.endDate,
             lastRunKm: km,

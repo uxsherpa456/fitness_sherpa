@@ -33,6 +33,7 @@ enum DemoSeed {
         s.recent5k = "23:10"
         s.bodyweightLb = 205
         s.bodyFatPct = 16
+        s.heightIn = 71            // 5'11" → BMI ~28.6 (heavy for his frame)
         s.strengthAxis = 0.72
         s.mobilityScore = 0.82
         s.onboarded = true
@@ -50,6 +51,7 @@ enum DemoSeed {
             restingHR: .init(value: 51, date: now),
             bodyMass: .init(value: 205, date: now),
             bodyFat: .init(value: 0.16, date: now),
+            height: .init(value: 71, date: now),
             sleepSummary: sleep,
             lastRunDate: Calendar.current.date(byAdding: .day, value: -1, to: now),
             lastRunKm: 8.0,
@@ -93,6 +95,7 @@ enum DemoSeed {
         model.readiness = readiness()
         let dx = DiagnosisEngine.diagnose(DiagnosisInput(
             bodyweightLb: model.settings.bodyweightLb > 0 ? model.settings.bodyweightLb : 205,
+            heightIn: model.effectiveHeightIn ?? 71,
             recent5k: DiagnosisEngine.parse5k(model.settings.recent5k),
             strengthAxis: model.settings.strengthAxis))
         model.diagnosis = dx
@@ -157,7 +160,7 @@ enum DemoSeed {
             (84, 218, "25:10"), (56, 213, "24:20"), (28, 209, "23:40"),
         ]
         for e in earlier {
-            let dx = DiagnosisEngine.diagnose(DiagnosisInput(bodyweightLb: e.bw,
+            let dx = DiagnosisEngine.diagnose(DiagnosisInput(bodyweightLb: e.bw, heightIn: 71,
                                                              recent5k: DiagnosisEngine.parse5k(e.t),
                                                              strengthAxis: 0.72))
             let date = cal.date(byAdding: .day, value: -e.daysAgo, to: Date()) ?? Date()

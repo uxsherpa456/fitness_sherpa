@@ -15,6 +15,7 @@ struct SettingsView: View {
     @State private var goalM: Int
     @State private var raceDate: Date
     @State private var bwText: String
+    @State private var htText: String
     @State private var bfText: String
 
     init(model: AppModel) {
@@ -27,7 +28,24 @@ struct SettingsView: View {
         _raceDate = State(initialValue: DateFormatters.ymd.date(from: settings.raceDate) ?? Date())
         let bw = settings.weightUnit == "kg" ? settings.bodyweightLb * 0.453592 : settings.bodyweightLb
         _bwText = State(initialValue: settings.bodyweightLb > 0 ? String(format: "%.0f", bw) : "")
+        _htText = State(initialValue: settings.heightIn > 0 ? SettingsView.heightToInput(settings.heightIn, unit: settings.weightUnit) : "")
         _bfText = State(initialValue: settings.bodyFatPct > 0 ? String(format: "%.0f", settings.bodyFatPct) : "")
+    }
+
+    private static func heightToInput(_ inches: Double, unit: String) -> String {
+        if unit == "kg" { return String(format: "%.0f", inches * 2.54) }
+        let ft = Int(inches) / 12, rem = Int(inches.rounded()) % 12
+        return "\(ft)'\(rem)"
+    }
+    private func inputToHeightIn(_ text: String) -> Double? {
+        let t = text.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty else { return nil }
+        if s.weightUnit == "kg" { return Double(t).map { $0 / 2.54 } }
+        let parts = t.replacingOccurrences(of: "\"", with: "")
+            .split(whereSeparator: { $0 == "'" || $0 == " " }).map { Double($0) }
+        if parts.count >= 2, let ft = parts[0], let inch = parts[1] { return ft * 12 + inch }
+        guard let n = parts.first ?? nil, n > 0 else { return nil }
+        return n > 12 ? n : n * 12
     }
 
     private var genderOptions: [(String, String)] {
@@ -66,6 +84,11 @@ struct SettingsView: View {
                     LabeledContent("Bodyweight (\(Units.weightUnit(s).uppercased()))") {
                         TextField("Apple Health", text: $bwText)
                             .keyboardType(.decimalPad).multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent(s.weightUnit == "kg" ? "Height (cm)" : "Height (ft'in)") {
+                        TextField("Apple Health", text: $htText)
+                            .keyboardType(s.weightUnit == "kg" ? .decimalPad : .numbersAndPunctuation)
+                            .multilineTextAlignment(.trailing)
                     }
                     LabeledContent("Body fat %") {
                         TextField("optional", text: $bfText)
@@ -135,6 +158,7 @@ struct SettingsView: View {
         if let v = Double(bwText.trimmingCharacters(in: .whitespaces)), v > 0 {
             s.bodyweightLb = s.weightUnit == "kg" ? v / 0.453592 : v
         } else { s.bodyweightLb = 0 }
+        s.heightIn = inputToHeightIn(htText) ?? 0
         s.bodyFatPct = Double(bfText.trimmingCharacters(in: .whitespaces)) ?? 0
         model.settings = s
         model.saveSettings()
