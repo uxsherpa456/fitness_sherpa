@@ -59,6 +59,7 @@ struct RootView: View {
         .onAppear {   // start the welcome tour once, right after a fresh onboarding
             if UserDefaults.standard.bool(forKey: Self.pendingTourKey) {
                 UserDefaults.standard.set(false, forKey: Self.pendingTourKey)
+                model.showingMenu = false   // closed, so the tour overlay reads right
                 selectedTab = 0; tourStep = 0; tour = true
             }
         }

@@ -153,6 +153,7 @@ final class AppModel {
         settings = UserSettings()        // onboarded == false
         goals = []; diagnosis = nil; reading = nil; readiness = nil
         feelingRaw = nil; status = ""
+        showingMenu = false              // so onboarding + the tour start with the menu closed
         saveSettings(); saveGoals()
     }
 
@@ -163,6 +164,7 @@ final class AppModel {
         StateClient.userKey = StateClient.liveKey
         wipeLocal(context: context)
         settings = UserSettings(); goals = []
+        showingMenu = false
         await bootstrapCloud(context: context)   // restores settings + goals + history
         await refresh(context: context)
     }
