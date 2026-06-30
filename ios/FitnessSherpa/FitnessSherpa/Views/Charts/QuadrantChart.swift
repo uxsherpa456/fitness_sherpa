@@ -79,9 +79,11 @@ struct QuadrantChart: View {
         GeometryReader { geo in
             let w = geo.size.width, h = geo.size.height
             ZStack {
-                    // the ideal corner — a faint glow in the top-right (strong + fast)
-                    RadialGradient(colors: [Palette.mint.opacity(0.12), .clear], center: .topTrailing,
-                                   startRadius: 0, endRadius: w * 0.55)
+                    // negative→positive gradient: weak+slow (bottom-left, red) → ideal (top-right, green),
+                    // dimmed by a black layer so the labels + marker stay readable
+                    LinearGradient(colors: [Palette.red, Palette.orange, Palette.green],
+                                   startPoint: .bottomLeading, endPoint: .topTrailing)
+                        .overlay(Color.black.opacity(0.62))
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                     // active quadrant highlight
                     if let active, let c = cells.first(where: { $0.profile == active }) {
@@ -101,7 +103,6 @@ struct QuadrantChart: View {
                     // YOU marker
                     marker.position(x: markerX * w, y: markerY * h)
                 }
-                .background(Palette.surface2, in: RoundedRectangle(cornerRadius: 14))
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.surfaceLine, lineWidth: 1))
             }
             .aspectRatio(1, contentMode: .fit)
