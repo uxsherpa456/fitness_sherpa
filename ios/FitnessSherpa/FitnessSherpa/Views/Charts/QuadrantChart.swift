@@ -42,36 +42,34 @@ struct QuadrantChart: View {
                 GeometryReader { g in
                     // built horizontally (WEAKER → STRONGER), rotated so it runs bottom → top
                     axisBar("WEAKER", "STRONGER")
-                        .frame(width: g.size.height, height: 16)
+                        .frame(width: g.size.height)
                         .rotationEffect(.degrees(-90))
                         .frame(width: g.size.width, height: g.size.height)
                 }
-                .frame(width: 18)
+                .frame(width: 22)
 
                 chart
             }
-            // run axis — SLOWER pinned left, FASTER pinned right, on the red→green gradient
-            axisBar("SLOWER", "FASTER").frame(height: 16).padding(.leading, 24)
+            // run axis — SLOWER pinned left, FASTER pinned right
+            axisBar("SLOWER", "FASTER").padding(.leading, 28)
             Text("Top-right is the complete athlete — your corner names your limiter.")
                 .font(.system(size: 10)).foregroundStyle(Palette.textMuted)
                 .fixedSize(horizontal: false, vertical: true).padding(.top, 1)
         }
     }
 
-    /// A directional axis bar: a negative→positive gradient with the two end labels on top.
+    /// A directional axis bar: solid dark background, white labels + arrow.
     private func axisBar(_ from: String, _ to: String) -> some View {
-        ZStack {
-            LinearGradient(colors: [Palette.red, Palette.orange, Palette.green],
-                           startPoint: .leading, endPoint: .trailing)
-            HStack {
-                Text(from)
-                Spacer(minLength: 4)
-                Text(to)
-            }
-            .font(.system(size: 9, weight: .bold, design: .monospaced))
-            .tracking(1).foregroundStyle(Palette.ink)
-            .padding(.horizontal, 10)
+        HStack(spacing: 6) {
+            Text(from)
+            Rectangle().fill(.white.opacity(0.7)).frame(height: 1)
+            Image(systemName: "arrowtriangle.right.fill").font(.system(size: 6))
+            Text(to)
         }
+        .font(.system(size: 9, weight: .bold, design: .monospaced))
+        .tracking(1).foregroundStyle(.white)
+        .padding(.horizontal, 10).padding(.vertical, 4)
+        .background(Palette.ink)
         .clipShape(RoundedRectangle(cornerRadius: 3))
     }
 
