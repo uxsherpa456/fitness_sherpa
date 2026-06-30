@@ -178,6 +178,10 @@ struct OnboardingView: View {
 
     private var welcomeStep: some View {
         VStack(alignment: .leading, spacing: 16) {
+            Image("rvns").resizable().scaledToFit()
+                .frame(width: 84, height: 84)
+                .background(Color.white).clipShape(Circle())
+                .padding(.bottom, 2)
             Text("Meet ").font(.system(size: 30, weight: .heavy)).foregroundStyle(Palette.text)
             + Text("Ravns.").font(.system(size: 30, weight: .heavy)).foregroundStyle(Palette.mint)
 
