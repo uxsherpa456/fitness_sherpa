@@ -20,18 +20,18 @@ struct OnboardingView: View {
     @State private var goalM: Int
     @State private var raceDate: Date
 
-    @State private var step = 0
+    @State private var panel: Panel = .welcome   // one question per screen
     @State private var connecting = false
     @State private var connected = false
     @State private var ageText = ""
     @State private var bodyweightText = ""
+    @State private var heightMetric = false   // height screen's own unit toggle (ft/in vs cm)
     @State private var heightFeet = 5         // imperial height wheels
     @State private var heightInches = 10
     @State private var heightCm = 178         // metric height wheel
     @State private var bodyFatSel = -1        // body-fat % wheel; -1 = "Not sure"
     @State private var fiveKMin = 25          // recent-5k wheels
     @State private var fiveKSec = 0
-    @State private var expandedField: String?  // accordion: which DisclosureField is open (one at a time)
     @State private var reading: HealthData.Reading?
     @State private var diagnosis: Diagnosis?
     @State private var finishing = false
@@ -45,8 +45,6 @@ struct OnboardingView: View {
     // Mobility assessment (advisory flag — never touches the quadrant/score).
     @State private var mobilityAnswers: [String: Double] = [:]
     @State private var mobilityNotSure: Set<String> = []
-
-    private static let lastStep = 7
 
     init(model: AppModel) {
         self.model = model
@@ -87,6 +85,43 @@ struct OnboardingView: View {
             _heightInches = State(initialValue: Int(inch.rounded()) % 12)
             _heightCm = State(initialValue: Int((inch * 2.54).rounded()))
         }
+        _heightMetric = State(initialValue: settings.weightUnit == "kg")
+    }
+
+    // MARK: - Panels (one question per screen)
+
+    enum Panel: Hashable {
+        case welcome
+        case name, location, age, weight, height, bodyFat
+        case format, division, weights, raceBooked, raceLocation, raceDate, goalTime
+        case health, run, strength, mobility, reveal
+    }
+
+    /// The ordered flow — conditional panels (Pro/Open weights, race location) appear only when relevant.
+    private var panels: [Panel] {
+        var p: [Panel] = [.welcome, .name, .location, .age, .weight, .height, .bodyFat,
+                          .format, .division]
+        if s.format == "singles" { p.append(.weights) }
+        p.append(.raceBooked)
+        if !s.noRace { p.append(.raceLocation) }
+        p += [.raceDate, .goalTime, .health, .run, .strength, .mobility, .reveal]
+        return p
+    }
+
+    private var idx: Int { panels.firstIndex(of: panel) ?? 0 }
+    private var isLast: Bool { panel == .reveal }
+
+    private func section(_ p: Panel) -> String {
+        switch p {
+        case .welcome: return "Welcome"
+        case .name, .location, .age, .weight, .height, .bodyFat: return "Basics"
+        case .format, .division, .weights, .raceBooked, .raceLocation, .raceDate, .goalTime: return "Your race"
+        case .health: return "Apple Health"
+        case .run: return "Your run"
+        case .strength: return "Your strength"
+        case .mobility: return "Your mobility"
+        case .reveal: return "Your result"
+        }
     }
 
     static let everKey = "onboardedBefore"
@@ -94,28 +129,78 @@ struct OnboardingView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    switch step {
-                    case 0: welcomeStep
-                    case 1: aboutYouStep
-                    case 2: raceStep
-                    case 3: healthStep
-                    case 4: runStep
-                    case 5: strengthStep
-                    case 6: mobilityStep
-                    default: revealStep
-                    }
-                }
-                .padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 24)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            panelContent
             footer
         }
         .background(Palette.bg.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showMyth) { ravenMyth }
-        .onChange(of: step) { _, _ in expandedField = nil }   // each step opens with everything collapsed
+    }
+
+    /// A scrolling container for the content-heavy panels (welcome / health / assessments / reveal).
+    private func scrollPanel<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) { content() }
+                .padding(.horizontal, 22).padding(.top, 18).padding(.bottom, 24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// A single-question panel: a big question heading then one control. `center` floats a wheel in the
+    /// middle of the screen (the rest top-align under the question).
+    private func fieldPanel<C: View>(_ question: String, center: Bool = false,
+                                     @ViewBuilder _ control: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 22) {
+            Text(question)
+                .font(.system(size: 24, weight: .bold)).foregroundStyle(Palette.text)
+                .fixedSize(horizontal: false, vertical: true)
+            if center { Spacer() }
+            control().frame(maxWidth: .infinity)
+            Spacer()
+        }
+        .padding(.horizontal, 22).padding(.top, 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder private var panelContent: some View {
+        switch panel {
+        case .welcome:  scrollPanel { welcomeStep }
+        case .name:     fieldPanel("What's your name?") { box(FocusedTextField(placeholder: "Your name", text: $s.name, autocap: .words)) }
+        case .location: fieldPanel("Where are you based?") { LocationField(placeholder: "Start typing a city…", text: $s.location) }
+        case .age:      fieldPanel("How old are you?") { box(FocusedTextField(placeholder: "years", text: $ageText, keyboard: .numberPad)) }
+        case .weight:   fieldPanel("What do you weigh? (\(Units.weightUnit(s)))") { box(FocusedTextField(placeholder: "e.g. 200", text: $bodyweightText, keyboard: .decimalPad)) }
+        case .height:   fieldPanel("What is your height?", center: true) { heightControl }
+        case .bodyFat:  fieldPanel("Body fat %? (optional)", center: true) { bodyFatPicker }
+        case .format:   fieldPanel("Which HYROX format?") {
+            pills([("singles", "Singles"), ("doubles", "Doubles"), ("relay", "Relay"), ("elite15", "Elite 15")],
+                  selection: s.format) { setFormat($0) }
+        }
+        case .division: fieldPanel("Which division?") { pills(genderOptions, selection: s.gender) { s.gender = $0 } }
+        case .weights:  fieldPanel("Open or Pro weights?") { pills([("open", "Open"), ("pro", "Pro")], selection: s.tier) { s.tier = $0 } }
+        case .raceBooked: fieldPanel("Do you have a race booked?") {
+            pills([("race", "Yes, a race"), ("goal", "No — a goal date")], selection: s.noRace ? "goal" : "race") {
+                s.noRace = ($0 == "goal"); if s.noRace { s.raceLocation = "" }
+            }
+        }
+        case .raceLocation: fieldPanel("Where's your race?") { LocationField(placeholder: "Start typing a city…", text: $s.raceLocation) }
+        case .raceDate: fieldPanel(s.noRace ? "What's your goal date?" : "When's your race?", center: true) {
+            DatePicker("", selection: $raceDate, in: Date()..., displayedComponents: [.date])
+                .labelsHidden().datePickerStyle(.wheel).tint(Palette.mint).frame(maxWidth: .infinity)
+        }
+        case .goalTime: fieldPanel("Target finish time?", center: true) { goalTimePicker }
+        case .health:   scrollPanel { healthStep }
+        case .run:      fieldPanel("Recent 5k time?", center: true) { fiveKPicker }
+        case .strength: scrollPanel { strengthStep }
+        case .mobility: scrollPanel { mobilityStep }
+        case .reveal:   scrollPanel { revealStep }
+        }
+    }
+
+    /// Surface box for the text-entry controls (wheels/pills render bare, like the reference flow).
+    private func box<V: View>(_ v: V) -> some View {
+        v.padding(.vertical, 6).padding(.horizontal, 12)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Palette.surface))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.surfaceLine, lineWidth: 1))
     }
 
     // MARK: - Chrome
@@ -128,80 +213,83 @@ struct OnboardingView: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Palette.surfaceLine)
-                    Capsule().fill(Palette.mint)
-                        .frame(width: geo.size.width * progress)
+                    Capsule().fill(Palette.mint).frame(width: geo.size.width * progress)
                 }
             }
             .frame(height: 3)
-            .animation(.easeInOut(duration: 0.25), value: step)
-            Text(stepLabel).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.text)
+            .animation(.easeInOut(duration: 0.25), value: panel)
+            Text(section(panel)).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.text)
         }
         .padding(.horizontal, 22).padding(.top, 20).padding(.bottom, 6)
     }
 
-    private var progress: Double { Double(step + 1) / Double(Self.lastStep + 1) }
-    private var stepLabel: String {
-        switch step {
-        case 0: return "Welcome"
-        case Self.lastStep: return "Your result"
-        default: return "Step \(step) of \(Self.lastStep - 1)"
-        }
-    }
-
-    /// Whether a text-entry field is open (keyboard up) — the footer becomes a "Done" while editing.
-    private var editingText: Bool { ["name", "age", "weight"].contains(expandedField) }
+    private var progress: Double { Double(idx + 1) / Double(max(panels.count, 1)) }
 
     private var footer: some View {
         HStack(spacing: 12) {
-            if editingText {
-                Spacer()
-                Button("Done") { expandedField = nil }
+            if idx > 0 {
+                Button("Back") { withAnimation { panel = panels[max(idx - 1, 0)] } }
+                    .font(.body.weight(.medium)).foregroundStyle(Palette.textMuted)
+            }
+            Spacer()
+            Button(action: advance) {
+                Text(nextTitle)
                     .font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
                     .padding(.vertical, 13).padding(.horizontal, 28)
-                    .background(Capsule().fill(Palette.mint))
-            } else {
-                if step > 0 {
-                    Button("Back") { withAnimation { step -= 1 } }
-                        .font(.body.weight(.medium)).foregroundStyle(Palette.textMuted)
-                }
-                Spacer()
-                Button(action: advance) {
-                    Text(nextTitle)
-                        .font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
-                        .padding(.vertical, 13).padding(.horizontal, 28)
-                        .background(Capsule().fill(nextEnabled ? Palette.mint : Palette.surfaceLine))
-                }
-                .disabled(!nextEnabled)
+                    .background(Capsule().fill(nextEnabled ? Palette.mint : Palette.surfaceLine))
             }
+            .disabled(!nextEnabled)
         }
         .padding(.horizontal, 22).padding(.top, 10).padding(.bottom, 14)
         .background(Palette.bg)
     }
 
     private var nextTitle: String {
-        switch step {
-        case 0: return "Start"
-        case Self.lastStep: return finishing ? "Setting up…" : "Enter the app"
-        default: return "Continue"
-        }
+        if panel == .welcome { return "Start" }
+        if isLast { return finishing ? "Setting up…" : "Enter the app" }
+        return "Next"
     }
 
     private var nextEnabled: Bool {
-        switch step {
-        case 1: return !s.name.trimmingCharacters(in: .whitespaces).isEmpty   // need a name to start
-        case 4: return DiagnosisEngine.parse5k(s.recent5k) > 0
-        case 5: return experienced != nil && !strAnswers.isEmpty              // gate + at least one real answer
-        case Self.lastStep: return !finishing
-        default: return true
+        switch panel {
+        case .name:     return !s.name.trimmingCharacters(in: .whitespaces).isEmpty
+        case .run:      return DiagnosisEngine.parse5k(s.recent5k) > 0
+        case .strength: return experienced != nil && !strAnswers.isEmpty
+        case .reveal:   return !finishing
+        default:        return true
         }
     }
 
     private func advance() {
-        if step < Self.lastStep {
-            if step + 1 == Self.lastStep { computeDiagnosis() }   // entering the reveal
-            withAnimation { step += 1 }
-        } else {
-            finish()
+        guard !isLast else { finish(); return }
+        let next = panels[min(idx + 1, panels.count - 1)]
+        if next == .reveal { computeDiagnosis() }   // entering the reveal
+        withAnimation { panel = next }
+    }
+
+    /// Height control with its own ft/in ⇆ cm toggle (matches the reference height screen).
+    private var heightControl: some View {
+        VStack(spacing: 16) {
+            Picker("", selection: $heightMetric) {
+                Text("Feet and Inches").tag(false)
+                Text("Centimeters").tag(true)
+            }
+            .pickerStyle(.segmented)
+            if heightMetric {
+                Picker("cm", selection: $heightCm) {
+                    ForEach(120...220, id: \.self) { Text("\($0) cm").tag($0) }
+                }.pickerStyle(.wheel).frame(height: 150).tint(Palette.text)
+            } else {
+                HStack(spacing: 0) {
+                    Picker("ft", selection: $heightFeet) {
+                        ForEach(4...7, id: \.self) { Text("\($0) ft").tag($0) }
+                    }.pickerStyle(.wheel).frame(maxWidth: .infinity).clipped()
+                    Picker("in", selection: $heightInches) {
+                        ForEach(0...11, id: \.self) { Text("\($0) in").tag($0) }
+                    }.pickerStyle(.wheel).frame(maxWidth: .infinity).clipped()
+                }
+                .frame(height: 150).tint(Palette.text)
+            }
         }
     }
 
@@ -269,124 +357,17 @@ struct OnboardingView: View {
         .preferredColorScheme(.dark)
     }
 
-    private var aboutYouStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            stepTitle("About you", "The basics, so everything's tailored to you.")
-            DisclosureField(id: "name", label: "NAME", value: s.name,
-                            placeholder: "Add your name", expanded: $expandedField) {
-                FocusedTextField(placeholder: "Your name", text: $s.name, autocap: .words)
-            }
-            field("HOME LOCATION") {   // already opens a search sheet — read + edit by design
-                LocationField(placeholder: "Start typing a city…", text: $s.location)
-            }
-            DisclosureField(id: "age", label: "AGE", value: ageText.isEmpty ? "" : "\(ageText) years",
-                            expanded: $expandedField) {
-                FocusedTextField(placeholder: "years", text: $ageText, keyboard: .numberPad)
-            }
-            DisclosureField(id: "weight", label: "BODYWEIGHT (\(Units.weightUnit(s).uppercased()))",
-                            value: bodyweightText.isEmpty ? "" : "\(bodyweightText) \(Units.weightUnit(s))",
-                            expanded: $expandedField) {
-                FocusedTextField(placeholder: "e.g. 200", text: $bodyweightText, keyboard: .decimalPad)
-            }
-            DisclosureField(id: "height", label: s.weightUnit == "kg" ? "HEIGHT (CM)" : "HEIGHT",
-                            value: heightValueText, expanded: $expandedField) { heightPicker }
-            DisclosureField(id: "bodyfat", label: "BODY FAT % · OPTIONAL",
-                            value: bodyFatSel < 0 ? "Not sure" : "\(bodyFatSel)%", expanded: $expandedField) {
-                bodyFatPicker
-            }
-        }
-    }
-
-    private var heightValueText: String {
-        s.weightUnit == "kg" ? "\(heightCm) cm" : "\(heightFeet)′ \(heightInches)″"
-    }
-
-    private var heightPicker: some View {
-        Group {
-            if s.weightUnit == "kg" {
-                Picker("cm", selection: $heightCm) {
-                    ForEach(120...220, id: \.self) { Text("\($0) cm").tag($0) }
-                }.pickerStyle(.wheel)
-            } else {
-                HStack(spacing: 0) {
-                    Picker("ft", selection: $heightFeet) {
-                        ForEach(4...7, id: \.self) { Text("\($0) ft").tag($0) }
-                    }.pickerStyle(.wheel).frame(maxWidth: .infinity).clipped()
-                    Picker("in", selection: $heightInches) {
-                        ForEach(0...11, id: \.self) { Text("\($0) in").tag($0) }
-                    }.pickerStyle(.wheel).frame(maxWidth: .infinity).clipped()
-                }
-            }
-        }
-        .frame(height: 120).tint(Palette.text)
-    }
-
     private var bodyFatPicker: some View {
         Picker("bf", selection: $bodyFatSel) {
             Text("Not sure").tag(-1)
             ForEach(5...50, id: \.self) { Text("\($0)%").tag($0) }
         }
-        .pickerStyle(.wheel).frame(height: 120).tint(Palette.text)
+        .pickerStyle(.wheel).frame(height: 150).tint(Palette.text)
     }
 
-    /// Entered height in inches, from whichever wheel the unit shows.
+    /// Entered height in inches, from whichever unit the height screen is showing.
     private var enteredHeightIn: Double {
-        s.weightUnit == "kg" ? Double(heightCm) / 2.54 : Double(heightFeet * 12 + heightInches)
-    }
-
-    private var raceStep: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            stepTitle("Your race", "The fixed point everything reasons against. Your format sets your division, standards, and station weights.")
-
-            field("FORMAT") {
-                pills([("singles", "Singles"), ("doubles", "Doubles"), ("relay", "Relay"), ("elite15", "Elite 15")],
-                      selection: s.format) { setFormat($0) }
-            }
-            field("DIVISION") {
-                pills(genderOptions, selection: s.gender) { s.gender = $0 }
-            }
-            if s.format == "singles" {
-                field("WEIGHTS") {
-                    pills([("open", "Open"), ("pro", "Pro")], selection: s.tier) { s.tier = $0 }
-                }
-            }
-            checkbox("No race booked — train toward a goal date", isOn: s.noRace) {
-                s.noRace.toggle()
-                if s.noRace { s.raceLocation = "" }
-            }
-            if !s.noRace {
-                field("RACE LOCATION") {
-                    LocationField(placeholder: "Start typing a city…", text: $s.raceLocation)
-                }
-            }
-            DisclosureField(id: "racedate", label: s.noRace ? "GOAL DATE" : "RACE DATE",
-                            value: raceDateValueText, expanded: $expandedField) {
-                DatePicker("", selection: $raceDate, in: Date()..., displayedComponents: [.date])
-                    .labelsHidden().datePickerStyle(.wheel).tint(Palette.mint)
-                    .frame(maxWidth: .infinity)
-            }
-            DisclosureField(id: "goaltime", label: "TARGET FINISH TIME",
-                            value: "\(goalH)h \(String(format: "%02d", goalM))m", expanded: $expandedField) {
-                goalTimePicker
-            }
-        }
-    }
-
-    private var raceDateValueText: String {
-        raceDate.formatted(.dateTime.month(.abbreviated).day().year())
-    }
-
-    private func checkbox(_ label: String, isOn: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: isOn ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 20)).foregroundStyle(isOn ? Palette.mint : Palette.textMuted)
-                Text(label).font(.subheadline).foregroundStyle(Palette.text)
-                Spacer(minLength: 0)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        heightMetric ? Double(heightCm) / 2.54 : Double(heightFeet * 12 + heightInches)
     }
 
     private var healthStep: some View {
@@ -416,18 +397,6 @@ struct OnboardingView: View {
                 Text("Optional — you can connect later in Settings. We'll fall back to your entered numbers and sensible defaults.")
                     .font(.footnote).foregroundStyle(Palette.textFaint)
             }
-        }
-    }
-
-    private var runStep: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            stepTitle("Your run", "Roughly half of a HYROX is running. Your recent 5k sets your run axis.")
-            DisclosureField(id: "fivek", label: "RECENT 5K TIME",
-                            value: "\(fiveKMin):\(String(format: "%02d", fiveKSec))", expanded: $expandedField) {
-                fiveKPicker
-            }
-            Text("Use a chip-timed result if you have one — it's more honest than a watch lap.")
-                .font(.footnote).foregroundStyle(Palette.textFaint)
         }
     }
 
