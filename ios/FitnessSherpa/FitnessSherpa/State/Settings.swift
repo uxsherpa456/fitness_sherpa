@@ -31,6 +31,9 @@ struct UserSettings: Codable, Equatable {
     /// Advisory mobility flag (nil until assessed in onboarding). Does not affect the quadrant/score.
     var mobilityFlag: MobilityFlag? { mobilityScore >= 0 ? Mobility.flag(score: mobilityScore) : nil }
 
+    /// Race-weight body-fat target for the power-to-weight credit (tunable; women carry more essential fat).
+    var raceLeanBodyFatPct: Double { gender == "womens" ? 20 : 12 }
+
     static let key = "userSettings.v1"
 
     /// Tolerant decode — every field is optional with a default, so adding or removing a field never

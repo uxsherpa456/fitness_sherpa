@@ -32,6 +32,7 @@ import SwiftData
     /// stored boolean snapshot; the live diagnosis prefers `settings.strengthAxis` for full precision.
     func asInput() -> DiagnosisInput {
         DiagnosisInput(bodyweightLb: bodyweightLb ?? 214,
+                       bodyFatPct: bodyFatPct ?? 0,
                        recent5k: recent5kSeconds ?? DiagnosisEngine.parse5k("25:45"),
                        strengthAxis: (stationsHold ?? true) ? 0.78 : 0.30)
     }

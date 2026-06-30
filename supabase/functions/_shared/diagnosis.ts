@@ -4,6 +4,8 @@
 export interface DiagnosisInput {
   bodyweight_lb?: number;
   height_in?: number; // standing height (in); 0/absent → BMI falls back to a weight anchor
+  body_fat_pct?: number; // 0/absent → no power-to-weight credit
+  race_lean_body_fat_pct?: number; // race-weight body-fat target (by division/gender); default 12
   recent_5k?: string; // mm:ss
   goal_5k?: string;   // mm:ss — fresh-5K fitness the goal finish implies (run-axis "fast" anchor)
   stations_hold?: boolean;
@@ -18,7 +20,9 @@ export interface Diagnosis {
   goalFocus: string;
   goalReadinessPct: number;
   paceReadinessPct: number;
+  runReadinessPct: number;
   strengthReadinessPct: number;
+  raceWeightLbAway: number;
   marker: { x: number; y: number };
   goalMarker: { x: number; y: number };
   vdot: number;
@@ -50,6 +54,8 @@ export function recomputeDiagnosis(
 ): Diagnosis {
   const w = o.bodyweight_lb ?? base.bodyweight_lb;
   const h = o.height_in ?? base.height_in;
+  const bf = o.body_fat_pct ?? base.body_fat_pct ?? 0;
+  const leanTarget = o.race_lean_body_fat_pct ?? base.race_lean_body_fat_pct ?? 12;
   const fk = sec(o.recent_5k ?? base.recent_5k);
   const sh = o.stations_hold ?? base.stations_hold;
   const sa = o.strength_axis ?? base.strength_axis;
@@ -62,8 +68,6 @@ export function recomputeDiagnosis(
   // Body / running-economy via BMI (height-normalized): BMI 23 → lean (1), 31 → heavy (0).
   // Falls back to the legacy weight anchor when height is unknown.
   const bmi = h > 0 ? 703 * w / (h * h) : 0;
-  const ws = bmi > 0 ? clamp(1 - (bmi - 23) / (31 - 23), 0, 1)
-                     : clamp(1 - (w - 185) / (225 - 185), 0, 1);
   // Continuous strength axis when the app sends one; otherwise the legacy boolean snaps to 0.78 / 0.30.
   const str = (sa != null) ? clamp(sa, 0, 1) : (sh ? 0.78 : 0.30);
 
@@ -72,8 +76,13 @@ export function recomputeDiagnosis(
   // the limiting cell until then and "good at everything" means ready on BOTH.
   const paceReadiness = ps;
   const strengthReadiness = clamp(str / 0.5, 0, 1);
+  // Power-to-weight credit: nearing race-weight closes part of the run gap (leaning out shows progress
+  // before a faster 5k does). Only ever helps (floored at pace readiness) and is bounded.
+  const bodyReady = bf > 0 ? clamp(1 - (bf - leanTarget) / 10, 0, 1) : 0;
+  const runReadiness = clamp(paceReadiness + 0.35 * bodyReady * (1 - paceReadiness), 0, 1);
+  const raceWeightLbAway = (bf > 0 && w > 0) ? Math.max(0, w * (bf - leanTarget) / 100) : 0;
   const ready = 0.9;
-  const strong = strengthReadiness >= ready, fast = paceReadiness >= ready;
+  const strong = strengthReadiness >= ready, fast = runReadiness >= ready;
   // Map a 0…1 readiness to a 0…1 quadrant position, with `ready` on the mid-line.
   const pos = (r: number) => r <= ready ? r * 0.5 / ready : 0.5 + (r - ready) / (1 - ready) * 0.5;
   let profile: string, profileIndex: 1 | 2 | 3 | 4, limiter: string, focus: string;
@@ -97,13 +106,14 @@ export function recomputeDiagnosis(
 
   // Goal-relative readout: how close you are, what to work on, and where the GOAL corner sits.
   const goalPos = 0.92;                              // ready on both = the complete-athlete corner
-  const goalReadiness = clamp(0.55 * paceReadiness + 0.45 * strengthReadiness, 0, 1);
-  const gapPace = 1 - paceReadiness, gapStr = 1 - strengthReadiness;
+  const goalReadiness = clamp(0.55 * runReadiness + 0.45 * strengthReadiness, 0, 1);
+  const gapRun = 1 - runReadiness, gapStr = 1 - strengthReadiness;
+  const lbAway = Math.round(raceWeightLbAway);
   let goalFocus: string;
-  if (gapPace < 0.12 && gapStr < 0.12) {
+  if (gapRun < 0.12 && gapStr < 0.12) {
     goalFocus = "Race-ready — sharpen pacing, transitions, and compromised running.";
-  } else if (gapPace >= gapStr) {
-    goalFocus = `Running is your gap — you're at ${Math.round(paceReadiness * 100)}% of the 5k fitness your goal needs. Build run speed${ws < 0.6 ? " and power-to-weight" : ""}.`;
+  } else if (gapRun >= gapStr) {
+    goalFocus = `Running is your gap — you're at ${Math.round(paceReadiness * 100)}% of the 5k fitness your goal needs. Build run speed${lbAway > 0 ? `; ~${lbAway} lb from race-weight.` : "."}`;
   } else {
     goalFocus = "Strength + station capacity is your gap — bring your lifts to your division standard while holding run volume.";
   }
@@ -113,9 +123,11 @@ export function recomputeDiagnosis(
     profile, profileIndex, limiter, focus, goalFocus,
     goalReadinessPct: Math.round(goalReadiness * 100),
     paceReadinessPct: Math.round(paceReadiness * 100),
+    runReadinessPct: Math.round(runReadiness * 100),
     strengthReadinessPct: Math.round(strengthReadiness * 100),
+    raceWeightLbAway: lbAway,
     marker: {
-      x: Math.round((0.12 + pos(paceReadiness) * 0.76) * 100),
+      x: Math.round((0.12 + pos(runReadiness) * 0.76) * 100),
       y: Math.round((0.12 + (1 - pos(strengthReadiness)) * 0.76) * 100),
     },
     goalMarker: {

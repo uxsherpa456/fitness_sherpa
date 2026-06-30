@@ -96,8 +96,11 @@ enum DemoSeed {
         let dx = DiagnosisEngine.diagnose(DiagnosisInput(
             bodyweightLb: model.settings.bodyweightLb > 0 ? model.settings.bodyweightLb : 205,
             heightIn: model.effectiveHeightIn ?? 71,
+            bodyFatPct: model.effectiveBodyFatPct ?? 16,
+            raceLeanBodyFatPct: model.settings.raceLeanBodyFatPct,
             recent5k: DiagnosisEngine.parse5k(model.settings.recent5k),
-            strengthAxis: model.settings.strengthAxis))
+            strengthAxis: model.settings.strengthAxis,
+            goal5k: PlanEngine.goalFresh5kSeconds(model.settings) ?? 22 * 60))
         model.diagnosis = dx
         model.reseedGoals(for: dx.profile)
         model.status = "Demo · sample data"
@@ -156,13 +159,15 @@ enum DemoSeed {
     /// A short path of past quadrant positions trending toward the strong/fast corner.
     private static func seedDiagnosisTrail(_ context: ModelContext, current: Diagnosis) {
         let cal = Calendar.current
-        let earlier: [(daysAgo: Int, bw: Double, t: String)] = [
-            (84, 218, "25:10"), (56, 213, "24:20"), (28, 209, "23:40"),
+        let earlier: [(daysAgo: Int, bw: Double, bf: Double, t: String)] = [
+            (84, 218, 22, "25:10"), (56, 213, 20, "24:20"), (28, 209, 18, "23:40"),
         ]
         for e in earlier {
             let dx = DiagnosisEngine.diagnose(DiagnosisInput(bodyweightLb: e.bw, heightIn: 71,
+                                                             bodyFatPct: e.bf, raceLeanBodyFatPct: 12,
                                                              recent5k: DiagnosisEngine.parse5k(e.t),
-                                                             strengthAxis: 0.72))
+                                                             strengthAxis: 0.72,
+                                                             goal5k: PlanEngine.goalFresh5kSeconds(sampleSettings) ?? 22 * 60))
             let date = cal.date(byAdding: .day, value: -e.daysAgo, to: Date()) ?? Date()
             context.insert(DiagnosisRecord(dx, date: date))
         }

@@ -232,6 +232,7 @@ final class AppModel {
                                       "strength_axis": (settings.strengthAxis * 100).rounded() / 100]
         if let bw = effectiveBodyweightLb { metrics["bodyweight_lb"] = Int(bw.rounded()) }
         if let ht = effectiveHeightIn { metrics["height_in"] = (ht * 10).rounded() / 10 }
+        if let bf = effectiveBodyFatPct { metrics["body_fat_pct"] = (bf * 10).rounded() / 10 }
         if let g5k = PlanEngine.goalFresh5kSeconds(settings) {   // fresh-5K fitness the goal finish implies (run-axis anchor)
             metrics["goal_5k"] = DiagnosisEngine.format5k(g5k)
         }
@@ -339,8 +340,10 @@ final class AppModel {
                 "limiter": d.limiter,
                 "goal_focus": d.goalFocus,   // what to work on, relative to the goal finish
                 "goal_readiness_pct": Int((d.goalReadiness * 100).rounded()),
-                "pace_readiness_pct": Int((d.paceReadiness * 100).rounded()),     // running vs goal-needed fitness
+                "pace_readiness_pct": Int((d.paceReadiness * 100).rounded()),     // 5k fitness alone vs goal
+                "run_readiness_pct": Int((d.runReadiness * 100).rounded()),       // 5k fitness + power-to-weight credit
                 "strength_readiness_pct": Int((d.strengthReadiness * 100).rounded()), // strength vs division standard
+                "race_weight_lb_away": Int(d.raceWeightLbAway.rounded()),         // lb of fat above race-weight target
                 "marker": ["x": Int((d.markerX * 100).rounded()), "y": Int((d.markerY * 100).rounded())],
                 "evidence": d.evidence,
             ]
@@ -460,6 +463,8 @@ final class AppModel {
             // Diagnose off the precise continuous strength axis (the boolean Baseline snapshot is for history).
             let input = DiagnosisInput(bodyweightLb: effectiveBodyweightLb ?? 214,
                                        heightIn: effectiveHeightIn ?? 0,
+                                       bodyFatPct: effectiveBodyFatPct ?? 0,
+                                       raceLeanBodyFatPct: settings.raceLeanBodyFatPct,
                                        recent5k: DiagnosisEngine.parse5k(settings.recent5k),
                                        strengthAxis: settings.strengthAxis,
                                        goal5k: PlanEngine.goalFresh5kSeconds(settings) ?? 22 * 60)

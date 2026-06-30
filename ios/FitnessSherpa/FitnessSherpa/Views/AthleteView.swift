@@ -34,7 +34,7 @@ struct AthleteView: View {
                                 HStack(spacing: 6) {
                                     Text("\(Int((d.goalReadiness * 100).rounded()))% to your \(model.settings.goalTimeDisplay) goal")
                                         .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.mint)
-                                    Text("·  run \(Int((d.paceReadiness * 100).rounded()))% · strength \(Int((d.strengthReadiness * 100).rounded()))%")
+                                    Text("·  run \(Int((d.runReadiness * 100).rounded()))% · strength \(Int((d.strengthReadiness * 100).rounded()))%")
                                         .font(.caption).foregroundStyle(Palette.textMuted)
                                 }
                             } else {

@@ -53,6 +53,8 @@ enum AthleteProfile: Int, Codable, CaseIterable {
 struct DiagnosisInput {
     var bodyweightLb: Double
     var heightIn: Double = 0            // standing height (in); 0 = unknown → BMI falls back to a weight anchor
+    var bodyFatPct: Double = 0          // body fat %; 0 = unknown → no power-to-weight credit
+    var raceLeanBodyFatPct: Double = 12 // the athlete's race-weight body-fat target (set by division/gender)
     var recent5k: TimeInterval          // seconds
     var strengthAxis: Double            // 0…1 self-assessed strength + station capacity (the run/Health-blind axis)
     var goal5k: TimeInterval = 22 * 60  // the 5k pace a 1:10 finish needs
@@ -69,9 +71,11 @@ struct Diagnosis: Codable, Equatable {
     let markerY: Double        // 0...1 down the quadrant — where you ARE (top → bottom)
     let goalMarkerX: Double    // 0...1 — where your GOAL puts you (running at goal fitness)
     let goalMarkerY: Double    // 0...1 — where your GOAL puts you (strength at division standard)
-    let paceReadiness: Double  // 0...1 — how close your running is to the fitness your goal needs
+    let paceReadiness: Double  // 0...1 — how close your 5k fitness alone is to what the goal needs
+    let runReadiness: Double   // 0...1 — pace + power-to-weight credit; drives the run-axis position
     let strengthReadiness: Double // 0...1 — how close your strength is to your division standard
     let goalReadiness: Double  // 0...1 — overall readiness for the goal finish
+    let raceWeightLbAway: Double  // lb of fat above your race-weight target (0 if at/below or unknown)
     let goalFocus: String      // what to work on, relative to the goal (not the absolute profile)
     let vdot: Double           // Daniels–Gilbert VDOT (pseudo-VO2max) from the recent 5k
     let bmi: Double            // body-mass index from weight + height (0 if height unknown)
@@ -90,8 +94,10 @@ struct Diagnosis: Codable, Equatable {
         goalMarkerX  = (try? c.decode(Double.self, forKey: .goalMarkerX)) ?? markerX
         goalMarkerY  = (try? c.decode(Double.self, forKey: .goalMarkerY)) ?? markerY
         paceReadiness = (try? c.decode(Double.self, forKey: .paceReadiness)) ?? 0
+        runReadiness = (try? c.decode(Double.self, forKey: .runReadiness)) ?? ((try? c.decode(Double.self, forKey: .paceReadiness)) ?? 0)
         strengthReadiness = (try? c.decode(Double.self, forKey: .strengthReadiness)) ?? 0
         goalReadiness = (try? c.decode(Double.self, forKey: .goalReadiness)) ?? 0
+        raceWeightLbAway = (try? c.decode(Double.self, forKey: .raceWeightLbAway)) ?? 0
         goalFocus    = (try? c.decode(String.self, forKey: .goalFocus)) ?? focus
         vdot         = (try? c.decode(Double.self, forKey: .vdot)) ?? 0
         bmi          = (try? c.decode(Double.self, forKey: .bmi)) ?? 0
@@ -100,14 +106,17 @@ struct Diagnosis: Codable, Equatable {
 
     init(profile: AthleteProfile, limiter: String, focus: String, runAxis: Double,
          strengthAxis: Double, markerX: Double, markerY: Double,
-         goalMarkerX: Double, goalMarkerY: Double, paceReadiness: Double, strengthReadiness: Double,
-         goalReadiness: Double, goalFocus: String, vdot: Double, bmi: Double, evidence: String) {
+         goalMarkerX: Double, goalMarkerY: Double, paceReadiness: Double, runReadiness: Double,
+         strengthReadiness: Double, goalReadiness: Double, raceWeightLbAway: Double,
+         goalFocus: String, vdot: Double, bmi: Double, evidence: String) {
         self.profile = profile; self.limiter = limiter; self.focus = focus
         self.runAxis = runAxis; self.strengthAxis = strengthAxis
         self.markerX = markerX; self.markerY = markerY
         self.goalMarkerX = goalMarkerX; self.goalMarkerY = goalMarkerY
-        self.paceReadiness = paceReadiness; self.strengthReadiness = strengthReadiness
-        self.goalReadiness = goalReadiness; self.goalFocus = goalFocus
+        self.paceReadiness = paceReadiness; self.runReadiness = runReadiness
+        self.strengthReadiness = strengthReadiness
+        self.goalReadiness = goalReadiness; self.raceWeightLbAway = raceWeightLbAway
+        self.goalFocus = goalFocus
         self.vdot = vdot; self.bmi = bmi; self.evidence = evidence
     }
 }
@@ -148,12 +157,26 @@ enum DiagnosisEngine {
         let paceReadiness = paceScore
         let strengthReadiness = clamp(strengthAxis / 0.5, 0, 1)   // 1.0 once you clear your division standard
 
+        // Power-to-weight credit: HYROX rewards leanness (compromised running + bodyweight stations),
+        // and pace improves ~proportionally with fat lost — a leading signal your 5k hasn't caught yet.
+        // As you near your race-weight target this closes part of the run gap, so leaning out shows up
+        // as progress NOW. It only ever HELPS (floored at your measured pace readiness) and is bounded.
+        let leanGain = 0.35                // max share of the remaining run gap that race-weight can close
+        let leanRange = 10.0               // body-fat points above target over which the credit fades to 0
+        let bodyReady = input.bodyFatPct > 0
+            ? clamp(1 - (input.bodyFatPct - input.raceLeanBodyFatPct) / leanRange, 0, 1)
+            : 0
+        let runReadiness = clamp(paceReadiness + leanGain * bodyReady * (1 - paceReadiness), 0, 1)
+        let raceWeightLbAway = (input.bodyFatPct > 0 && input.bodyweightLb > 0)
+            ? max(0, input.bodyweightLb * (input.bodyFatPct - input.raceLeanBodyFatPct) / 100)
+            : 0
+
         // You only read as "ready" on an axis once you've essentially reached the goal's requirement —
         // so the marker sits in the LIMITING cell until then, and "good at everything" means ready on
         // BOTH. `ready` is the readiness at which an axis crosses into its goal-ready half.
         let ready = 0.9
         let strong = strengthReadiness >= ready
-        let fast   = paceReadiness >= ready
+        let fast   = runReadiness >= ready
         let profile: AthleteProfile
         switch (strong, fast) {
         case (true,  false): profile = .heavySlowStrong
@@ -169,23 +192,24 @@ enum DiagnosisEngine {
         func pos(_ r: Double) -> Double {
             r <= ready ? r * 0.5 / ready : 0.5 + (r - ready) / (1 - ready) * 0.5
         }
-        let markerX = 0.12 + pos(paceReadiness) * 0.76
+        let markerX = 0.12 + pos(runReadiness) * 0.76
         let markerY = 0.12 + (1 - pos(strengthReadiness)) * 0.76
 
         // GOAL = ready on both (the complete-athlete corner), inset just off the corner label.
         let goalPos = 0.92
         let goalMarkerX = 0.12 + goalPos * 0.76
         let goalMarkerY = 0.12 + (1 - goalPos) * 0.76
-        let goalReadiness = clamp(0.55 * paceReadiness + 0.45 * strengthReadiness, 0, 1)
+        let goalReadiness = clamp(0.55 * runReadiness + 0.45 * strengthReadiness, 0, 1)
 
-        let gapPace = 1 - paceReadiness, gapStr = 1 - strengthReadiness
+        let gapRun = 1 - runReadiness, gapStr = 1 - strengthReadiness
         let pacePct = Int((paceReadiness * 100).rounded())
+        let lbAway = Int(raceWeightLbAway.rounded())
         let goalFocus: String
-        if gapPace < 0.12 && gapStr < 0.12 {
+        if gapRun < 0.12 && gapStr < 0.12 {
             goalFocus = "Race-ready — sharpen pacing, transitions, and compromised running."
-        } else if gapPace >= gapStr {
+        } else if gapRun >= gapStr {
             goalFocus = "Running is your gap — you're at \(pacePct)% of the 5k fitness your goal needs. "
-                      + "Build run speed\(weightScore < 0.6 ? " and power-to-weight" : "")."
+                      + "Build run speed" + (lbAway > 0 ? "; ~\(lbAway) lb from race-weight." : ".")
         } else {
             goalFocus = "Strength + station capacity is your gap — bring your lifts to your division "
                       + "standard while holding run volume."
@@ -199,9 +223,10 @@ enum DiagnosisEngine {
                          runAxis: runAxis, strengthAxis: strengthAxis,
                          markerX: markerX, markerY: markerY,
                          goalMarkerX: goalMarkerX, goalMarkerY: goalMarkerY,
-                         paceReadiness: paceReadiness, strengthReadiness: strengthReadiness,
-                         goalReadiness: goalReadiness, goalFocus: goalFocus,
-                         vdot: athleteVdot, bmi: bmi, evidence: evidence)
+                         paceReadiness: paceReadiness, runReadiness: runReadiness,
+                         strengthReadiness: strengthReadiness,
+                         goalReadiness: goalReadiness, raceWeightLbAway: raceWeightLbAway,
+                         goalFocus: goalFocus, vdot: athleteVdot, bmi: bmi, evidence: evidence)
     }
 
     // MARK: - Helpers

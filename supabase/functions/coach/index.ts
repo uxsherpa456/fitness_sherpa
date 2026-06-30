@@ -26,6 +26,7 @@ const TOOLS = [{
     properties: {
       bodyweight_lb: { type: "number" },
       height_in: { type: "number", description: "standing height in inches (drives BMI / running economy)" },
+      body_fat_pct: { type: "number", description: "body fat %; nearer race-weight adds power-to-weight credit to run readiness" },
       recent_5k: { type: "string", description: "mm:ss" },
       goal_5k: { type: "string", description: "mm:ss — fresh-5K fitness the goal finish implies (the run-axis 'fast' anchor); pass to test a different goal" },
       stations_hold: { type: "boolean", description: "do the stations hold output under fatigue" },
@@ -219,6 +220,8 @@ Deno.serve(async (req: Request) => {
         const base = {
           bodyweight_lb: context?.metrics?.bodyweight_lb ?? 214,
           height_in: context?.metrics?.height_in ?? 0,
+          body_fat_pct: context?.metrics?.body_fat_pct ?? 0,
+          race_lean_body_fat_pct: context?.demographics?.gender === "womens" ? 20 : 12,
           recent_5k: context?.metrics?.recent_5k ?? "25:45",
           goal_5k: context?.metrics?.goal_5k ?? "22:00",
           stations_hold: context?.metrics?.stations_hold ?? true,

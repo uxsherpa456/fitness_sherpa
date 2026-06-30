@@ -695,7 +695,9 @@ struct OnboardingView: View {
         s.heightIn = inputToHeightIn(heightText) ?? 0
         let bw = inputToLb(bodyweightText) ?? reading?.bodyMass?.value ?? 214
         let ht = inputToHeightIn(heightText) ?? reading?.height?.value ?? 0
+        let bf = Double(bodyFatText.trimmingCharacters(in: .whitespaces)) ?? (reading?.bodyFat?.value).map { $0 * 100 } ?? 0
         let input = DiagnosisInput(bodyweightLb: bw, heightIn: ht,
+                                   bodyFatPct: bf, raceLeanBodyFatPct: s.raceLeanBodyFatPct,
                                    recent5k: DiagnosisEngine.parse5k(s.recent5k),
                                    strengthAxis: axis,
                                    goal5k: PlanEngine.goalFresh5kSeconds(s) ?? 22 * 60)
