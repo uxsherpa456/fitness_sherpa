@@ -47,7 +47,12 @@ struct TodayView: View {
             }
             Text(Date().formatted(.dateTime.weekday(.wide).month().day()))
                 .font(.title3.bold()).foregroundStyle(Palette.text)
-            if let days = model.settings.daysToRace, days >= 0 {
+            if model.settings.noRace {
+                if let days = model.settings.daysToRace, days >= 0 {
+                    Text("\(days) days to your goal")
+                        .font(.caption).foregroundStyle(Palette.textMuted)
+                }
+            } else if let days = model.settings.daysToRace, days >= 0 {
                 Text("\(days) days out · HYROX \(model.settings.raceLocation)")
                     .font(.caption).foregroundStyle(Palette.textMuted)
             } else {

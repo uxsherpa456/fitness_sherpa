@@ -258,9 +258,14 @@ final class AppModel {
 
         var race: [String: Any] = [
             "goal_time": settings.goalTime,
-            "date": settings.raceDate,
-            "location": settings.raceLocation,
+            "scheduled": !settings.noRace,
         ]
+        if settings.noRace {
+            race["goal_date"] = settings.raceDate   // no booked race — training toward this date
+        } else {
+            race["date"] = settings.raceDate
+            race["location"] = settings.raceLocation
+        }
         if let days = settings.daysToRace { race["days_out"] = days }
         ctx["race"] = race
 

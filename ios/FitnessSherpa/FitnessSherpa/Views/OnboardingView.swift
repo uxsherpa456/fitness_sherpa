@@ -327,16 +327,35 @@ struct OnboardingView: View {
                     pills([("open", "Open"), ("pro", "Pro")], selection: s.tier) { s.tier = $0 }
                 }
             }
-            field("RACE LOCATION") {
-                LocationField(placeholder: "Start typing a city…", text: $s.raceLocation)
+            checkbox("No race booked — train toward a goal date", isOn: s.noRace) {
+                s.noRace.toggle()
+                if s.noRace { s.raceLocation = "" }
             }
-            field("RACE DATE") {
+            if !s.noRace {
+                field("RACE LOCATION") {
+                    LocationField(placeholder: "Start typing a city…", text: $s.raceLocation)
+                }
+            }
+            field(s.noRace ? "GOAL DATE" : "RACE DATE") {
                 DatePicker("", selection: $raceDate, in: Date()..., displayedComponents: [.date])
                     .labelsHidden().datePickerStyle(.wheel).tint(Palette.mint)
                     .frame(maxWidth: .infinity)
             }
             field("TARGET FINISH TIME") { goalTimePicker }
         }
+    }
+
+    private func checkbox(_ label: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: isOn ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 20)).foregroundStyle(isOn ? Palette.mint : Palette.textMuted)
+                Text(label).font(.subheadline).foregroundStyle(Palette.text)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var healthStep: some View {

@@ -101,7 +101,7 @@ struct PlanView: View {
         if !blocks.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("PHASES TO RACE DAY")
+                    Text(model.settings.noRace ? "PHASES TO GOAL DATE" : "PHASES TO RACE DAY")
                         .font(.system(size: 11, weight: .heavy, design: .monospaced)).tracking(1.5)
                         .foregroundStyle(Palette.textMuted)
                     Spacer()

@@ -15,8 +15,9 @@ struct UserSettings: Codable, Equatable {
     var tier = "open"             // open | pro   (singles only)
     var age = 37
     var goalTime = "1:10:00"      // H:MM:SS
-    var raceDate = "2026-09-04"   // yyyy-MM-dd
+    var raceDate = "2026-09-04"   // yyyy-MM-dd — a booked race, or (when noRace) the goal date to train toward
     var raceLocation = "Washington DC"
+    var noRace = false            // no race booked: train toward a goal date, no location
     var weightUnit = "lb"         // lb | kg
     var distanceUnit = "mi"       // mi | km
     var recent5k = "24:31"        // chip-timed 5k PR (baseline input)
@@ -50,6 +51,7 @@ struct UserSettings: Codable, Equatable {
         goalTime      = v(.goalTime, "1:10:00")
         raceDate      = v(.raceDate, "2026-09-04")
         raceLocation  = v(.raceLocation, "Washington DC")
+        noRace        = v(.noRace, false)
         weightUnit    = v(.weightUnit, "lb")
         distanceUnit  = v(.distanceUnit, "mi")
         recent5k      = v(.recent5k, "24:31")
@@ -82,7 +84,8 @@ struct UserSettings: Codable, Equatable {
                     tier: tier, age: age,
                     weightLb: bodyweightLb > 0 ? bodyweightLb : nil,
                     bodyFatPct: bodyFatPct > 0 ? bodyFatPct : nil,
-                    heightIn: heightIn > 0 ? heightIn : nil)
+                    heightIn: heightIn > 0 ? heightIn : nil,
+                    noRace: noRace)
     }
     func toProfile() -> ProfileData {
         ProfileData(format: format, gender: gender, tier: tier, age: age)
@@ -102,6 +105,7 @@ struct UserSettings: Codable, Equatable {
         if let v = s.weightLb { bodyweightLb = v }
         if let v = s.bodyFatPct { bodyFatPct = v }
         if let v = s.heightIn { heightIn = v }
+        if let v = s.noRace { noRace = v }
     }
 
     /// Goal finish as H:MM — seconds dropped (HYROX targets are minute-level). Tolerates a stored

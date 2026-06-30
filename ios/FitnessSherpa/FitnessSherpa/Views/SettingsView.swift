@@ -106,12 +106,15 @@ struct SettingsView: View {
                             .labelsHidden().frame(width: 56)
                         Text("m").foregroundStyle(.secondary)
                     }
-                    DatePicker("Race date", selection: $raceDate, displayedComponents: [.date])
-                    LabeledContent("Race location") {
-                        TextField("City", text: $s.raceLocation).multilineTextAlignment(.trailing)
+                    Toggle("No race planned", isOn: $s.noRace).tint(Palette.mint)
+                    DatePicker(s.noRace ? "Goal date" : "Race date", selection: $raceDate, displayedComponents: [.date])
+                    if !s.noRace {
+                        LabeledContent("Race location") {
+                            TextField("City", text: $s.raceLocation).multilineTextAlignment(.trailing)
+                        }
                     }
                     if let days = s.daysToRace {
-                        LabeledContent("Days out", value: "\(days)")
+                        LabeledContent(s.noRace ? "Days to goal" : "Days out", value: "\(days)")
                     }
                 }
 

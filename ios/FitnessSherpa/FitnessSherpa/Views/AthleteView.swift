@@ -140,7 +140,11 @@ struct AthleteView: View {
                 ModuleLabel("Athlete")
                 kv("Division", divisionText)
                 kv("Age", "\(model.settings.age)")
-                kv("Race", "\(raceDateText) · \(model.settings.raceLocation)")
+                if model.settings.noRace {
+                    kv("Goal date", raceDateText)
+                } else {
+                    kv("Race", "\(raceDateText) · \(model.settings.raceLocation)")
+                }
                 kv("Goal", model.settings.goalTimeDisplay)
             }
         }
