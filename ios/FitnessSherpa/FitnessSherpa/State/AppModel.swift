@@ -133,19 +133,22 @@ final class AppModel {
 
     var inSandbox: Bool { StateClient.isSandbox }
 
-    /// Back current settings + goals up to the live cloud row, isolate onto a sandbox cloud key, wipe
-    /// the local store, and reset to a fresh (un-onboarded) state — so onboarding runs from scratch.
+    /// Start a fresh new-user experience. From your real data: back it up to the live cloud row first,
+    /// then isolate onto the sandbox key. Already in the sandbox: just clear it again. Either way the
+    /// sandbox row + local store are wiped so onboarding runs from scratch (and stays fresh on relaunch).
     @MainActor
     func resetToFreshUser(context: ModelContext) async {
-        // 1) Save the real profile + history to the LIVE row and wait, so the full backup lands first.
-        StateClient.userKey = StateClient.liveKey
-        let history = gatherHistory(context: context)
-        let backup = AppState(onboarded: true, profile: settings.toProfile(), goals: goals,
-                              settings: settings.toAppSettings(), sessions: history.sessions, readiness: history.readiness)
-        try? await StateClient.save(backup, includeHistory: true)
-        // 2) Point cloud at the isolated sandbox row (its own empty state → onboarding).
-        StateClient.userKey = StateClient.sandboxKey
-        // 3) Wipe local + reset in-memory state.
+        if !StateClient.isSandbox {
+            // Back the real profile + history up to the LIVE row and wait, so the backup lands first.
+            StateClient.userKey = StateClient.liveKey
+            let history = gatherHistory(context: context)
+            let backup = AppState(onboarded: true, profile: settings.toProfile(), goals: goals,
+                                  settings: settings.toAppSettings(), sessions: history.sessions, readiness: history.readiness)
+            try? await StateClient.save(backup, includeHistory: true)
+            StateClient.userKey = StateClient.sandboxKey
+        }
+        // Clear the sandbox cloud row so a fresh onboarding persists across relaunches.
+        try? await StateClient.save(AppState(onboarded: false), includeHistory: true)
         wipeLocal(context: context)
         settings = UserSettings()        // onboarded == false
         goals = []; diagnosis = nil; reading = nil; readiness = nil

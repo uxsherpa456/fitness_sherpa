@@ -201,24 +201,23 @@ struct AppInfoView: View {
                 }
 
                 Section {
+                    LabeledContent("Mode", value: model.inSandbox ? "Sandbox (new-user test)" : "Your data")
+                    Button {
+                        confirmReset = true
+                    } label: { Label(model.inSandbox ? "Start over (clear sandbox)" : "Experience as a new user",
+                                     systemImage: "person.crop.circle.badge.plus") }
                     if model.inSandbox {
-                        LabeledContent("Mode", value: "Sandbox (new-user test)")
                         Button {
                             working = true
                             Task { await model.restoreMyData(context: context); working = false; dismiss() }
                         } label: { Label("Restore my data", systemImage: "arrow.uturn.backward") }
-                    } else {
-                        LabeledContent("Mode", value: "Your data")
-                        Button {
-                            confirmReset = true
-                        } label: { Label("Experience as a new user", systemImage: "person.crop.circle.badge.plus") }
                     }
                     if working { ProgressView() }
                 } header: {
                     Text("Developer")
                 } footer: {
                     Text(model.inSandbox
-                         ? "You're on an isolated sandbox. Your real settings + goals are safe in the cloud — restore returns you to them."
+                         ? "You're on an isolated sandbox. Start over wipes it and runs onboarding fresh again. Your real settings + goals are safe in the cloud — restore returns you to them."
                          : "Backs your settings + goals up to the cloud, then resets to a fresh onboarding on an isolated sandbox. Reversible. Local workout/plan/readiness history is cleared (workouts re-import from Apple Health).")
                 }
             }
