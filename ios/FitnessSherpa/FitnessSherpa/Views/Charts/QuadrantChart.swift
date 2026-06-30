@@ -79,7 +79,7 @@ struct QuadrantChart: View {
             ZStack {
                     // negative→positive gradient (darkened): weak+slow (bottom-left, red) →
                     // ideal (top-right, green); dark enough that labels + marker stay readable
-                    LinearGradient(colors: [Color(hex: 0x7A2D24), Color(hex: 0x7A5224), Color(hex: 0x245E3C)],
+                    LinearGradient(colors: [Color(hex: 0x9B1F12), Color(hex: 0xA8590C), Color(hex: 0x12833E)],
                                    startPoint: .bottomLeading, endPoint: .topTrailing)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                     // active quadrant highlight
