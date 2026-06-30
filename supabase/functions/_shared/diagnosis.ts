@@ -64,11 +64,18 @@ export function recomputeDiagnosis(
   const bmi = h > 0 ? 703 * w / (h * h) : 0;
   const ws = bmi > 0 ? clamp(1 - (bmi - 23) / (31 - 23), 0, 1)
                      : clamp(1 - (w - 185) / (225 - 185), 0, 1);
-  const run = ps * 0.6 + ws * 0.4;
   // Continuous strength axis when the app sends one; otherwise the legacy boolean snaps to 0.78 / 0.30.
   const str = (sa != null) ? clamp(sa, 0, 1) : (sh ? 0.78 : 0.30);
 
-  const strong = str >= 0.5, fast = run >= 0.5;
+  // Goal-relative: readiness = how close you are to what the goal needs (running vs the goal VDOT,
+  // strength vs the division standard). You only read "ready" near the goal, so the marker stays in
+  // the limiting cell until then and "good at everything" means ready on BOTH.
+  const paceReadiness = ps;
+  const strengthReadiness = clamp(str / 0.5, 0, 1);
+  const ready = 0.9;
+  const strong = strengthReadiness >= ready, fast = paceReadiness >= ready;
+  // Map a 0…1 readiness to a 0…1 quadrant position, with `ready` on the mid-line.
+  const pos = (r: number) => r <= ready ? r * 0.5 / ready : 0.5 + (r - ready) / (1 - ready) * 0.5;
   let profile: string, profileIndex: 1 | 2 | 3 | 4, limiter: string, focus: string;
   if (strong && !fast) {
     profile = "Heavy & slow — strong enough"; profileIndex = 1;
@@ -88,11 +95,8 @@ export function recomputeDiagnosis(
     focus = "fix the biggest deficit first, then re-diagnose";
   }
 
-  // Goal-relative readout: where the GOAL puts you, how close you are, and what to work on.
-  const paceReadiness = ps;                          // running vs the goal-needed fitness
-  const strengthReadiness = clamp(str / 0.5, 0, 1);  // 1.0 once you clear the division standard
-  const goalRun = clamp(0.6 + ws * 0.4, 0, 1);       // running at goal pace, body held
-  const goalStrength = Math.max(str, 0.5);
+  // Goal-relative readout: how close you are, what to work on, and where the GOAL corner sits.
+  const goalPos = 0.92;                              // ready on both = the complete-athlete corner
   const goalReadiness = clamp(0.55 * paceReadiness + 0.45 * strengthReadiness, 0, 1);
   const gapPace = 1 - paceReadiness, gapStr = 1 - strengthReadiness;
   let goalFocus: string;
@@ -111,12 +115,12 @@ export function recomputeDiagnosis(
     paceReadinessPct: Math.round(paceReadiness * 100),
     strengthReadinessPct: Math.round(strengthReadiness * 100),
     marker: {
-      x: Math.round((0.12 + run * 0.76) * 100),
-      y: Math.round((0.12 + (1 - str) * 0.76) * 100),
+      x: Math.round((0.12 + pos(paceReadiness) * 0.76) * 100),
+      y: Math.round((0.12 + (1 - pos(strengthReadiness)) * 0.76) * 100),
     },
     goalMarker: {
-      x: Math.round((0.12 + goalRun * 0.76) * 100),
-      y: Math.round((0.12 + (1 - goalStrength) * 0.76) * 100),
+      x: Math.round((0.12 + goalPos * 0.76) * 100),
+      y: Math.round((0.12 + (1 - goalPos) * 0.76) * 100),
     },
     vdot: Math.round(dot),
     bmi: Math.round(bmi * 10) / 10,

@@ -143,8 +143,17 @@ enum DiagnosisEngine {
         // questions). Apple Health can't see this, so it's the one axis the athlete enters by hand.
         let strengthAxis = clamp(input.strengthAxis, 0, 1)
 
-        let strong = strengthAxis >= 0.5
-        let fast   = runAxis >= 0.5
+        // EVERYTHING below is RELATIVE TO THE GOAL. Readiness on each axis = how close you are to what
+        // the goal needs: running = your VDOT vs the goal's; strength = vs your division standard.
+        let paceReadiness = paceScore
+        let strengthReadiness = clamp(strengthAxis / 0.5, 0, 1)   // 1.0 once you clear your division standard
+
+        // You only read as "ready" on an axis once you've essentially reached the goal's requirement —
+        // so the marker sits in the LIMITING cell until then, and "good at everything" means ready on
+        // BOTH. `ready` is the readiness at which an axis crosses into its goal-ready half.
+        let ready = 0.9
+        let strong = strengthReadiness >= ready
+        let fast   = paceReadiness >= ready
         let profile: AthleteProfile
         switch (strong, fast) {
         case (true,  false): profile = .heavySlowStrong
@@ -153,21 +162,20 @@ enum DiagnosisEngine {
         case (false, false): profile = .weakAtEverything
         }
 
-        // NOTE: keep in sync with the canonical engine in supabase/functions/_shared/diagnosis.ts.
-        // Two intentional differences vs that TS port: (1) markerX/Y here are 0...1, but diagnosis.ts
-        // returns them ×100 (0–100 ints) — scale when sharing fixtures; (2) `evidence` there uses the
-        // raw 5k input string while this reformats via format5k() — equal for canonical inputs.
-        let markerX = 0.12 + runAxis * 0.76
-        let markerY = 0.12 + (1 - strengthAxis) * 0.76
+        // Map a 0…1 readiness to a 0…1 quadrant position, with `ready` landing on the mid-line, so the
+        // marker only crosses into the goal-ready half once the axis is actually there.
+        // NOTE: keep in sync with the canonical engine in supabase/functions/_shared/diagnosis.ts —
+        // markerX/Y here are 0...1; diagnosis.ts returns them ×100.
+        func pos(_ r: Double) -> Double {
+            r <= ready ? r * 0.5 / ready : 0.5 + (r - ready) / (1 - ready) * 0.5
+        }
+        let markerX = 0.12 + pos(paceReadiness) * 0.76
+        let markerY = 0.12 + (1 - pos(strengthReadiness)) * 0.76
 
-        // Goal-relative readout: where the GOAL puts you, how close you are, and what to work on.
-        // Pace readiness is your VDOT vs the goal's; strength readiness is vs the division-sufficient line.
-        let paceReadiness = paceScore
-        let strengthReadiness = clamp(strengthAxis / 0.5, 0, 1)   // 1.0 once you clear your division standard
-        let goalRunAxis = clamp(0.6 + weightScore * 0.4, 0, 1)    // running at goal pace, body held
-        let goalStrength = max(strengthAxis, 0.5)                 // sufficient is enough — no need to over-build
-        let goalMarkerX = 0.12 + goalRunAxis * 0.76
-        let goalMarkerY = 0.12 + (1 - goalStrength) * 0.76
+        // GOAL = ready on both (the complete-athlete corner), inset just off the corner label.
+        let goalPos = 0.92
+        let goalMarkerX = 0.12 + goalPos * 0.76
+        let goalMarkerY = 0.12 + (1 - goalPos) * 0.76
         let goalReadiness = clamp(0.55 * paceReadiness + 0.45 * strengthReadiness, 0, 1)
 
         let gapPace = 1 - paceReadiness, gapStr = 1 - strengthReadiness
