@@ -15,7 +15,12 @@ export interface Diagnosis {
   profileIndex: 1 | 2 | 3 | 4;
   limiter: string;
   focus: string;
+  goalFocus: string;
+  goalReadinessPct: number;
+  paceReadinessPct: number;
+  strengthReadinessPct: number;
   marker: { x: number; y: number };
+  goalMarker: { x: number; y: number };
   vdot: number;
   bmi: number;
   evidence: string;
@@ -83,12 +88,35 @@ export function recomputeDiagnosis(
     focus = "fix the biggest deficit first, then re-diagnose";
   }
 
+  // Goal-relative readout: where the GOAL puts you, how close you are, and what to work on.
+  const paceReadiness = ps;                          // running vs the goal-needed fitness
+  const strengthReadiness = clamp(str / 0.5, 0, 1);  // 1.0 once you clear the division standard
+  const goalRun = clamp(0.6 + ws * 0.4, 0, 1);       // running at goal pace, body held
+  const goalStrength = Math.max(str, 0.5);
+  const goalReadiness = clamp(0.55 * paceReadiness + 0.45 * strengthReadiness, 0, 1);
+  const gapPace = 1 - paceReadiness, gapStr = 1 - strengthReadiness;
+  let goalFocus: string;
+  if (gapPace < 0.12 && gapStr < 0.12) {
+    goalFocus = "Race-ready — sharpen pacing, transitions, and compromised running.";
+  } else if (gapPace >= gapStr) {
+    goalFocus = `Running is your gap — you're at ${Math.round(paceReadiness * 100)}% of the 5k fitness your goal needs. Build run speed${ws < 0.6 ? " and power-to-weight" : ""}.`;
+  } else {
+    goalFocus = "Strength + station capacity is your gap — bring your lifts to your division standard while holding run volume.";
+  }
+
   const body = bmi > 0 ? `BMI ${bmi.toFixed(1)}` : `${w} lb`;
   return {
-    profile, profileIndex, limiter, focus,
+    profile, profileIndex, limiter, focus, goalFocus,
+    goalReadinessPct: Math.round(goalReadiness * 100),
+    paceReadinessPct: Math.round(paceReadiness * 100),
+    strengthReadinessPct: Math.round(strengthReadiness * 100),
     marker: {
       x: Math.round((0.12 + run * 0.76) * 100),
       y: Math.round((0.12 + (1 - str) * 0.76) * 100),
+    },
+    goalMarker: {
+      x: Math.round((0.12 + goalRun * 0.76) * 100),
+      y: Math.round((0.12 + (1 - goalStrength) * 0.76) * 100),
     },
     vdot: Math.round(dot),
     bmi: Math.round(bmi * 10) / 10,

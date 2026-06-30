@@ -8,9 +8,11 @@
 import SwiftUI
 
 struct QuadrantChart: View {
-    let markerX: Double          // 0…1, left → right
-    let markerY: Double          // 0…1, top → bottom
+    let markerX: Double          // 0…1, left → right — where you ARE
+    let markerY: Double          // 0…1, top → bottom — where you ARE
     let active: AthleteProfile?
+    var goalX: Double? = nil     // 0…1 — where your GOAL puts you (nil hides the goal marker)
+    var goalY: Double? = nil
     var trail: [CGPoint] = []    // past positions (0…1), oldest → newest; the line of how you've moved
 
     private struct Cell {
@@ -53,7 +55,9 @@ struct QuadrantChart: View {
             }
             // run axis — SLOWER pinned left, FASTER pinned right
             axisBar("SLOWER", "FASTER").padding(.leading, 28)
-            Text("Top-right is the complete athlete — your corner names your limiter.")
+            Text(goalX != nil
+                 ? "◎ GOAL is where your finish target puts you — the mint line is the gap to close."
+                 : "Top-right is the complete athlete — your corner names your limiter.")
                 .font(.system(size: 10)).foregroundStyle(Palette.textMuted)
                 .fixedSize(horizontal: false, vertical: true).padding(.top, 1)
         }
@@ -114,6 +118,17 @@ struct QuadrantChart: View {
                                 .position(x: trail[i].x * w, y: trail[i].y * h)
                         }
                     }
+                    // GOAL: where your goal finish puts you, and the gap (dashed mint) from YOU to it.
+                    if let gx = goalX, let gy = goalY,
+                       hypot(gx - markerX, gy - markerY) > 0.02 {
+                        Path { p in
+                            p.move(to: CGPoint(x: markerX * w, y: markerY * h))
+                            p.addLine(to: CGPoint(x: gx * w, y: gy * h))
+                        }
+                        .stroke(Palette.mint.opacity(0.9),
+                                style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [4, 3]))
+                        goalMarker.position(x: gx * w, y: gy * h)
+                    }
                     // YOU marker
                     marker.position(x: markerX * w, y: markerY * h)
                 }
@@ -146,6 +161,18 @@ struct QuadrantChart: View {
                 .overlay(Circle().stroke(Palette.mint.opacity(0.18), lineWidth: 5))
                 .shadow(color: Palette.mint.opacity(0.55), radius: 8)
             Text("YOU")
+                .font(.system(size: 8, weight: .heavy, design: .monospaced)).tracking(1)
+                .foregroundStyle(.white)
+        }
+    }
+
+    // A hollow target ring — "where your goal puts you."
+    private var goalMarker: some View {
+        VStack(spacing: 4) {
+            Circle().fill(.clear).frame(width: 14, height: 14)
+                .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                .overlay(Circle().fill(.white).frame(width: 4, height: 4))
+            Text("GOAL")
                 .font(.system(size: 8, weight: .heavy, design: .monospaced)).tracking(1)
                 .foregroundStyle(.white)
         }

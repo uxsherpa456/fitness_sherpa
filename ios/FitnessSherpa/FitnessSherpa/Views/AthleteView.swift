@@ -28,8 +28,15 @@ struct AthleteView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             ModuleLabel("Diagnosis · quadrant")
                             if let d = model.diagnosis {
-                                QuadrantChart(markerX: d.markerX, markerY: d.markerY, active: d.profile, trail: diagnosisTrail)
+                                QuadrantChart(markerX: d.markerX, markerY: d.markerY, active: d.profile,
+                                              goalX: d.goalMarkerX, goalY: d.goalMarkerY, trail: diagnosisTrail)
                                 Text(d.profile.title).font(.headline)
+                                HStack(spacing: 6) {
+                                    Text("\(Int((d.goalReadiness * 100).rounded()))% to your \(model.settings.goalTimeDisplay) goal")
+                                        .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.mint)
+                                    Text("·  run \(Int((d.paceReadiness * 100).rounded()))% · strength \(Int((d.strengthReadiness * 100).rounded()))%")
+                                        .font(.caption).foregroundStyle(Palette.textMuted)
+                                }
                             } else {
                                 Text("No diagnosis yet.").foregroundStyle(Palette.textMuted)
                             }
@@ -39,8 +46,8 @@ struct AthleteView: View {
                         Card(style: .dark) {
                             VStack(alignment: .leading, spacing: 10) {
                                 ModuleLabel("The read")
+                                kv("Focus", d.goalFocus)
                                 kv("Limiter", d.limiter)
-                                kv("Focus", d.focus)
                                 kv("Evidence", d.evidence)
                                 if let m = model.settings.mobilityFlag, m != .mobile {   // only when it's a limiter
                                     kv("Mobility", m.label)

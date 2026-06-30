@@ -337,7 +337,10 @@ final class AppModel {
             ctx["diagnosis"] = [
                 "profile": d.profile.title,
                 "limiter": d.limiter,
-                "focus": d.focus,
+                "goal_focus": d.goalFocus,   // what to work on, relative to the goal finish
+                "goal_readiness_pct": Int((d.goalReadiness * 100).rounded()),
+                "pace_readiness_pct": Int((d.paceReadiness * 100).rounded()),     // running vs goal-needed fitness
+                "strength_readiness_pct": Int((d.strengthReadiness * 100).rounded()), // strength vs division standard
                 "marker": ["x": Int((d.markerX * 100).rounded()), "y": Int((d.markerY * 100).rounded())],
                 "evidence": d.evidence,
             ]
