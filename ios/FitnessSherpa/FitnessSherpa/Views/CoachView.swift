@@ -173,6 +173,8 @@ struct CoachView: View {
                     ForEach(messages) { bubble($0) }
                     if !streaming.isEmpty {
                         assistantBubble(streaming)
+                    } else if sending {
+                        thinkingBubble.transition(.opacity)
                     }
                     Color.clear.frame(height: 1).id("bottom")
                         .onAppear { atBottom = true }
@@ -186,6 +188,7 @@ struct CoachView: View {
             }
             .animation(.easeInOut(duration: 0.2), value: atBottom)
             .onChange(of: messages.count) { if !messages.isEmpty { withAnimation { proxy.scrollTo("bottom") } } }
+            .onChange(of: sending) { if sending { withAnimation { proxy.scrollTo("bottom") } } }
             .onChange(of: streaming) { if !streaming.isEmpty { proxy.scrollTo("bottom") } }
             .onChange(of: current?.id) {
                 if current?.isEmpty ?? true { withAnimation { proxy.scrollTo("top", anchor: .top) } }
@@ -260,6 +263,16 @@ struct CoachView: View {
             Text(styledMarkdown(text)).font(.subheadline).foregroundStyle(Palette.text)
                 .textSelection(.enabled)
                 .padding(.horizontal, 12).padding(.vertical, 9)
+                .background(Palette.surface, in: .rect(cornerRadius: 16))
+            Spacer(minLength: 40)
+        }
+    }
+
+    /// Shown after you send, before the first streamed token — Hugin "thinking".
+    private var thinkingBubble: some View {
+        HStack {
+            TypingDots()
+                .padding(.horizontal, 14).padding(.vertical, 13)
                 .background(Palette.surface, in: .rect(cornerRadius: 16))
             Spacer(minLength: 40)
         }
@@ -439,6 +452,25 @@ struct CoachView: View {
         if Self.mdCache.count > 400 { Self.mdCache.removeAll(keepingCapacity: true) }
         Self.mdCache[s] = attr
         return attr
+    }
+}
+
+/// Three dots that pulse in sequence — the coach's "thinking" indicator.
+private struct TypingDots: View {
+    @State private var animating = false
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<3, id: \.self) { i in
+                Circle()
+                    .fill(Palette.textMuted)
+                    .frame(width: 6, height: 6)
+                    .scaleEffect(animating ? 1 : 0.55)
+                    .opacity(animating ? 1 : 0.4)
+                    .animation(.easeInOut(duration: 0.6).repeatForever().delay(Double(i) * 0.18),
+                               value: animating)
+            }
+        }
+        .onAppear { animating = true }
     }
 }
 
