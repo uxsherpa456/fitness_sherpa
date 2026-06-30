@@ -25,26 +25,30 @@ struct CoachView: View {
     @State private var atBottom = true
     @FocusState private var inputFocused: Bool
 
+    private let drawerWidth: CGFloat = 300
+
+    // A slide-over history drawer (overlay, not a GeometryReader push) so it never fights the keyboard:
+    // a root GeometryReader around a keyboard-bearing screen blanks/jumps as the keyboard resizes it.
     var body: some View {
-        GeometryReader { geo in
-            let drawerWidth = min(310, geo.size.width * 0.86)
-            HStack(spacing: 0) {
-                mainContent
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .overlay {
-                        if showingHistory {
-                            Color.black.opacity(0.3)
-                                .contentShape(Rectangle())
-                                .onTapGesture { showingHistory = false }
-                        }
-                    }
-                historyDrawer
-                    .frame(width: drawerWidth, height: geo.size.height)
+        mainContent
+            .overlay {
+                if showingHistory {
+                    Color.black.opacity(0.35).ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .onTapGesture { showingHistory = false }
+                        .transition(.opacity)
+                }
             }
-            .frame(width: geo.size.width + drawerWidth, alignment: .leading)
-            .offset(x: showingHistory ? -drawerWidth : 0)
+            .overlay(alignment: .trailing) {
+                if showingHistory {
+                    historyDrawer
+                        .frame(width: drawerWidth)
+                        .background(Palette.bg)
+                        .shadow(color: .black.opacity(0.4), radius: 14, x: -6)
+                        .transition(.move(edge: .trailing))
+                }
+            }
             .animation(.easeInOut(duration: 0.28), value: showingHistory)
-        }
     }
 
     private var mainContent: some View {
@@ -61,7 +65,7 @@ struct CoachView: View {
                     Button { startNewChat() } label: { Image(systemName: "square.and.pencil") }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingHistory = true } label: { Image(systemName: "clock.arrow.circlepath") }
+                    Button { inputFocused = false; showingHistory = true } label: { Image(systemName: "clock.arrow.circlepath") }
                 }
             }
             .task {
@@ -419,7 +423,12 @@ struct CoachView: View {
         streaming = ""
     }
 
+    // Cache parsed markdown so typing in the input field (which re-renders the view) doesn't re-parse
+    // every message bubble on each keystroke. Capped so streaming partials can't grow it unbounded.
+    private static var mdCache: [String: AttributedString] = [:]
+
     private func styledMarkdown(_ s: String) -> AttributedString {
+        if let hit = Self.mdCache[s] { return hit }
         var attr = (try? AttributedString(
             markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
         )) ?? AttributedString(s)
@@ -427,6 +436,8 @@ struct CoachView: View {
             (run.inlinePresentationIntent?.contains(.stronglyEmphasized) ?? false) ? run.range : nil
         }
         for range in bold { attr[range].foregroundColor = Palette.mint }
+        if Self.mdCache.count > 400 { Self.mdCache.removeAll(keepingCapacity: true) }
+        Self.mdCache[s] = attr
         return attr
     }
 }
