@@ -42,7 +42,7 @@ struct AthleteView: View {
                                 kv("Limiter", d.limiter)
                                 kv("Focus", d.focus)
                                 kv("Evidence", d.evidence)
-                                if let m = model.settings.mobilityFlag {
+                                if let m = model.settings.mobilityFlag, m != .mobile {   // only when it's a limiter
                                     kv("Mobility", m.label)
                                     Text(m.read).font(.caption).foregroundStyle(Palette.textMuted)
                                         .fixedSize(horizontal: false, vertical: true)
@@ -138,7 +138,6 @@ struct AthleteView: View {
         Card(style: .dark) {
             VStack(alignment: .leading, spacing: 10) {
                 ModuleLabel("Athlete")
-                kv("Location", model.settings.location)
                 kv("Division", divisionText)
                 kv("Age", "\(model.settings.age)")
                 kv("Race", "\(raceDateText) · \(model.settings.raceLocation)")

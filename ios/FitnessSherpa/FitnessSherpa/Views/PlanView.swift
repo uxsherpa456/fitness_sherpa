@@ -36,7 +36,8 @@ struct PlanView: View {
                     Text("History").tag(PlanTab.history)
                 }
                 .pickerStyle(.segmented).tint(Palette.mint)
-                .padding(.horizontal, 14).padding(.top, 8)
+                .padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 12)
+                .background(Palette.bg)
 
                 ScrollViewReader { proxy in
                     ScrollView {
