@@ -12,7 +12,6 @@ struct AthleteView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \TrainingSession.date, order: .forward) private var sessions: [TrainingSession]
     @Query(sort: \DailyReadiness.day, order: .forward) private var readinessLog: [DailyReadiness]
-    @Query(sort: \DiagnosisRecord.date, order: .forward) private var dxHistory: [DiagnosisRecord]
     @State private var editingGoal: GoalArc?
     @State private var hrvTrend: [TrendPoint] = []
     @State private var sleepNights: [SleepNight] = []
@@ -29,7 +28,7 @@ struct AthleteView: View {
                             ModuleLabel("Diagnosis · quadrant")
                             if let d = model.diagnosis {
                                 QuadrantChart(markerX: d.markerX, markerY: d.markerY, active: d.profile,
-                                              goalX: d.goalMarkerX, goalY: d.goalMarkerY, trail: diagnosisTrail)
+                                              goalX: d.goalMarkerX, goalY: d.goalMarkerY)
                                 Text(d.profile.title).font(.headline)
                                 HStack(spacing: 6) {
                                     Text("\(Int((d.goalReadiness * 100).rounded()))% to your \(model.settings.goalTimeDisplay) goal")
@@ -106,20 +105,6 @@ struct AthleteView: View {
 
     private var readinessSeries: [TrendPoint] {
         readinessLog.map { TrendPoint(date: $0.day, value: Double($0.score)) }
-    }
-
-    /// Path of past quadrant positions (oldest → newest), de-duped, ending at where you are now.
-    private var diagnosisTrail: [CGPoint] {
-        var pts: [CGPoint] = []
-        for r in dxHistory {
-            let p = CGPoint(x: r.markerX, y: r.markerY)
-            if pts.last.map({ hypot($0.x - p.x, $0.y - p.y) > 0.01 }) ?? true { pts.append(p) }
-        }
-        if let d = model.diagnosis {
-            let cur = CGPoint(x: d.markerX, y: d.markerY)
-            if pts.last.map({ hypot($0.x - cur.x, $0.y - cur.y) > 0.001 }) ?? true { pts.append(cur) }
-        }
-        return pts
     }
 
     private func loadTrends() async {
