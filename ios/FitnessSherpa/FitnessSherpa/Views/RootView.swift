@@ -27,8 +27,9 @@ struct RootView: View {
         }
         .tint(Palette.mint)
         .task {
+            if DemoSeed.isDemo { DemoSeed.wipeStores(context: context) }   // demo always starts at a clean onboarding
             await model.bootstrapCloud(context: context)   // pull durable settings + history first (cloud wins)
-            if model.settings.onboarded || DemoSeed.isDemo {   // demo seeds + lands populated; fresh athletes onboard
+            if model.settings.onboarded {                   // a fresh athlete (incl. the demo) onboards first
                 await model.refresh(context: context)
             }
         }

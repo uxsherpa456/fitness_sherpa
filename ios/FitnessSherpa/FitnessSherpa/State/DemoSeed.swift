@@ -77,12 +77,18 @@ enum DemoSeed {
 
     // MARK: Populate (called from AppModel.refresh in demo mode)
 
+    /// Clear the SwiftData stores so every demo session starts clean (called once on launch).
+    @MainActor
+    static func wipeStores(context: ModelContext) {
+        func deleteAll<T: PersistentModel>(_ t: T.Type) { (try? context.fetch(FetchDescriptor<T>()))?.forEach { context.delete($0) } }
+        deleteAll(TrainingSession.self); deleteAll(PlannedWorkout.self); deleteAll(DailyReadiness.self)
+        deleteAll(Baseline.self); deleteAll(DiagnosisRecord.self); deleteAll(HealthSnapshot.self)
+        try? context.save()
+    }
+
+    /// Populate live vitals + history after the viewer finishes onboarding (their own answers stay).
     @MainActor
     static func populate(model: AppModel, context: ModelContext) {
-        if !model.settings.onboarded {           // first launch → become the sample athlete
-            let s = sampleSettings
-            model.settings = s; s.save()
-        }
         model.reading = reading()
         model.readiness = readiness()
         let dx = DiagnosisEngine.diagnose(DiagnosisInput(

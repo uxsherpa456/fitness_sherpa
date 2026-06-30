@@ -20,6 +20,18 @@ final class AppModel {
     var lastWorkoutSync: Date?
     var settings = UserSettings.load()
 
+    init() {
+        // The web demo always begins as a brand-new athlete: clear the un-onboarded gate + the
+        // "fields pre-fill" flag synchronously so onboarding shows blank with no flash. (SwiftData
+        // rows are wiped in RootView's .task, which has a ModelContext.)
+        if DemoSeed.isDemo {
+            let d = UserDefaults.standard
+            ["onboardedBefore", RootView.pendingTourKey].forEach { d.removeObject(forKey: $0) }
+            settings = UserSettings()
+            settings.save()
+        }
+    }
+
     /// Import + reconcile recent workouts from HealthKit, skipping if synced very recently (dedups
     /// the launch refresh vs. opening the Plan tab). `force` bypasses the gate (pull-to-refresh).
     func importWorkouts(context: ModelContext, force: Bool) async {
