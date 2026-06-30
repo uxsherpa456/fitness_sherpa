@@ -1,8 +1,10 @@
 //  LocationField.swift
 //  Fitness Sherpa
 //
-//  A text field with city/location type-ahead (MapKit MKLocalSearchCompleter). Used for home + race
-//  location so the athlete picks a real place instead of free-typing. Dark-styled for onboarding.
+//  A location picker with city/location type-ahead (MapKit MKLocalSearchCompleter). Used for home +
+//  race location so the athlete picks a real place instead of free-typing. Tapping opens a full
+//  search sheet — the keyboard sits at the bottom and results fill the space above it, so suggestions
+//  are never hidden behind the keyboard.
 
 import SwiftUI
 import MapKit
@@ -28,68 +30,99 @@ final class LocationSearch: NSObject, ObservableObject, MKLocalSearchCompleterDe
     func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) { results = [] }
 }
 
+/// "City, Region" — keep the city + the first subtitle token (state/region), drop country noise.
+func locationLabel(for r: MKLocalSearchCompletion) -> String {
+    let region = r.subtitle.split(separator: ",").first.map { $0.trimmingCharacters(in: .whitespaces) }
+    if let region, !region.isEmpty, !region.lowercased().contains("united states") {
+        return "\(r.title), \(region)"
+    }
+    return r.title
+}
+
 struct LocationField: View {
     let placeholder: String
     @Binding var text: String
 
-    @StateObject private var search = LocationSearch()
-    @FocusState private var focused: Bool
-    @State private var suppress = false          // skip a search after we set the text from a pick
+    @State private var presenting = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            TextField(placeholder, text: $text)
-                .foregroundStyle(Palette.text)
-                .autocorrectionDisabled()
-                .focused($focused)
-                .padding(.vertical, 12).padding(.horizontal, 14)
+        Button { presenting = true } label: {
+            HStack(spacing: 8) {
+                Text(text.isEmpty ? placeholder : text)
+                    .foregroundStyle(text.isEmpty ? Palette.textFaint : Palette.text)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Image(systemName: "magnifyingglass").foregroundStyle(Palette.textMuted)
+            }
+            .padding(.vertical, 12).padding(.horizontal, 14)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Palette.surface))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.surfaceLine, lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $presenting) { LocationSearchSheet(text: $text) }
+    }
+}
+
+/// Full-screen search: a focused field at the top, live results filling the sheet above the keyboard.
+private struct LocationSearchSheet: View {
+    @Binding var text: String
+    @Environment(\.dismiss) private var dismiss
+
+    @StateObject private var search = LocationSearch()
+    @FocusState private var focused: Bool
+    @State private var query = ""
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(Palette.textMuted)
+                    TextField("Start typing a city…", text: $query)
+                        .focused($focused).autocorrectionDisabled().submitLabel(.search)
+                        .foregroundStyle(Palette.text)
+                    if !query.isEmpty {
+                        Button { query = ""; search.clear() } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(Palette.textMuted)
+                        }
+                    }
+                }
+                .padding(12)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Palette.surface))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.surfaceLine, lineWidth: 1))
-                .onChange(of: text) { _, newValue in
-                    if suppress { suppress = false; return }
-                    search.update(newValue)
-                }
-                .onChange(of: focused) { _, isFocused in if !isFocused { search.clear() } }
+                .padding(.horizontal, 16).padding(.top, 12)
+                .onChange(of: query) { _, v in search.update(v) }
 
-            if focused, !search.results.isEmpty {
-                let shown = Array(search.results.prefix(5))
-                VStack(spacing: 0) {
-                    ForEach(shown, id: \.self) { r in
-                        Button {
-                            suppress = true
-                            text = label(for: r)
-                            search.clear()
-                            focused = false
-                        } label: {
-                            HStack(spacing: 8) {
+                List {
+                    ForEach(search.results.prefix(15), id: \.self) { r in
+                        Button { text = locationLabel(for: r); dismiss() } label: {
+                            HStack(spacing: 10) {
                                 Image(systemName: "mappin.circle").foregroundStyle(Palette.textMuted)
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Text(r.title).font(.subheadline).foregroundStyle(Palette.text)
+                                    Text(r.title).foregroundStyle(Palette.text)
                                     if !r.subtitle.isEmpty {
-                                        Text(r.subtitle).font(.caption2).foregroundStyle(Palette.textMuted)
+                                        Text(r.subtitle).font(.caption).foregroundStyle(Palette.textMuted)
                                     }
                                 }
                                 Spacer(minLength: 0)
                             }
-                            .padding(.vertical, 8).padding(.horizontal, 12)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        if r != shown.last { Divider().overlay(Palette.surfaceLine) }
+                        .listRowBackground(Palette.bg)
+                        .listRowSeparatorTint(Palette.surfaceLine)
                     }
                 }
-                .background(RoundedRectangle(cornerRadius: 10).fill(Palette.surface2))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.surfaceLine, lineWidth: 1))
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .scrollDismissesKeyboard(.never)
             }
+            .background(Palette.bg.ignoresSafeArea())
+            .navigationTitle("Search location").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
         }
-    }
-
-    /// "City, Region" — keep the city + the first subtitle token (state/region), drop country noise.
-    private func label(for r: MKLocalSearchCompletion) -> String {
-        let region = r.subtitle.split(separator: ",").first.map { $0.trimmingCharacters(in: .whitespaces) }
-        if let region, !region.isEmpty, !region.lowercased().contains("united states") {
-            return "\(r.title), \(region)"
-        }
-        return r.title
+        .presentationDetents([.large])
+        .preferredColorScheme(.dark)
+        .onAppear { query = text; focused = true }
     }
 }

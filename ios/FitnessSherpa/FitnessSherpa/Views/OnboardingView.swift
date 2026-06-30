@@ -25,8 +25,10 @@ struct OnboardingView: View {
     @State private var connected = false
     @State private var ageText = ""
     @State private var bodyweightText = ""
-    @State private var heightText = ""
-    @State private var bodyFatText = ""
+    @State private var heightFeet = 5         // imperial height wheels
+    @State private var heightInches = 10
+    @State private var heightCm = 178         // metric height wheel
+    @State private var bodyFatSel = -1        // body-fat % wheel; -1 = "Not sure"
     @State private var reading: HealthData.Reading?
     @State private var diagnosis: Diagnosis?
     @State private var finishing = false
@@ -67,10 +69,13 @@ struct OnboardingView: View {
             _bodyweightText = State(initialValue: String(format: "%.0f", v))
         }
         if !fresh, settings.bodyFatPct > 0 {
-            _bodyFatText = State(initialValue: String(format: "%.0f", settings.bodyFatPct))
+            _bodyFatSel = State(initialValue: Int(settings.bodyFatPct.rounded()))
         }
         if !fresh, settings.heightIn > 0 {
-            _heightText = State(initialValue: OnboardingView.heightToInput(settings.heightIn, unit: settings.weightUnit))
+            let inch = settings.heightIn
+            _heightFeet = State(initialValue: Int(inch) / 12)
+            _heightInches = State(initialValue: Int(inch.rounded()) % 12)
+            _heightCm = State(initialValue: Int((inch * 2.54).rounded()))
         }
     }
 
@@ -257,19 +262,44 @@ struct OnboardingView: View {
             field("BODYWEIGHT (\(Units.weightUnit(s).uppercased()))") {
                 obField("e.g. 200", text: $bodyweightText).keyboardType(.decimalPad)
             }
+            field(s.weightUnit == "kg" ? "HEIGHT (CM)" : "HEIGHT") { heightPicker }
+            field("BODY FAT % · OPTIONAL") { bodyFatPicker }
+        }
+    }
+
+    private var heightPicker: some View {
+        Group {
             if s.weightUnit == "kg" {
-                field("HEIGHT (CM)") {
-                    obField("e.g. 180", text: $heightText).keyboardType(.decimalPad)
-                }
+                Picker("cm", selection: $heightCm) {
+                    ForEach(120...220, id: \.self) { Text("\($0) cm").tag($0) }
+                }.pickerStyle(.wheel)
             } else {
-                field("HEIGHT (FT'IN)") {
-                    obField("e.g. 5'11", text: $heightText).keyboardType(.numbersAndPunctuation)
+                HStack(spacing: 0) {
+                    Picker("ft", selection: $heightFeet) {
+                        ForEach(4...7, id: \.self) { Text("\($0) ft").tag($0) }
+                    }.pickerStyle(.wheel).frame(maxWidth: .infinity).clipped()
+                    Picker("in", selection: $heightInches) {
+                        ForEach(0...11, id: \.self) { Text("\($0) in").tag($0) }
+                    }.pickerStyle(.wheel).frame(maxWidth: .infinity).clipped()
                 }
-            }
-            field("BODY FAT % · OPTIONAL") {
-                obField("e.g. 18", text: $bodyFatText).keyboardType(.decimalPad)
             }
         }
+        .frame(height: 120).tint(Palette.text)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Palette.surface))
+    }
+
+    private var bodyFatPicker: some View {
+        Picker("bf", selection: $bodyFatSel) {
+            Text("Not sure").tag(-1)
+            ForEach(5...50, id: \.self) { Text("\($0)%").tag($0) }
+        }
+        .pickerStyle(.wheel).frame(height: 120).tint(Palette.text)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Palette.surface))
+    }
+
+    /// Entered height in inches, from whichever wheel the unit shows.
+    private var enteredHeightIn: Double {
+        s.weightUnit == "kg" ? Double(heightCm) / 2.54 : Double(heightFeet * 12 + heightInches)
     }
 
     private var raceStep: some View {
@@ -292,8 +322,9 @@ struct OnboardingView: View {
                 LocationField(placeholder: "Start typing a city…", text: $s.raceLocation)
             }
             field("RACE DATE") {
-                DatePicker("", selection: $raceDate, displayedComponents: [.date])
-                    .labelsHidden().datePickerStyle(.compact).tint(Palette.mint)
+                DatePicker("", selection: $raceDate, in: Date()..., displayedComponents: [.date])
+                    .labelsHidden().datePickerStyle(.wheel).tint(Palette.mint)
+                    .frame(maxWidth: .infinity)
             }
             field("TARGET FINISH TIME") { goalTimePicker }
         }
@@ -643,10 +674,12 @@ struct OnboardingView: View {
             reading = try? await HealthData.readSnapshot()
             connecting = false
             connected = true
-            // Pre-fill the editable fields from Health (only if the athlete hasn't typed their own).
+            // Pre-fill from Health: weight only if blank; height/body-fat wheels when Health has a value.
             if bodyweightText.isEmpty, let bw = reading?.bodyMass?.value { bodyweightText = weightToInput(bw) }
-            if heightText.isEmpty, let ht = reading?.height?.value { heightText = OnboardingView.heightToInput(ht, unit: s.weightUnit) }
-            if bodyFatText.isEmpty, let bf = reading?.bodyFat?.value { bodyFatText = String(format: "%.0f", bf * 100) }
+            if let ht = reading?.height?.value, ht > 0 {
+                heightFeet = Int(ht) / 12; heightInches = Int(ht.rounded()) % 12; heightCm = Int((ht * 2.54).rounded())
+            }
+            if bodyFatSel < 0, let bf = reading?.bodyFat?.value { bodyFatSel = min(50, max(5, Int((bf * 100).rounded()))) }
         }
     }
 
@@ -658,29 +691,6 @@ struct OnboardingView: View {
         return s.weightUnit == "kg" ? v / 0.453592 : v
     }
 
-    /// Parse a height entry to inches. Metric (kg) = centimetres. Imperial accepts feet'inches
-    /// ("5'11", "5' 11\"", "5 11") or plain inches ("71").
-    private func inputToHeightIn(_ text: String) -> Double? {
-        let t = text.trimmingCharacters(in: .whitespaces)
-        guard !t.isEmpty else { return nil }
-        if s.weightUnit == "kg" {
-            guard let cm = Double(t), cm > 0 else { return nil }
-            return cm / 2.54
-        }
-        // Split on the first foot marker (' or space); a bare number is inches.
-        let parts = t.replacingOccurrences(of: "\"", with: "")
-            .split(whereSeparator: { $0 == "'" || $0 == " " }).map { Double($0) }
-        if parts.count >= 2, let ft = parts[0], let inch = parts[1] { return ft * 12 + inch }
-        guard let n = parts.first ?? nil, n > 0 else { return nil }
-        return n > 12 ? n : n * 12   // "6" → 6 ft; "71" → 71 in
-    }
-
-    private static func heightToInput(_ inches: Double, unit: String) -> String {
-        if unit == "kg" { return String(format: "%.0f", inches * 2.54) }
-        let ft = Int(inches) / 12, rem = Int(inches.rounded()) % 12
-        return "\(ft)'\(rem)"
-    }
-
     private func computeDiagnosis() {
         // The goal-finish anchor needs the picker's current value (only committed in finish()).
         s.goalTime = "\(goalH):\(String(format: "%02d", goalM))"
@@ -689,13 +699,13 @@ struct OnboardingView: View {
         s.strengthAxis = axis
         s.stationsHold = axis >= 0.5
         s.mobilityScore = mobilityScore ?? -1   // advisory flag; <0 = not assessed
-        // Persist the entered bodyweight / body fat (manual fallback when Health has none).
+        // Persist the entered bodyweight / height / body fat (Health fills body fat when "Not sure").
+        let bf = bodyFatSel >= 0 ? Double(bodyFatSel) : (reading?.bodyFat?.value).map { $0 * 100 } ?? 0
         s.bodyweightLb = inputToLb(bodyweightText) ?? 0
-        s.bodyFatPct = Double(bodyFatText.trimmingCharacters(in: .whitespaces)) ?? 0
-        s.heightIn = inputToHeightIn(heightText) ?? 0
+        s.bodyFatPct = bf
+        s.heightIn = enteredHeightIn
         let bw = inputToLb(bodyweightText) ?? reading?.bodyMass?.value ?? 214
-        let ht = inputToHeightIn(heightText) ?? reading?.height?.value ?? 0
-        let bf = Double(bodyFatText.trimmingCharacters(in: .whitespaces)) ?? (reading?.bodyFat?.value).map { $0 * 100 } ?? 0
+        let ht = enteredHeightIn
         let input = DiagnosisInput(bodyweightLb: bw, heightIn: ht,
                                    bodyFatPct: bf, raceLeanBodyFatPct: s.raceLeanBodyFatPct,
                                    recent5k: DiagnosisEngine.parse5k(s.recent5k),
