@@ -619,7 +619,9 @@ struct OnboardingView: View {
         if !genderOptions.contains(where: { $0.0 == s.gender }) { s.gender = "mens" }
         if s.tier.isEmpty { s.tier = "open" }
         s.onboarded = true
+        let wasFirstTime = !UserDefaults.standard.bool(forKey: Self.everKey)
         UserDefaults.standard.set(true, forKey: Self.everKey)   // re-runs will pre-fill from here on
+        if wasFirstTime { UserDefaults.standard.set(true, forKey: RootView.pendingTourKey) }   // welcome tour once
 
         model.settings = s
         model.saveSettings()

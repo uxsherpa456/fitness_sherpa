@@ -11,6 +11,11 @@ import SwiftData
 struct RootView: View {
     @Environment(\.modelContext) private var context
     @State private var model = AppModel()
+    @State private var selectedTab = 0
+    @State private var tour = false
+    @State private var tourStep = 0
+
+    static let pendingTourKey = "pendingTour"
 
     var body: some View {
         Group {
@@ -48,18 +53,91 @@ struct RootView: View {
             .offset(x: model.showingMenu ? 0 : -menuWidth)
             .animation(.easeInOut(duration: 0.28), value: model.showingMenu)
         }
+        .overlay {
+            if tour { TabTourOverlay(step: tourStep, onSkip: endTour, onNext: advanceTour) }
+        }
+        .onAppear {   // start the welcome tour once, right after a fresh onboarding
+            if UserDefaults.standard.bool(forKey: Self.pendingTourKey) {
+                UserDefaults.standard.set(false, forKey: Self.pendingTourKey)
+                selectedTab = 0; tourStep = 0; tour = true
+            }
+        }
     }
 
+    private func advanceTour() {
+        if tourStep < 3 { tourStep += 1; selectedTab = tourStep } else { endTour() }
+    }
+    private func endTour() { tour = false; selectedTab = 0 }
+
     private var tabs: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             TodayView(model: model)
-                .tabItem { Label("Today", systemImage: "house.fill") }
+                .tabItem { Label("Today", systemImage: "house.fill") }.tag(0)
             AthleteView(model: model)
-                .tabItem { Label("Athlete", systemImage: "figure.run") }
+                .tabItem { Label("Athlete", systemImage: "figure.run") }.tag(1)
             PlanView(model: model)
-                .tabItem { Label("Plan", systemImage: "dumbbell.fill") }
+                .tabItem { Label("Plan", systemImage: "dumbbell.fill") }.tag(2)
             CoachView(model: model)
-                .tabItem { Label("AI Coach", systemImage: "sparkles") }
+                .tabItem { Label("AI Coach", systemImage: "sparkles") }.tag(3)
+        }
+    }
+}
+
+/// Post-onboarding coach-marks — a dimmed overlay walking through the four tabs, with a card and a
+/// pointer to the active tab. The tour drives `selectedTab` from RootView so each step shows its tab.
+private struct TabTourOverlay: View {
+    let step: Int
+    let onSkip: () -> Void
+    let onNext: () -> Void
+
+    private let steps: [(title: String, body: String)] = [
+        ("Today", "Your daily verdict — train hard or back off. Readiness, fuel, your last-workout read, and today's session at a glance."),
+        ("Athlete", "Who you are right now — your diagnosis quadrant, training status, and the metrics arcing toward race day. Re-run your baseline here anytime."),
+        ("Plan", "Your plan to race day — base to taper, every session with real paces + station weights, shifting as your diagnosis changes."),
+        ("AI Coach", "A coach that already holds today's data — it cites your own numbers and won't reason off stale data."),
+    ]
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let t = steps[min(step, steps.count - 1)]
+            ZStack(alignment: .bottom) {
+                Color.black.opacity(0.72).ignoresSafeArea()
+                    .contentShape(Rectangle())
+
+                VStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("\(step + 1) / \(steps.count)")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(1.5)
+                            .foregroundStyle(Palette.mint)
+                        Text(t.title).font(.system(size: 17, weight: .bold)).foregroundStyle(Palette.text)
+                        Text(t.body).font(.footnote).foregroundStyle(Palette.textMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        HStack {
+                            Button("Skip", action: onSkip)
+                                .font(.subheadline).foregroundStyle(Palette.textFaint)
+                            Spacer()
+                            Button(step == steps.count - 1 ? "Got it" : "Next", action: onNext)
+                                .font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
+                                .padding(.horizontal, 22).padding(.vertical, 9)
+                                .background(Capsule().fill(Palette.mint))
+                        }
+                        .padding(.top, 4)
+                    }
+                    .padding(16)
+                    .background(Palette.surface, in: RoundedRectangle(cornerRadius: 16))
+                    .overlay(alignment: .leading) {
+                        Rectangle().fill(Palette.mint).frame(width: 3).clipShape(Capsule())
+                    }
+                    .padding(.horizontal, 16)
+
+                    // pointer to the active tab (tabs are evenly spaced quarters)
+                    Image(systemName: "arrowtriangle.down.fill")
+                        .font(.system(size: 13)).foregroundStyle(Palette.surface)
+                        .offset(x: w * (CGFloat(step) + 0.5) / 4 - w / 2)
+                }
+                .padding(.bottom, 56)
+            }
         }
     }
 }
