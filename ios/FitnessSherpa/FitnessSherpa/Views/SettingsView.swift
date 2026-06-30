@@ -41,6 +41,9 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section("Profile") {
+                    LabeledContent("Name") {
+                        TextField("Your name", text: $s.name).multilineTextAlignment(.trailing)
+                    }
                     LabeledContent("Home location") {
                         TextField("e.g. Washington, DC", text: $s.location).multilineTextAlignment(.trailing)
                     }

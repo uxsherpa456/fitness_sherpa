@@ -23,6 +23,7 @@ struct OnboardingView: View {
     @State private var step = 0
     @State private var connecting = false
     @State private var connected = false
+    @State private var ageText = ""
     @State private var bodyweightText = ""
     @State private var bodyFatText = ""
     @State private var reading: HealthData.Reading?
@@ -38,7 +39,7 @@ struct OnboardingView: View {
     @State private var mobilityAnswers: [String: Double] = [:]
     @State private var mobilityNotSure: Set<String> = []
 
-    private static let lastStep = 6
+    private static let lastStep = 7
 
     init(model: AppModel) {
         self.model = model
@@ -57,6 +58,7 @@ struct OnboardingView: View {
         _goalH = State(initialValue: parts.count > 0 ? parts[0] : 1)
         _goalM = State(initialValue: parts.count > 1 ? parts[1] : 10)
         _raceDate = State(initialValue: DateFormatters.ymd.date(from: settings.raceDate) ?? Date())
+        _ageText = State(initialValue: fresh ? "" : String(settings.age))
         // Re-runs pre-fill the entered weight; a fresh user starts blank (Health fills it on connect).
         if !fresh, settings.bodyweightLb > 0 {
             let v = settings.weightUnit == "kg" ? settings.bodyweightLb * 0.453592 : settings.bodyweightLb
@@ -76,11 +78,12 @@ struct OnboardingView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     switch step {
                     case 0: welcomeStep
-                    case 1: raceStep
-                    case 2: healthStep
-                    case 3: runStep
-                    case 4: strengthStep
-                    case 5: mobilityStep
+                    case 1: aboutYouStep
+                    case 2: raceStep
+                    case 3: healthStep
+                    case 4: runStep
+                    case 5: strengthStep
+                    case 6: mobilityStep
                     default: revealStep
                     }
                 }
@@ -152,8 +155,9 @@ struct OnboardingView: View {
 
     private var nextEnabled: Bool {
         switch step {
-        case 3: return DiagnosisEngine.parse5k(s.recent5k) > 0
-        case 4: return experienced != nil && !strAnswers.isEmpty   // gate + at least one real answer
+        case 1: return !s.name.trimmingCharacters(in: .whitespaces).isEmpty   // need a name to start
+        case 4: return DiagnosisEngine.parse5k(s.recent5k) > 0
+        case 5: return experienced != nil && !strAnswers.isEmpty              // gate + at least one real answer
         case Self.lastStep: return !finishing
         default: return true
         }
@@ -172,10 +176,33 @@ struct OnboardingView: View {
 
     private var welcomeStep: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Let's find your ").font(.system(size: 30, weight: .heavy)).foregroundStyle(Palette.text)
-            + Text("limiter.").font(.system(size: 30, weight: .heavy)).foregroundStyle(Palette.mint)
-            Text("A quick baseline assessment — your real numbers, not a guess. We'll place you on the HYROX map and track only what moves your goal time. About a minute.")
+            Text("Meet ").font(.system(size: 30, weight: .heavy)).foregroundStyle(Palette.text)
+            + Text("Ravns.").font(.system(size: 30, weight: .heavy)).foregroundStyle(Palette.mint)
+            Text("I read your training and recovery, find what's actually holding back your HYROX time, and build you a plan that ramps to race day — adjusting to how recovered you are each morning.")
                 .font(.body).foregroundStyle(Palette.textMuted).fixedSize(horizontal: false, vertical: true)
+            Text("First, a quick baseline — your real numbers, not a guess. About a minute.")
+                .font(.subheadline).foregroundStyle(Palette.textFaint).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var aboutYouStep: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            stepTitle("About you", "The basics, so everything's tailored to you.")
+            field("NAME") {
+                obField("Your name", text: $s.name).textInputAutocapitalization(.words)
+            }
+            field("HOME LOCATION") {
+                LocationField(placeholder: "Start typing a city…", text: $s.location)
+            }
+            field("AGE") {
+                obField("years", text: $ageText).keyboardType(.numberPad)
+            }
+            field("BODYWEIGHT (\(Units.weightUnit(s).uppercased()))") {
+                obField("e.g. 200", text: $bodyweightText).keyboardType(.decimalPad)
+            }
+            field("BODY FAT % · OPTIONAL") {
+                obField("e.g. 18", text: $bodyFatText).keyboardType(.decimalPad)
+            }
         }
     }
 
@@ -195,9 +222,6 @@ struct OnboardingView: View {
                     pills([("open", "Open"), ("pro", "Pro")], selection: s.tier) { s.tier = $0 }
                 }
             }
-            field("HOME LOCATION") {
-                LocationField(placeholder: "Start typing a city…", text: $s.location)
-            }
             field("RACE LOCATION") {
                 LocationField(placeholder: "Start typing a city…", text: $s.raceLocation)
             }
@@ -211,7 +235,7 @@ struct OnboardingView: View {
 
     private var healthStep: some View {
         VStack(alignment: .leading, spacing: 18) {
-            stepTitle("Connect Apple Health", "We read bodyweight, resting HR and your recent runs — and always show how fresh it is. Stations & strength you'll enter by hand.")
+            stepTitle("Connect Apple Health", "We read your resting HR, HRV, sleep and recent runs — and always show how fresh it is. Optional, but it powers your daily readiness.")
             Button(action: connectHealth) {
                 HStack(spacing: 8) {
                     Image(systemName: connected ? "checkmark.circle.fill" : "heart.fill")
@@ -233,17 +257,8 @@ struct OnboardingView: View {
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 12).fill(Palette.surface))
             } else {
-                Text("Optional — or enter your numbers below. We'll fall back to sensible defaults for anything blank.")
+                Text("Optional — you can connect later in Settings. We'll fall back to your entered numbers and sensible defaults.")
                     .font(.footnote).foregroundStyle(Palette.textFaint)
-            }
-
-            // Bodyweight drives power-to-weight (half your run axis) + your weight goal. Pre-filled
-            // from Health when it has it; editable, and enterable when it doesn't.
-            field("BODYWEIGHT (\(Units.weightUnit(s).uppercased()))") {
-                obField("e.g. 200", text: $bodyweightText).keyboardType(.decimalPad)
-            }
-            field("BODY FAT % · OPTIONAL") {
-                obField("e.g. 18", text: $bodyFatText).keyboardType(.decimalPad)
             }
         }
     }
@@ -292,10 +307,6 @@ struct OnboardingView: View {
     private var strengthStep: some View {
         VStack(alignment: .leading, spacing: 20) {
             stepTitle("Your strength", "The one axis Apple Health can't see. A couple of honest answers place you left-to-right on the map.")
-            field("AGE") {
-                Stepper("\(s.age) years", value: $s.age, in: 14...90)
-                    .tint(Palette.mint).foregroundStyle(Palette.text)
-            }
 
             field("HOW MUCH HYROX HAVE YOU DONE?") {
                 VStack(spacing: 8) {
@@ -601,6 +612,8 @@ struct OnboardingView: View {
         // Commit the goal time + race date the pickers built.
         s.goalTime = "\(goalH):\(String(format: "%02d", goalM))"
         s.raceDate = DateFormatters.ymd.string(from: raceDate)
+        s.name = s.name.trimmingCharacters(in: .whitespaces)
+        s.age = Int(ageText.trimmingCharacters(in: .whitespaces)).map { min(max($0, 14), 90) } ?? 35
         // Fall back to sensible defaults for anything left unselected.
         if s.format.isEmpty { s.format = "singles" }
         if !genderOptions.contains(where: { $0.0 == s.gender }) { s.gender = "mens" }

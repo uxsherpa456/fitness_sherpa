@@ -41,6 +41,10 @@ struct TodayView: View {
 
     private var greeting: some View {
         VStack(alignment: .leading, spacing: 2) {
+            if !model.settings.name.isEmpty {
+                Text("Hi, \(model.settings.name.split(separator: " ").first.map(String.init) ?? model.settings.name)")
+                    .font(.caption.weight(.semibold)).foregroundStyle(Palette.textMuted)
+            }
             Text(Date().formatted(.dateTime.weekday(.wide).month().day()))
                 .font(.title3.bold()).foregroundStyle(Palette.text)
             if let days = model.settings.daysToRace, days >= 0 {

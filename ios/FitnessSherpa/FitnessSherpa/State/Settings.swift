@@ -8,6 +8,7 @@
 import Foundation
 
 struct UserSettings: Codable, Equatable {
+    var name = ""
     var location = "Washington, DC"
     var format = "singles"        // singles | doubles | relay | elite15
     var gender = "mens"           // mens | womens | mixed
@@ -36,6 +37,7 @@ struct UserSettings: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         func v<T: Decodable>(_ k: CodingKeys, _ def: T) -> T { (try? c.decode(T.self, forKey: k)) ?? def }
+        name          = v(.name, "")
         location      = v(.location, "Washington, DC")
         format        = v(.format, "singles")
         gender        = v(.gender, "mens")
@@ -69,7 +71,8 @@ struct UserSettings: Codable, Equatable {
     // MARK: Cloud mapping (StateSync.AppState — the same row the prototype writes)
 
     func toAppSettings() -> AppSettings {
-        AppSettings(location: location, goalTime: goalTime, raceDate: raceDate, raceLoc: raceLocation,
+        AppSettings(name: name.isEmpty ? nil : name,
+                    location: location, goalTime: goalTime, raceDate: raceDate, raceLoc: raceLocation,
                     weightUnit: weightUnit, distUnit: distanceUnit, format: format, gender: gender,
                     tier: tier, age: age,
                     weightLb: bodyweightLb > 0 ? bodyweightLb : nil,
@@ -79,6 +82,7 @@ struct UserSettings: Codable, Equatable {
         ProfileData(format: format, gender: gender, tier: tier, age: age)
     }
     mutating func apply(_ s: AppSettings) {
+        if let v = s.name { name = v }
         if let v = s.location { location = v }
         if let v = s.goalTime { goalTime = v }
         if let v = s.raceDate { raceDate = v }

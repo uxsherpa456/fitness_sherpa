@@ -116,6 +116,7 @@ enum GoalValue: Codable, Equatable {
 }
 
 struct AppSettings: Codable {
+    var name: String? = nil
     var location: String? = nil
     var goalTime: String? = nil
     var raceDate: String? = nil
