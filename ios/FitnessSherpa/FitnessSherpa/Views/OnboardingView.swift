@@ -31,6 +31,7 @@ struct OnboardingView: View {
     @State private var finishing = false
 
     // Strength assessment (branched questionnaire → continuous strength axis).
+    @State private var showMyth = false
     @State private var experienced: Bool?          // nil until the gate is answered
     @State private var strAnswers: [String: Double] = [:]   // qid → value (omitted when "not sure")
     @State private var strNotSure: Set<String> = []         // qids explicitly marked "not sure"
@@ -94,6 +95,7 @@ struct OnboardingView: View {
         }
         .background(Palette.bg.ignoresSafeArea())
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showMyth) { ravenMyth }
     }
 
     // MARK: - Chrome
@@ -175,20 +177,65 @@ struct OnboardingView: View {
     // MARK: - Steps
 
     private var welcomeStep: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Meet ").font(.system(size: 30, weight: .heavy)).foregroundStyle(Palette.text)
             + Text("Ravns.").font(.system(size: 30, weight: .heavy)).foregroundStyle(Palette.mint)
-            Text("I read your training and recovery, find what's actually holding back your HYROX time, and build you a plan that ramps to race day — adjusting to how recovered you are each morning.")
+
+            (Text("Ravns is your training app, powered by two mythic ravens. ")
+             + Text("Munin").foregroundColor(Palette.mint) + Text(" remembers everything about you as an athlete. ")
+             + Text("Hugin").foregroundColor(Palette.mint) + Text(" takes that memory, reflects on it, and builds a plan that fits you."))
                 .font(.body).foregroundStyle(Palette.textMuted).fixedSize(horizontal: false, vertical: true)
-            (Text("Two ravens do the work — ")
-             + Text("Munin").foregroundColor(Palette.mint)
-             + Text(" remembers everything you've trained, ")
-             + Text("Hugin").foregroundColor(Palette.mint)
-             + Text(" reads it and thinks ahead."))
-                .font(.subheadline).foregroundStyle(Palette.textMuted).fixedSize(horizontal: false, vertical: true)
-            Text("First, a quick baseline — your real numbers, not a guess. About a minute.")
+
+            Button { showMyth = true } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "bird.fill").font(.caption2)
+                    Text("Learn about Munin & Hugin in Norse mythology")
+                }
+                .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.mint)
+            }
+            .buttonStyle(.plain)
+
+            Text("Now let Ravns get to know you, so we can build a plan that gets you ready for race day.")
                 .font(.subheadline).foregroundStyle(Palette.textFaint).fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 2)
         }
+    }
+
+    private var ravenMyth: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    (Text("Hugin").foregroundColor(Palette.mint)
+                     + Text(" & ").foregroundColor(Palette.text)
+                     + Text("Munin").foregroundColor(Palette.mint))
+                        .font(.system(size: 26, weight: .heavy))
+                    Text("Odin's ravens — Thought & Memory")
+                        .font(.subheadline).foregroundStyle(Palette.textMuted)
+
+                    Text("In Norse mythology, the god Odin keeps two ravens. **Huginn** is *thought*; **Muninn** is *memory*.")
+                    Text("At dawn they fly out across the nine worlds; at dusk they return to Odin's shoulders and whisper everything they have seen and remembered. Through them, Odin knows the world.")
+                    Text("In the Poetic Edda, Odin even confesses a quiet fear — that one day they might not return:")
+                    Text("“Huginn and Muninn fly each day over the wide world. I fear for Huginn, that he come not back — yet more I dread the loss of Muninn.”")
+                        .italic().foregroundStyle(Palette.mint)
+                        .padding(.leading, 12)
+                        .overlay(alignment: .leading) { Rectangle().fill(Palette.mint.opacity(0.5)).frame(width: 2) }
+                    Text("Thought he could lose and recover — but to lose memory would be to lose himself.")
+
+                    Divider().overlay(Palette.surfaceLine).padding(.vertical, 2)
+
+                    Text("**Ravns borrows the pair.** Munin remembers everything about you as an athlete — every session, every reading. Hugin takes that memory, reflects, and decides what you do next.")
+                        .foregroundStyle(Palette.text)
+                }
+                .font(.body).foregroundStyle(Palette.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(Palette.bg)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showMyth = false } } }
+        }
+        .preferredColorScheme(.dark)
     }
 
     private var aboutYouStep: some View {
