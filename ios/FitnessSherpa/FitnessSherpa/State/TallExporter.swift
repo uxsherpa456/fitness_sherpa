@@ -32,10 +32,10 @@ enum TallExporter {
         let size = CGSize(width: width, height: max(fit.height, 1))
         host.view.frame = CGRect(origin: .zero, size: size)
         host.view.bounds = CGRect(origin: .zero, size: size)
-        host.view.alpha = 0
+        host.view.alpha = 1   // visible: drawHierarchy(afterScreenUpdates:) only renders on-screen views
         window.addSubview(host.view)
         host.view.setNeedsLayout(); host.view.layoutIfNeeded()
-        try? await Task.sleep(nanoseconds: 900_000_000)   // let .task-loaded charts settle
+        try? await Task.sleep(nanoseconds: 1_200_000_000)   // let .task-loaded charts settle
 
         let renderer = UIGraphicsImageRenderer(size: size)
         let image = renderer.image { _ in
@@ -51,8 +51,12 @@ enum TallExporter {
         func save(_ name: String, _ img: UIImage?) {
             if let d = img?.pngData() { try? d.write(to: dir.appendingPathComponent("\(name).png")) }
         }
-        save("today", await snapshot(TodayView(model: model, exportContent: true), container: container))
-        save("athlete", await snapshot(AthleteView(model: model, exportContent: true), container: container))
-        save("plan", await snapshot(PlanView(model: model, exportContent: true), container: container))
+        // One tab per launch (selected by -tab): sequential off-screen captures in a single launch
+        // pollute each other's render state, so only the first would render. Launch 3× instead.
+        switch UserDefaults.standard.integer(forKey: "tab") {
+        case 1: save("athlete", await snapshot(AthleteView(model: model, exportContent: true), container: container))
+        case 2: save("plan", await snapshot(PlanView(model: model, exportContent: true), container: container))
+        default: save("today", await snapshot(TodayView(model: model, exportContent: true), container: container))
+        }
     }
 }

@@ -45,7 +45,7 @@ struct PlanView: View {
             .padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 12).background(Palette.bg)
             VStack(alignment: .leading, spacing: 10) {
                 roadmapCard
-                ForEach(Array(planEntries.prefix(24))) { entry($0) }   // cap the export to ~3 weeks so the web image stays sharp
+                ForEach(Array(planEntries.prefix(8))) { entry($0) }   // cap the export so the view height stays under the drawHierarchy render ceiling
             }
             .padding(.horizontal, 14).padding(.vertical, 10)
         }
