@@ -80,20 +80,16 @@ enum ReadinessEngine {
     static func compute(reading: HealthData.Reading, load: LoadResult) async -> ReadinessResult {
         let ms = HKUnit.secondUnit(with: .milli)
         let bpm = HKUnit.count().unitDivided(by: .minute())
-        let degC = HKUnit.degreeCelsius()
 
         async let hrvBaseT  = HealthData.baseline(.heartRateVariabilitySDNN, unit: ms)
         async let rhrBaseT  = HealthData.baseline(.restingHeartRate, unit: bpm)
         async let respBaseT = HealthData.baseline(.respiratoryRate, unit: bpm)
-        async let tempBaseT = HealthData.baseline(.appleSleepingWristTemperature, unit: degC)
         async let respTodayT = try? HealthData.latestSample(.respiratoryRate, unit: bpm)
-        async let tempTodayT = try? HealthData.latestSample(.appleSleepingWristTemperature, unit: degC)
         async let morningT = try? HealthData.morningReadings()
 
         let hrvBase = await hrvBaseT, rhrBase = await rhrBaseT
-        let respBase = await respBaseT, tempBase = await tempBaseT
+        let respBase = await respBaseT
         let respToday = (await respTodayT) ?? nil
-        let tempToday = (await tempTodayT) ?? nil
         let morning = ((await morningT) ?? nil) ?? []
 
         // Two-axis recovery: log-z HRV + z RHR vs the athlete's own morning-reading baseline.
@@ -130,10 +126,6 @@ enum ReadinessEngine {
         }
         add("Resp rate", respToday?.value, respBase, prior: respPrior, weight: 0.10, unit: "br/min", invert: true)
 
-        if let t = tempToday?.value, let tb = tempBase {
-            comps.append(ReadinessComponent(label: "Wrist temp", value: t, unit: "°C",
-                                            z: -min(abs((t - tb.mean) / tb.sd), 2), weight: 0.10, personal: true))
-        }
         if let s = reading.sleepSummary {
             let dur = clamp((s.asleep - 5) / (8 - 5), 0, 1)
             let eff = clamp((s.efficiency - 0.7) / (0.95 - 0.7), 0, 1)
@@ -150,9 +142,9 @@ enum ReadinessEngine {
         guard reading.hrv != nil, !comps.isEmpty else { return result }
 
         // Recovery is driven by the continuous "how recovered" signals — HRV and sleep. The vitals
-        // (resting HR, respiratory rate, wrist temp) are illness / strain flags: like Apple Health,
-        // they only pull the score down when they're genuine outliers, not for the ordinary ±1σ
-        // wobble that a hard session, heat, or a late meal routinely cause.
+        // (resting HR, respiratory rate) are illness / strain flags: like Apple Health, they only
+        // pull the score down when they're genuine outliers, not for the ordinary ±1σ wobble that a
+        // hard session, heat, or a late meal routinely cause.
         let driverLabels: Set<String> = ["HRV", "Sleep"]
         let drivers = comps.filter { driverLabels.contains($0.label) }
         let vitals  = comps.filter { !driverLabels.contains($0.label) }
@@ -163,7 +155,7 @@ enum ReadinessEngine {
             : 50.0
 
         // Dead-zoned vital penalty: nothing within ±deadzone σ, ramping to a full hit by ±fullAt σ.
-        // `z` is already sign-flipped (negative = worse: elevated RHR / resp, or temp deviation),
+        // `z` is already sign-flipped (negative = worse: elevated RHR / resp),
         // so only bad outliers bite — a low resting HR or a normal reading never costs you.
         let deadzone = 1.5, fullAt = 3.0
         let penalty = vitals.reduce(0.0) { acc, c in
