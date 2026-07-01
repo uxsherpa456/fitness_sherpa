@@ -29,6 +29,16 @@ enum DemoSeed {
         #endif
     }
 
+    /// Full-length export mode (`-export YES`): after populating the demo, render each tab's full
+    /// scroll content to a tall PNG under Documents/export (pulled off with simctl).
+    static var isExport: Bool {
+        #if targetEnvironment(simulator)
+        return UserDefaults.standard.bool(forKey: "export")
+        #else
+        return false
+        #endif
+    }
+
     // MARK: Sample athlete
 
     static var sampleSettings: UserSettings {

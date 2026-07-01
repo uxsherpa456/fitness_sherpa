@@ -11,29 +11,36 @@ import SwiftData
 
 struct TodayView: View {
     let model: AppModel
+    var exportContent = false        // render bare scroll content for full-length image export
     @Environment(\.modelContext) private var context
     @Query(sort: \PlannedWorkout.date, order: .forward) private var plan: [PlannedWorkout]
     @Query(sort: \TrainingSession.date, order: .reverse) private var sessions: [TrainingSession]
 
+    private var scrollContent: some View {
+        VStack(spacing: 12) {
+            greeting
+            readinessCard
+            feelingCard
+            sleepCard
+            fuelCard
+            lastWorkoutCard
+            nextSessionCard
+            coachEntryCard
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+    }
+
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 12) {
-                    greeting
-                    readinessCard
-                    feelingCard
-                    sleepCard
-                    fuelCard
-                    lastWorkoutCard
-                    nextSessionCard
-                    coachEntryCard
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+        if exportContent {
+            scrollContent.background(Palette.bg)
+        } else {
+            NavigationStack {
+                ScrollView { scrollContent }
+                    .background(Palette.bg)
+                    .refreshable { await model.refresh(context: context) }
+                    .appBar(model)
             }
-            .background(Palette.bg)
-            .refreshable { await model.refresh(context: context) }
-            .appBar(model)
         }
     }
 

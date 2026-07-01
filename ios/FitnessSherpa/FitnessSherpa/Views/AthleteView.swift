@@ -18,10 +18,25 @@ struct AthleteView: View {
     @State private var formTrend: [FormPoint] = []
     @State private var vo2max: Double?
 
+    var exportContent = false        // render bare scroll content for full-length image export
+
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 12) {
+        if exportContent {
+            scrollContent.background(Palette.bg).task { await loadTrends() }
+        } else {
+            NavigationStack {
+                ScrollView { scrollContent }
+                    .background(Palette.bg)
+                    .refreshable { await model.refresh(context: context); await loadTrends() }
+                    .task { await loadTrends() }
+                    .appBar(model)
+                    .sheet(item: $editingGoal) { GoalEditView(goal: $0, model: model) }
+            }
+        }
+    }
+
+    private var scrollContent: some View {
+        VStack(spacing: 12) {
                     athleteFactsCard
                     Card(style: .dark) {
                         VStack(alignment: .leading, spacing: 12) {
@@ -95,13 +110,6 @@ struct AthleteView: View {
                     trendCharts
                 }
                 .padding(.horizontal, 14).padding(.vertical, 8)
-            }
-            .background(Palette.bg)
-            .refreshable { await model.refresh(context: context); await loadTrends() }
-            .task { await loadTrends() }
-            .appBar(model)
-            .sheet(item: $editingGoal) { GoalEditView(goal: $0, model: model) }
-        }
     }
 
     // MARK: - Trend charts

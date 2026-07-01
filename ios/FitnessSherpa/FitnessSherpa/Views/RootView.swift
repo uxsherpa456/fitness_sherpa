@@ -33,6 +33,7 @@ struct RootView: View {
             if model.settings.onboarded {                   // a fresh athlete (incl. the demo) onboards first
                 await model.refresh(context: context)
             }
+            if DemoSeed.isExport { await TallExporter.exportTabs(model: model, container: context.container) }
         }
     }
 

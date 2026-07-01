@@ -28,7 +28,35 @@ struct PlanView: View {
     private let cal = Calendar.current
     private var todayStart: Date { cal.startOfDay(for: Date()) }
 
+    var exportContent = false        // render bare, non-lazy content for full-length image export
+
     var body: some View {
+        if exportContent { exportBody } else { fullBody }
+    }
+
+    /// Full-length export: a regular VStack (not Lazy) so every entry lays out and the height is real.
+    private var exportBody: some View {
+        VStack(spacing: 0) {
+            Picker("", selection: .constant(PlanTab.plan)) {
+                Text("Plan").tag(PlanTab.plan)
+                Text("History").tag(PlanTab.history)
+            }
+            .pickerStyle(.segmented).tint(Palette.mint)
+            .padding(.horizontal, 14).padding(.top, 8).padding(.bottom, 12).background(Palette.bg)
+            VStack(alignment: .leading, spacing: 10) {
+                roadmapCard
+                ForEach(planEntries) { entry($0) }
+            }
+            .padding(.horizontal, 14).padding(.vertical, 10)
+        }
+        .background(Palette.bg)
+        .task {
+            PlannedWorkout.seedIfNeeded(profile: model.diagnosis?.profile, settings: model.settings, context: context)
+            await load(force: false)
+        }
+    }
+
+    private var fullBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 Picker("", selection: $tab) {
