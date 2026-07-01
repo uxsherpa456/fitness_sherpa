@@ -11,8 +11,6 @@ struct QuadrantChart: View {
     let markerX: Double          // 0…1, left → right — where you ARE
     let markerY: Double          // 0…1, top → bottom — where you ARE
     let active: AthleteProfile?
-    var goalX: Double? = nil     // 0…1 — where your GOAL puts you (nil hides the goal marker)
-    var goalY: Double? = nil
 
     private struct Cell {
         let profile: AthleteProfile
@@ -54,9 +52,7 @@ struct QuadrantChart: View {
             }
             // run axis — SLOWER pinned left, FASTER pinned right
             axisBar("SLOWER", "FASTER").padding(.leading, 28)
-            Text(goalX != nil
-                 ? "◎ GOAL is where your finish target puts you — the mint line is the gap to close."
-                 : "Top-right is the complete athlete — your corner names your limiter.")
+            Text("The lit cell is your diagnosis — your corner names your limiter.")
                 .font(.system(size: 10)).foregroundStyle(Palette.textMuted)
                 .fixedSize(horizontal: false, vertical: true).padding(.top, 1)
         }
@@ -86,10 +82,18 @@ struct QuadrantChart: View {
                     LinearGradient(colors: [Color(hex: 0x9B1F12), Color(hex: 0x12833E)],
                                    startPoint: .bottomLeading, endPoint: .topTrailing)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
-                    // active quadrant highlight
-                    if let active, let c = cells.first(where: { $0.profile == active }) {
-                        Rectangle().fill(Palette.mint.opacity(0.10))
+                    // Highlight the diagnosis: dim the three cells you're not in, light + outline your cell.
+                    ForEach(cells.indices, id: \.self) { i in
+                        let c = cells[i]
+                        Rectangle()
+                            .fill(c.profile == active ? Palette.mint.opacity(0.14) : Color.black.opacity(0.45))
                             .frame(width: w / 2, height: h / 2)
+                            .position(x: c.cx * w, y: c.cy * h)
+                    }
+                    if let active, let c = cells.first(where: { $0.profile == active }) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Palette.mint, lineWidth: 2)
+                            .frame(width: w / 2 - 3, height: h / 2 - 3)
                             .position(x: c.cx * w, y: c.cy * h)
                     }
                     // center cross
@@ -101,19 +105,7 @@ struct QuadrantChart: View {
                             .frame(width: w / 2, height: h / 2, alignment: cells[i].inner)
                             .position(x: cells[i].cx * w, y: cells[i].cy * h)
                     }
-                    // GOAL: the dot, plus the gap line (dashed mint) drawn between the dot CENTERS.
-                    if let gx = goalX, let gy = goalY,
-                       hypot(gx - markerX, gy - markerY) > 0.02 {
-                        Path { p in
-                            p.move(to: CGPoint(x: markerX * w, y: markerY * h))
-                            p.addLine(to: CGPoint(x: gx * w, y: gy * h))
-                        }
-                        .stroke(Palette.mint.opacity(0.9),
-                                style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [4, 3]))
-                        goalDot.position(x: gx * w, y: gy * h)
-                        markerLabel("GOAL").position(x: gx * w, y: gy * h + 15)
-                    }
-                    // YOU — dot centered on the point, label floated below so the line hits the center.
+                    // YOU — dot centered on the point, label floated below.
                     youDot.position(x: markerX * w, y: markerY * h)
                     markerLabel("YOU").position(x: markerX * w, y: markerY * h + 15)
                 }
@@ -139,13 +131,6 @@ struct QuadrantChart: View {
         Circle().fill(Palette.mint).frame(width: 14, height: 14)
             .overlay(Circle().stroke(Palette.mint.opacity(0.18), lineWidth: 5))
             .shadow(color: Palette.mint.opacity(0.55), radius: 8)
-    }
-
-    // A hollow target ring — "where your goal puts you."
-    private var goalDot: some View {
-        Circle().fill(.clear).frame(width: 14, height: 14)
-            .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-            .overlay(Circle().fill(.white).frame(width: 4, height: 4))
     }
 
     private func markerLabel(_ s: String) -> some View {

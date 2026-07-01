@@ -47,6 +47,20 @@ enum AthleteProfile: Int, Codable, CaseIterable {
         case .weakAtEverything: return "fix the biggest deficit first, then re-diagnose"
         }
     }
+
+    /// A warm, plain-language read of where you land — the headline diagnosis for the Athlete tab.
+    var verdict: String {
+        switch self {
+        case .heavySlowStrong:
+            return "Nice — you've got a strong base for HYROX. The strength is there, so we'll focus on running economy and pace: dropping weight and sharpening your 5k so the stations don't cost you time."
+        case .lightFastWeak:
+            return "You've got the engine — you can run. What's missing is strength, so we'll focus on building strength and station capacity without costing you your run."
+        case .goodAtEverything:
+            return "Strong and fast — you're prime HYROX material. From here we optimize: race simulation, pacing, and compromised running to find the last few minutes."
+        case .weakAtEverything:
+            return "You're at the start line — engine and strength both need a base. We'll focus on building both, biggest deficit first, then re-check as you progress."
+        }
+    }
 }
 
 /// The freshness-checked baseline the engine reasons over.

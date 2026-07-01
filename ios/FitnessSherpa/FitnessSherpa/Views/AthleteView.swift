@@ -27,13 +27,15 @@ struct AthleteView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             ModuleLabel("Diagnosis · quadrant")
                             if let d = model.diagnosis {
-                                QuadrantChart(markerX: d.markerX, markerY: d.markerY, active: d.profile,
-                                              goalX: d.goalMarkerX, goalY: d.goalMarkerY)
+                                QuadrantChart(markerX: d.markerX, markerY: d.markerY, active: d.profile)
                                 Text(d.profile.title).font(.headline)
+                                Text(d.profile.verdict)
+                                    .font(.subheadline).foregroundStyle(Palette.text)
+                                    .fixedSize(horizontal: false, vertical: true)
                                 HStack(spacing: 6) {
                                     Text("\(Int((d.goalReadiness * 100).rounded()))% to your \(model.settings.goalTimeDisplay) goal")
-                                        .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.mint)
-                                    Text("·  run \(Int((d.runReadiness * 100).rounded()))% · strength \(Int((d.strengthReadiness * 100).rounded()))%")
+                                        .font(.caption.weight(.semibold)).foregroundStyle(Palette.mint)
+                                    Text("· run \(Int((d.runReadiness * 100).rounded()))% · strength \(Int((d.strengthReadiness * 100).rounded()))%")
                                         .font(.caption).foregroundStyle(Palette.textMuted)
                                 }
                             } else {
