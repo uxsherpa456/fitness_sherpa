@@ -167,7 +167,10 @@ struct CoachView: View {
     private var chatScroll: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 10) {
+                // Eager VStack (not Lazy): with LazyVStack, a new reply appended + programmatic
+                // scrollTo("bottom") races the lazy layout, leaving a blank screen until the user
+                // scrolls to force the rows to render. A chat is short enough to render eagerly.
+                VStack(spacing: 10) {
                     Color.clear.frame(height: 0).id("top")
                     if messages.isEmpty && streaming.isEmpty { emptyState }
                     ForEach(messages) { bubble($0) }
