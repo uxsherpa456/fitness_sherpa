@@ -39,12 +39,15 @@ enum Palette {
 struct ModuleLabel: View {
     let text: String
     var onLight = false
-    init(_ text: String, onLight: Bool = false) { self.text = text; self.onLight = onLight }
+    var tint: Color? = nil
+    init(_ text: String, onLight: Bool = false, tint: Color? = nil) {
+        self.text = text; self.onLight = onLight; self.tint = tint
+    }
     var body: some View {
         Text(text.uppercased())
             .font(.system(size: 11, weight: .semibold, design: .monospaced))
             .tracking(0.8)
-            .foregroundStyle(onLight ? Palette.inkSoft : Palette.textFaint)
+            .foregroundStyle(tint ?? (onLight ? Palette.inkSoft : Palette.textFaint))
     }
 }
 

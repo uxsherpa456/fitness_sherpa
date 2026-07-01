@@ -25,7 +25,7 @@ struct AthleteView: View {
                     athleteFactsCard
                     Card(style: .dark) {
                         VStack(alignment: .leading, spacing: 12) {
-                            ModuleLabel("Diagnosis · quadrant")
+                            ModuleLabel("Diagnosis · quadrant", tint: Palette.text)
                             if let d = model.diagnosis {
                                 QuadrantChart(markerX: d.markerX, markerY: d.markerY, active: d.profile)
                                 Text(d.profile.title).font(.headline)
