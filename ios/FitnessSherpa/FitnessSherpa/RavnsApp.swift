@@ -11,7 +11,7 @@ import SwiftData
 @main
 struct RavnsApp: App {
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema(versionedSchema: AppSchemaV3.self)
+        let schema = Schema(versionedSchema: AppSchemaV4.self)
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {

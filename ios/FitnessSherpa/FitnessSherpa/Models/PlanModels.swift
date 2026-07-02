@@ -33,6 +33,7 @@ final class PlannedWorkout: Identifiable {
     var targetZone: String?          // "Z2" | "threshold" | …
     var stations: String?            // HYROX station notes
     var why: String?
+    var directions: String?          // per-session coaching directions (Hugin-written; athlete-overridable)
     var completed: Bool = false
     var sourceRaw: String = PlanSource.ai_generated.rawValue
     var phase: String = "build"      // base | build | peak | taper
@@ -41,6 +42,7 @@ final class PlannedWorkout: Identifiable {
 
     init(date: Date, category: SessionCategory, type: String, name: String, meta: String,
          intent: PlanIntent, targetZone: String? = nil, stations: String? = nil, why: String? = nil,
+         directions: String? = nil,
          source: PlanSource = .ai_generated, phase: String = "build", weekNumber: Int = 1) {
         self.id = UUID()
         self.date = date
@@ -52,6 +54,7 @@ final class PlannedWorkout: Identifiable {
         self.targetZone = targetZone
         self.stations = stations
         self.why = why
+        self.directions = directions
         self.sourceRaw = source.rawValue
         self.phase = phase
         self.weekNumber = weekNumber

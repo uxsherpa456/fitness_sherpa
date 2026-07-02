@@ -33,12 +33,20 @@ enum AppSchemaV3: VersionedSchema {
     }
 }
 
+enum AppSchemaV4: VersionedSchema {
+    static var versionIdentifier = Schema.Version(4, 0, 0)
+    static var models: [any PersistentModel.Type] {
+        AppSchemaV3.models      // additive: PlannedWorkout.directions (per-session coaching directions)
+    }
+}
+
 enum AppMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [AppSchemaV1.self, AppSchemaV2.self, AppSchemaV3.self]
+        [AppSchemaV1.self, AppSchemaV2.self, AppSchemaV3.self, AppSchemaV4.self]
     }
     static var stages: [MigrationStage] {
         [.lightweight(fromVersion: AppSchemaV1.self, toVersion: AppSchemaV2.self),
-         .lightweight(fromVersion: AppSchemaV2.self, toVersion: AppSchemaV3.self)]   // drops orphan tables
+         .lightweight(fromVersion: AppSchemaV2.self, toVersion: AppSchemaV3.self),   // drops orphan tables
+         .lightweight(fromVersion: AppSchemaV3.self, toVersion: AppSchemaV4.self)]   // adds directions field
     }
 }

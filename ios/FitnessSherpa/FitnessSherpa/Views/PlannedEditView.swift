@@ -22,6 +22,7 @@ struct PlannedEditView: View {
     @State private var targetZone: String
     @State private var stations: String
     @State private var why: String
+    @State private var directions: String
     @State private var completed: Bool
 
     init(plan: PlannedWorkout) {
@@ -35,6 +36,7 @@ struct PlannedEditView: View {
         _targetZone = State(initialValue: plan.targetZone ?? "")
         _stations = State(initialValue: plan.stations ?? "")
         _why = State(initialValue: plan.why ?? "")
+        _directions = State(initialValue: plan.directions ?? "")
         _completed = State(initialValue: plan.completed)
     }
 
@@ -64,6 +66,15 @@ struct PlannedEditView: View {
                     TextField("Why this session", text: $why, axis: .vertical).lineLimit(1...4)
                 }
                 Section {
+                    TextField("How to execute this session", text: $directions, axis: .vertical).lineLimit(2...8)
+                } header: {
+                    Text("Directions")
+                } footer: {
+                    Text(plan.source == .coach && !directions.isEmpty
+                         ? "Written by Hugin. Editing makes them yours."
+                         : "Shown on the plan card. Hugin fills these in on coach-set sessions.")
+                }
+                Section {
                     Button("Delete session", role: .destructive) {
                         context.delete(plan); try? context.save(); dismiss()
                     }
@@ -88,6 +99,7 @@ struct PlannedEditView: View {
         plan.targetZone = targetZone.isEmpty ? nil : targetZone
         plan.stations = stations.isEmpty ? nil : stations
         plan.why = why.isEmpty ? nil : why
+        plan.directions = directions.isEmpty ? nil : directions
         plan.completed = completed
         plan.sourceRaw = PlanSource.athlete.rawValue
         plan.updatedAt = Date()

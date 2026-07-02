@@ -348,6 +348,9 @@ struct PlanView: View {
                     Text("\(p.intent.label) · \(z)").font(.caption2).foregroundStyle(Palette.textFaint)
                 }
                 if let why = p.why { Text(why).font(.caption2).foregroundStyle(Palette.textFaint) }
+                if let d = p.directions, !d.trimmingCharacters(in: .whitespaces).isEmpty {
+                    DirectionsDisclosure(text: d, fromCoach: p.source == .coach)
+                }
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -377,5 +380,47 @@ struct PlanView: View {
         if let mx = s.maxHR { parts.append("\(mx) max") }
         if let rpe = s.rpe { parts.append("RPE \(rpe)") }
         return parts.joined(separator: " · ")
+    }
+}
+
+/// Collapsible per-session coaching directions on a plan card. Its own tappable header (a Button)
+/// so expanding never triggers the row's tap-to-edit; a HUGIN badge when the coach wrote them.
+private struct DirectionsDisclosure: View {
+    let text: String
+    let fromCoach: Bool
+    @State private var open = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { open.toggle() }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: open ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                    Text("Directions")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(0.5)
+                    if fromCoach {
+                        HStack(spacing: 3) {
+                            Image(systemName: "bird.fill").font(.system(size: 7))
+                            Text("HUGIN").font(.system(size: 8, weight: .heavy, design: .monospaced))
+                        }
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(Palette.mint.opacity(0.14), in: Capsule())
+                    }
+                }
+                .foregroundStyle(Palette.mint)
+            }
+            .buttonStyle(.plain)
+
+            if open {
+                Text(text)
+                    .font(.caption).foregroundStyle(Palette.text)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .transition(.opacity)
+            }
+        }
+        .padding(.top, 3)
     }
 }

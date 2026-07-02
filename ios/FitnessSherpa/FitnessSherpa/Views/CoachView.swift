@@ -424,6 +424,7 @@ struct CoachView: View {
                 if let v = c["target_zone"] as? String { p.targetZone = v }
                 if let v = c["stations"] as? String { p.stations = v }
                 if let v = c["why"] as? String { p.why = v }
+                if let v = c["directions"] as? String { p.directions = v }
                 p.date = day
                 p.sourceRaw = PlanSource.coach.rawValue
                 p.updatedAt = Date()
