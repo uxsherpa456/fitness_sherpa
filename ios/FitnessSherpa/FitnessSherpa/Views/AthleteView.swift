@@ -13,7 +13,9 @@ struct AthleteView: View {
     @Query(sort: \TrainingSession.date, order: .forward) private var sessions: [TrainingSession]
     @Query(sort: \DailyReadiness.day, order: .forward) private var readinessLog: [DailyReadiness]
     @State private var editingGoal: GoalArc?
+    @State private var editingLifts = false
     @State private var hrvTrend: [TrendPoint] = []
+    @State private var rhrTrend: [TrendPoint] = []
     @State private var sleepNights: [SleepNight] = []
     @State private var formTrend: [FormPoint] = []
     @State private var vo2max: Double?
@@ -31,6 +33,7 @@ struct AthleteView: View {
                     .task { await loadTrends() }
                     .appBar(model)
                     .sheet(item: $editingGoal) { GoalEditView(goal: $0, model: model) }
+                    .sheet(isPresented: $editingLifts) { LiftMaxesEditView(model: model) }
             }
         }
     }
@@ -98,6 +101,7 @@ struct AthleteView: View {
                             }
                         }
                     }
+                    liftsCard
                     statsCard
                     HStack(spacing: 6) {
                         Image(systemName: "bird.fill").font(.system(size: 10))
@@ -122,6 +126,8 @@ struct AthleteView: View {
         formTrend = TrainingLoad.series(sessions: sessions, restingHR: model.reading?.restingHR?.value, age: model.settings.age)
         hrvTrend = (try? await HealthData.dailySeries(.heartRateVariabilitySDNN,
                     unit: .secondUnit(with: .milli), days: 30, options: .discreteAverage)) ?? []
+        rhrTrend = (try? await HealthData.dailySeries(.restingHeartRate,
+                    unit: HKUnit.count().unitDivided(by: .minute()), days: 30, options: .discreteAverage)) ?? []
         sleepNights = (try? await HealthData.sleepNights(days: 21)) ?? []
         vo2max = (try? await HealthData.latestSample(.vo2Max, unit: HKUnit(from: "mL/kg*min")))??.value
     }
@@ -337,12 +343,50 @@ struct AthleteView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var liftsCard: some View {
+        Card(style: .dark) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    ModuleLabel("Strength · lift maxes")
+                    Spacer()
+                    Image(systemName: "square.and.pencil").font(.caption).foregroundStyle(Palette.mint)
+                }
+                Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 16) {
+                    ForEach(0..<3, id: \.self) { row in
+                        GridRow {
+                            liftCell(Lift.allCases[row * 2])
+                            liftCell(Lift.allCases[row * 2 + 1])
+                        }
+                    }
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { editingLifts = true }
+    }
+
+    private func liftCell(_ lift: Lift) -> some View {
+        let lb = model.settings.liftMaxesLb[lift.rawValue]
+        return VStack(alignment: .leading, spacing: 3) {
+            Text(Units.displayWeight(lb: lb, model.settings) ?? "—")
+                .font(.system(size: 20, weight: .heavy)).tracking(-0.5)
+                .foregroundStyle(lb != nil ? Palette.text : Palette.textFaint)
+            Text(lift.label.uppercased())
+                .font(.system(size: 8, weight: .medium, design: .monospaced)).tracking(1)
+                .foregroundStyle(Palette.textFaint).lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     @ViewBuilder private var trendCharts: some View {
         ChartCard(title: "Form · fresh vs fatigued", subtitle: "TSB", isEmpty: formTrend.count < 3) {
             FormChart(points: formTrend)
         }
         ChartCard(title: "HRV trend", subtitle: "30 days", isEmpty: hrvTrend.count < 2) {
             HRVTrendChart(points: hrvTrend)
+        }
+        ChartCard(title: "Resting HR trend", subtitle: "30 days", isEmpty: rhrTrend.count < 2) {
+            RHRTrendChart(points: rhrTrend)
         }
         ChartCard(title: "Acute : chronic load", subtitle: "ratio", isEmpty: formTrend.count < 3) {
             ACRChart(points: formTrend)

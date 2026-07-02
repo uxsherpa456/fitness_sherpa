@@ -7,6 +7,22 @@
 
 import Foundation
 
+/// The barbell lifts whose 1-rep max the athlete can log on the Athlete tab.
+enum Lift: String, CaseIterable, Identifiable {
+    case deadlift, clean, jerk, backSquat, frontSquat, bench
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .deadlift:   return "Deadlift"
+        case .clean:      return "Clean"
+        case .jerk:       return "Jerk"
+        case .backSquat:  return "Back squat"
+        case .frontSquat: return "Front squat"
+        case .bench:      return "Bench press"
+        }
+    }
+}
+
 struct UserSettings: Codable, Equatable {
     var name = ""
     var location = "Washington, DC"
@@ -27,6 +43,7 @@ struct UserSettings: Codable, Equatable {
     var strengthAxis = 0.78       // 0…1 strength + station capacity, averaged from onboarding (the Health-blind axis)
     var stationsHold = true       // legacy boolean snapshot, kept in sync with strengthAxis for the coach context
     var mobilityScore = -1.0      // 0…1 squat-depth / ankle / posterior-chain range; <0 = not assessed
+    var liftMaxesLb: [String: Double] = [:]   // athlete-entered 1-rep maxes, canonical lb, keyed by Lift.rawValue
     var onboarded = false
 
     /// Advisory mobility flag (nil until assessed in onboarding). Does not affect the quadrant/score.
@@ -61,6 +78,7 @@ struct UserSettings: Codable, Equatable {
         stationsHold  = v(.stationsHold, true)
         strengthAxis  = v(.strengthAxis, stationsHold ? 0.78 : 0.30)
         mobilityScore = v(.mobilityScore, -1.0)
+        liftMaxesLb   = v(.liftMaxesLb, [:])
         onboarded     = v(.onboarded, false)
     }
 

@@ -56,6 +56,8 @@ enum DemoSeed {
         s.heightIn = 71            // 5'11" → BMI ~28.6 (heavy for his frame)
         s.strengthAxis = 0.72
         s.mobilityScore = 0.82
+        s.liftMaxesLb = ["deadlift": 495, "clean": 205, "jerk": 225,
+                         "backSquat": 385, "frontSquat": 300, "bench": 285]
         s.onboarded = true
         return s
     }

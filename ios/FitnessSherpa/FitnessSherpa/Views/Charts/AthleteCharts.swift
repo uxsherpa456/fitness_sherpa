@@ -56,6 +56,20 @@ struct HRVTrendChart: View {
     }
 }
 
+struct RHRTrendChart: View {
+    let points: [TrendPoint]
+    var body: some View {
+        Chart(points) { p in
+            LineMark(x: .value("Date", p.date), y: .value("Resting HR", p.value))
+                .foregroundStyle(Palette.textMuted).interpolationMethod(.catmullRom)
+            AreaMark(x: .value("Date", p.date), y: .value("Resting HR", p.value))
+                .foregroundStyle(.linearGradient(colors: [Palette.textMuted.opacity(0.22), .clear], startPoint: .top, endPoint: .bottom))
+                .interpolationMethod(.catmullRom)
+        }
+        .darkChartAxes()
+    }
+}
+
 struct ReadinessTrendChart: View {
     let points: [TrendPoint]
     private func band(_ v: Double) -> Color { v >= 75 ? Palette.green : (v >= 50 ? Palette.yellow : Palette.red) }

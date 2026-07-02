@@ -31,4 +31,13 @@ enum Units {
     static func kmFromDisplay(_ value: Double, _ s: UserSettings) -> Double {
         s.distanceUnit == "mi" ? value / 0.621371 : value
     }
+
+    /// Canonical lb → the preferred unit's numeric value (for edit fields).
+    static func weightValue(lb: Double, _ s: UserSettings) -> Double {
+        s.weightUnit == "kg" ? lb * 0.453592 : lb
+    }
+    /// A weight typed in the preferred unit → canonical lb.
+    static func lbFromDisplay(_ value: Double, _ s: UserSettings) -> Double {
+        s.weightUnit == "kg" ? value / 0.453592 : value
+    }
 }
