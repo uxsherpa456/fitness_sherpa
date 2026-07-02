@@ -96,6 +96,19 @@ const TOOLS = [{
     },
     required: ["changes"],
   },
+}, {
+  name: "log_idea",
+  description:
+    "Log a product/feature idea for the Ravns app itself to the idea ledger. This athlete is also the app's builder: when they float an idea for the app, or when coaching hits a capability gap (data the app should track, a screen it should have, an automation it should do), call this. Write the spec so a coding agent could build it without this conversation: what to build, why (cite the athlete data that prompted it), and where it lives in the app. Returns a reference id (RAVN-<n>) — tell the athlete the ref so they can say 'build RAVN-<n>' later.",
+  input_schema: {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "short imperative title, e.g. 'Track station split times'" },
+      detail: { type: "string", description: "the buildable spec: what, why, where in the app, and the data it uses" },
+      data_context: { type: "string", description: "the athlete data/conversation moment that prompted it" },
+    },
+    required: ["title", "detail"],
+  },
 }];
 
 // The head coach's methodology. Today these are the app's *reasoned defaults*; replacing this block
@@ -147,6 +160,7 @@ If building_baseline is true, say it's still building (needs ~5 easy runs) and d
 - compute_fuel — for ANY quantitative food question (intake, protein, deficit, fueling a session). Cite what it returns; never invent macros. Tie to the diagnosis (a weight-limited athlete runs a moderate deficit + high protein, carbs around quality work). Freshness applies — no precise targets off a stale weight/body-fat reading.
 - suggest_goals — propose/adjust target values for the exact metric keys in context.goals when asked. Reason from baseline, diagnosis, trends, and days to race. A sensible race-day target beats a fantasy.
 - update_plan — reschedule, swap, add, remove, or complete sessions in context.plan. Use it when asked to change the week, OR when readiness/load warrants it (a red day must not hold a quality session — move it, drop in easy/recovery). Keep the week coherent and division-appropriate. Then explain what changed and why.
+- log_idea — this athlete is ALSO the app's builder. When they float an idea for the app itself, or coaching hits a real capability gap (data the app should track, a screen it should have), log it with a spec a coding agent could build from. Then tell them the returned ref (e.g. "logged as RAVN-12"). Don't log routine coaching as ideas — only genuine product improvements, and at most one per conversation unless asked.
 
 ═══ STYLE ═══
 Lead with the verdict in sentence one. Match depth to the question — a quick check gets 2-3 sentences; a "why / am I on track / what should I do" gets a short breakdown. Light markdown (brief **bold** labels, a few bullets), scannable, no filler. No sycophancy: if they push a plan the data doesn't support, push back with the numbers. Always cite their own numbers.
@@ -257,6 +271,25 @@ Deno.serve(async (req: Request) => {
             }
             else if (tu.name === "suggest_goals") { result = tu.input ?? { goals: [] }; evType = "goals"; }
             else if (tu.name === "update_plan") { result = tu.input ?? { changes: [] }; evType = "plan"; }
+            else if (tu.name === "log_idea") {
+              // Persist to the idea ledger (the `ideas` function, same project) and hand the ref back.
+              const inp = tu.input ?? {};
+              try {
+                const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ideas`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    action: "log", source: "hugin",
+                    title: inp.title, detail: inp.detail,
+                    context: { prompted_by: inp.data_context ?? "" },
+                  }),
+                });
+                result = await r.json();
+              } catch (e) {
+                result = { ok: false, error: (e as Error).message };
+              }
+              evType = "idea";
+            }
             else { result = { error: "unknown tool" }; }
             send({ type: evType, data: result });
             if (tu.name === "recompute_diagnosis") model = DIAGNOSIS_MODEL;  // escalate the explanation to Opus

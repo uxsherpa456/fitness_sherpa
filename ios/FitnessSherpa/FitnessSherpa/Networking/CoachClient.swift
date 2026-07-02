@@ -74,6 +74,13 @@ enum CoachClient {
                                 let changes = (d["changes"] as? [[String: Any]]) ?? []
                                 continuation.yield(.plan(changes: changes, summary: d["summary"] as? String))
                             }
+                        case "idea":
+                            // Hugin logged a product idea to the ledger — surface the reference id.
+                            if let d = obj["data"] as? [String: Any], let ref = d["ref"] as? String {
+                                continuation.yield(.note("💡 Idea logged: \(ref)"))
+                            } else {
+                                continuation.yield(.note("💡 Idea noted (ledger unreachable)"))
+                            }
                         case "done":
                             continuation.yield(.done)
                             continuation.finish()
