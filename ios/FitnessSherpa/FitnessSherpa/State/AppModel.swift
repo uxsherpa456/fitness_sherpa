@@ -278,6 +278,14 @@ final class AppModel {
             ctx["mobility"] = ["flag": m.rawValue, "note": m.read]
         }
 
+        // Athlete-entered barbell 1-rep maxes (in their preferred unit) — strength / station-capacity signal.
+        let lifts = Lift.allCases.reduce(into: [String: String]()) { acc, lift in
+            if let lb = settings.liftMaxesLb[lift.rawValue], let disp = Units.displayWeight(lb: lb, settings) {
+                acc[lift.label] = disp
+            }
+        }
+        if !lifts.isEmpty { ctx["lifts"] = lifts }
+
         if let rd = readiness {
             func r1(_ v: Double) -> Double { (v * 10).rounded() / 10 }
             var r: [String: Any] = ["baseline_relative": true]
