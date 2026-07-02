@@ -305,6 +305,13 @@ final class AppModel {
                  "unit": c.unit, "z_vs_baseline": (c.z * 100).rounded() / 100,
                  "source": c.personal ? "personal_baseline" : "population_prior"]
             }
+            if !rd.pillars.isEmpty {   // the on-screen ledger — cite these when explaining the score
+                r["score_ledger"] = rd.pillars.map { p -> [String: Any] in
+                    ["pillar": p.label, "status": p.status,
+                     "points": Int(p.points.rounded()), "of": Int(p.weight.rounded())]
+                }
+            }
+            if !rd.flags.isEmpty { r["flags"] = rd.flags }
             if let rec = rd.recovery {
                 var rr: [String: Any] = ["state": rec.state.key, "readout": rec.headline]
                 if let z = rec.hrvZ { rr["hrv_log_z"] = (z * 100).rounded() / 100 }

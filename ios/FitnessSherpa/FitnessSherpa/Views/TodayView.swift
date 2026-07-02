@@ -85,6 +85,10 @@ struct TodayView: View {
         }
     }
 
+    // The readiness hero is a LEDGER, not a black box: the big number is literally drawn as three
+    // segments (Recovery · Sleep · Training load) that sum to it, and each segment keys to a gauge
+    // row below showing the points it earned, the athlete's position vs their ideal zone, and the
+    // raw numbers behind it. Every point on screen is attributable — the anti-WHOOP.
     private var readinessCard: some View {
         Card(style: .tinted(readinessTint)) {
             VStack(alignment: .leading, spacing: 12) {
@@ -105,72 +109,118 @@ struct TodayView: View {
                     Text("/100").font(.system(size: 18, weight: .bold)).foregroundStyle(Palette.inkSoft)
                 }
 
+                if let rd = model.readiness, !rd.pillars.isEmpty {
+                    ledgerBar(rd)
+                }
+
                 Text(verdictText)
                     .font(.subheadline).foregroundStyle(Palette.inkSoft)
 
-                if let rec = model.readiness?.recovery {
-                    recoveryReadout(rec)
+                if let rd = model.readiness, !rd.pillars.isEmpty {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(rd.pillars) { pillarRow($0) }
+                    }
+                    .padding(.top, 4)
+                    ForEach(rd.flags, id: \.self) { f in
+                        HStack(spacing: 5) {
+                            Image(systemName: "flag.fill").font(.system(size: 8))
+                            Text(f).font(.caption2)
+                        }
+                        .foregroundStyle(Palette.ink.opacity(0.85))
+                    }
                 }
 
-                HStack(spacing: 0) {
-                    micro("HRV", model.reading?.hrv.map { String(format: "%.0f", $0.value) }, "ms")
-                    micro("Resting HR", model.reading?.restingHR.map { String(format: "%.0f", $0.value) }, "bpm")
-                    micro("Sleep", model.reading?.sleep.map { String(format: "%.1f", $0.value) }, "hrs")
-                }
-                .padding(.top, 2)
-
-                Text(baselineNote)
+                Text(adjustmentNote)
                     .font(.caption2).foregroundStyle(Palette.inkSoft.opacity(0.7))
             }
         }
     }
 
-    /// Two-axis recovery readout: state, today's value vs your own normal band (the numbers to beat),
-    /// and the plain-English body. Rendered in the readiness card's light style.
-    @ViewBuilder private func recoveryReadout(_ rec: RecoveryResult) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(rec.headline).font(.caption.weight(.bold)).foregroundStyle(Palette.ink)
-            if let hrv = rec.hrv { axisRow("HRV", hrv, z: rec.hrvZ) }
-            if let rhr = rec.rhr { axisRow("RHR", rhr, z: rec.rhrZ) }
-            Text(rec.body)
-                .font(.caption2).foregroundStyle(Palette.inkSoft)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 1)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 2)
-    }
-
-    /// "HRV  ↓ 39 ms   normal 41–83   −1.2σ" — today's number + an arrow when it's outside your band.
-    private func axisRow(_ label: String, _ a: AxisRange, z: Double?) -> some View {
-        HStack(spacing: 8) {
-            Text(label)
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundStyle(Palette.inkSoft).frame(width: 30, alignment: .leading)
-            HStack(spacing: 2) {
-                if let arrow = bandArrow(a) {
-                    Text(arrow).font(.system(size: 11, weight: .heavy)).foregroundStyle(Palette.ink)
+    /// The score drawn as its parts: pillar segments (points/100 wide) on a 100-wide track.
+    /// Unfilled track = points left on the table.
+    private func ledgerBar(_ rd: ReadinessResult) -> some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            ZStack(alignment: .leading) {
+                Capsule().fill(Palette.ink.opacity(0.12))
+                HStack(spacing: 1.5) {
+                    ForEach(rd.pillars) { p in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(pillarInk(p.key))
+                            .frame(width: max(3, p.points / 100 * w))
+                    }
                 }
-                Text("\(Int(a.today.rounded())) \(a.unit)")
-                    .font(.system(size: 13, weight: .heavy)).foregroundStyle(Palette.ink)
             }
-            Text("normal \(Int(a.low.rounded()))–\(Int(a.high.rounded()))")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(Palette.inkSoft)
-            Spacer(minLength: 0)
-            if let z { Text(sigma(z)).font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Palette.inkSoft) }
+        }
+        .frame(height: 8)
+    }
+
+    /// One ledger row: color key + status + points earned, a gauge with the ideal zone banded and
+    /// a marker at today's position, positive end-labels, and the numbers behind it.
+    private func pillarRow(_ p: ReadinessPillar) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 2).fill(pillarInk(p.key)).frame(width: 8, height: 8)
+                Text(p.label.uppercased())
+                    .font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(0.8)
+                    .foregroundStyle(Palette.inkSoft)
+                Text(p.status).font(.system(size: 12, weight: .heavy)).foregroundStyle(Palette.ink)
+                Spacer()
+                Text("\(Int(p.points.rounded())) of \(Int(p.weight.rounded()))")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Palette.inkSoft)
+            }
+            gauge(p)
+            HStack {
+                Text(p.axisLeft)
+                Spacer()
+                Text(p.axisMid)
+                Spacer()
+                Text(p.axisRight)
+            }
+            .font(.system(size: 8, weight: .medium, design: .monospaced))
+            .foregroundStyle(Palette.inkSoft.opacity(0.8))
+            Text(p.detail).font(.system(size: 10)).foregroundStyle(Palette.inkSoft)
         }
     }
 
-    /// ↓ when below the normal band, ↑ when above; nil when inside it.
-    private func bandArrow(_ a: AxisRange) -> String? {
-        if a.today < a.low  { return "↓" }
-        if a.today > a.high { return "↑" }
-        return nil
+    private func gauge(_ p: ReadinessPillar) -> some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            ZStack(alignment: .leading) {
+                Capsule().fill(Palette.ink.opacity(0.10)).frame(height: 5)
+                RoundedRectangle(cornerRadius: 2.5)
+                    .fill(Palette.ink.opacity(0.20))
+                    .frame(width: max(0, (p.bandHi - p.bandLo) * w), height: 5)
+                    .offset(x: p.bandLo * w)
+                Circle().fill(Palette.ink).frame(width: 11, height: 11)
+                    .offset(x: min(max(p.position * w - 5.5, 0), w - 11))
+            }
+            .frame(height: 11)
+        }
+        .frame(height: 11)
     }
 
-    private func sigma(_ z: Double) -> String { String(format: "%+.1fσ", z) }
+    /// Ledger segment/row key colors — ink at stepped opacities so the bar reads as one system.
+    private func pillarInk(_ key: String) -> Color {
+        switch key {
+        case "recovery": return Palette.ink
+        case "sleep":    return Palette.ink.opacity(0.55)
+        default:         return Palette.ink.opacity(0.30)
+        }
+    }
+
+    /// Footnote reconciling the ledger with the shown score when the subjective feeling or the
+    /// near-max-effort cap moved it — the bars stay honest, the delta is named.
+    private var adjustmentNote: String {
+        guard let rd = model.readiness, let base = rd.score, let final = model.readinessScore,
+              final != base else { return baselineNote }
+        var parts: [String] = []
+        if let f = model.todayFeeling, f.multiplier != 1 { parts.append("adjusted for how you feel (\(f.label))") }
+        if rd.cappedGreen { parts.append("capped below green — near-max effort today") }
+        guard !parts.isEmpty else { return baselineNote }
+        return "Bars sum to \(base) · " + parts.joined(separator: " · ")
+    }
 
     private var baselineNote: String {
         guard let rd = model.readiness else { return "Recovery model warming up…" }
@@ -219,16 +269,6 @@ struct TodayView: View {
         case 50..<75: return "Middling recovery (HRV \(hrv)). Train, but hold intensity in check."
         default:      return "Low recovery — HRV \(hrv). Favor easy work or recovery today."
         }
-    }
-
-    private func micro(_ label: String, _ value: String?, _ unit: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value ?? "—").font(.system(size: 20, weight: .bold))
-            Text("\(label) · \(unit)")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(Palette.inkSoft)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Sleep quality (live)

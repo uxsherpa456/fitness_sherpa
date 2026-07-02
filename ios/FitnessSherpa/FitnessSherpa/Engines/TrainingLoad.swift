@@ -18,6 +18,7 @@ struct LoadResult {
     var lastHardHoursAgo: Double?
     var recoveryMultiplier: Double   // 0.5…1.05 applied to the recovery score
     var cappedGreen: Bool      // a ≥95% effort in the last 24h can't return GREEN
+    var effortMultiplier: Double = 1 // just the near-max-effort discount (readiness ledger's load pillar)
 }
 
 enum TrainingLoad {
@@ -119,6 +120,7 @@ enum TrainingLoad {
             atl: atl, ctl: ctl, form: ctl - atl, ratio: ratio, hrMax: Int(hrMax),
             lastHardPct: lastHardPct, lastHardHoursAgo: lastHardHours,
             recoveryMultiplier: max(0.5, loadMult * effortMult),
-            cappedGreen: cappedGreen)
+            cappedGreen: cappedGreen,
+            effortMultiplier: effortMult)
     }
 }

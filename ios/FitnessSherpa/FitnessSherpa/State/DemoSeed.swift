@@ -94,9 +94,19 @@ enum DemoSeed {
             hrv: AxisRange(today: 74, low: 58, high: 92, unit: "ms", higherIsBetter: true),
             rhr: AxisRange(today: 51, low: 47, high: 57, unit: "bpm", higherIsBetter: false),
             orbHint: RecoveryState.steady.orbHint)
-        return ReadinessResult(score: 73, components: comps, recovery: recovery, cappedGreen: false,
-                               atl: 56, ctl: 61, form: 5, ratio: 0.92, hrMax: 188,
-                               lastHardPct: nil, lastHardHoursAgo: nil)
+        // Assemble the ledger from the same seeded numbers so the pillars sum to the shown score.
+        let (pillars, flags, score) = ReadinessEngine.assemble(
+            recZ: 0.9 * 0.65 + 0.7 * 0.35,
+            recDetail: "HRV 74 ms · resting HR 51 bpm vs your baseline",
+            sleep: reading().sleepSummary, respPenalty: 0,
+            ratio: 0.92, trained: true, effortMult: 1)
+        var r = ReadinessResult(score: score.map { Int($0.rounded()) }, components: comps,
+                                recovery: recovery, cappedGreen: false,
+                                atl: 56, ctl: 61, form: 5, ratio: 0.92, hrMax: 188,
+                                lastHardPct: nil, lastHardHoursAgo: nil)
+        r.pillars = pillars
+        r.flags = flags
+        return r
     }
 
     // MARK: Populate (called from AppModel.refresh in demo mode)
