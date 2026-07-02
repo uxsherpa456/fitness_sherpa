@@ -346,8 +346,8 @@ struct AthleteView: View {
     }
 
     private var adherenceCard: some View {
-        let matches = PlanMatcher.matchMap(planned: planned, sessions: sessions)
-        let a = PlanMatcher.adherence(planned: planned, sessions: sessions, matches: matches)
+        let applied = PlanMatcher.resolve(planned: planned, sessions: sessions, decisions: MatchDecisions.load()).applied
+        let a = PlanMatcher.adherence(planned: planned, sessions: sessions, applied: applied)
         let tint: Color = a.pct >= 80 ? Palette.green : a.pct >= 50 ? Palette.yellow : Palette.orange
         return Card(style: .dark) {
             VStack(alignment: .leading, spacing: 10) {

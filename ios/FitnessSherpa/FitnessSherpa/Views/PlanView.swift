@@ -15,9 +15,39 @@ struct PlanView: View {
     @Query(sort: \TrainingSession.date, order: .forward) private var sessions: [TrainingSession]
     @Query(sort: \PlannedWorkout.date, order: .forward) private var planned: [PlannedWorkout]
 
-    // RAVN-12: which synced workout closes each planned session (runtime, one-to-one, no persistence).
-    private var matches: [UUID: TrainingSession] { PlanMatcher.matchMap(planned: planned, sessions: sessions) }
+    // RAVN-12: match synced workouts to planned sessions. High-confidence auto-applies (+ toast);
+    // low-confidence becomes a confirm card. Decisions persist in UserDefaults (no schema change).
+    @State private var decisions = MatchDecisions.load()
+    @State private var matchToast: String?
+
+    private var resolved: (applied: [UUID: TrainingSession], suggestions: [(planned: PlannedWorkout, session: TrainingSession)]) {
+        PlanMatcher.resolve(planned: planned, sessions: sessions, decisions: decisions)
+    }
+    private var matches: [UUID: TrainingSession] { resolved.applied }
     private var matchedSessionIDs: Set<UUID> { Set(matches.values.map(\.id)) }
+
+    /// Toast newly-applied matches once (mark them seen so they don't re-toast).
+    private func announceNewMatches() {
+        let unseen = matches.compactMap { (pid, s) -> String? in
+            let k = PlanMatcher.pairKey(pid, s.id); return decisions.seen.contains(k) ? nil : k
+        }
+        guard !unseen.isEmpty else { return }
+        unseen.forEach { decisions.seen.insert($0) }
+        decisions.save()
+        matchToast = unseen.count == 1 ? "✓ Matched a workout to your plan"
+                                       : "✓ Matched \(unseen.count) workouts to your plan"
+        Task { try? await Task.sleep(nanoseconds: 3_500_000_000); matchToast = nil }
+    }
+
+    private func confirmMatch(_ p: PlannedWorkout, _ s: TrainingSession) {
+        decisions.confirmed[p.id.uuidString] = s.id.uuidString
+        decisions.seen.insert(PlanMatcher.pairKey(p.id, s.id))
+        decisions.save()
+    }
+    private func rejectMatch(_ p: PlannedWorkout, _ s: TrainingSession) {
+        decisions.rejected.insert(PlanMatcher.pairKey(p.id, s.id))
+        decisions.save()
+    }
 
     @State private var loadError: String?
     @State private var didScroll = false
@@ -76,6 +106,9 @@ struct PlanView: View {
                         LazyVStack(alignment: .leading, spacing: 10) {
                             if let loadError { Text("⚠ \(loadError)").font(.caption).foregroundStyle(Palette.red) }
                             if tab == .plan {
+                                ForEach(resolved.suggestions, id: \.planned.id) { s in
+                                    suggestionCard(planned: s.planned, session: s.session)
+                                }
                                 roadmapCard
                                 ForEach(planEntries) { entry($0) }
                             } else if historyEntries.isEmpty {
@@ -88,11 +121,17 @@ struct PlanView: View {
                         .padding(.horizontal, 14).padding(.vertical, 10)
                     }
                     .background(Palette.bg)
-                    .refreshable { await load(force: true) }
-                    .onChange(of: sessions.count) { if !didScroll, tab == .plan { proxy.scrollTo("today", anchor: .top); didScroll = true } }
+                    .overlay(alignment: .top) { toastBanner }
+                    .animation(.easeInOut(duration: 0.25), value: matchToast)
+                    .refreshable { await load(force: true); announceNewMatches() }
+                    .onChange(of: sessions.count) {
+                        if !didScroll, tab == .plan { proxy.scrollTo("today", anchor: .top); didScroll = true }
+                        announceNewMatches()
+                    }
                     .task {
                         PlannedWorkout.seedIfNeeded(profile: model.diagnosis?.profile, settings: model.settings, context: context)
                         await load(force: false)
+                        announceNewMatches()
                         if tab == .plan { proxy.scrollTo("today", anchor: .top) }
                     }
                 }
@@ -324,6 +363,56 @@ struct PlanView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    @ViewBuilder private var toastBanner: some View {
+        if let text = matchToast {
+            Text(text)
+                .font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
+                .padding(.horizontal, 16).padding(.vertical, 11)
+                .background(Palette.mint, in: Capsule())
+                .shadow(color: .black.opacity(0.3), radius: 8, y: 3)
+                .padding(.top, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .onTapGesture { matchToast = nil }
+        }
+    }
+
+    /// Low-confidence match: ask the athlete to confirm before closing the planned session.
+    private func suggestionCard(planned p: PlannedWorkout, session s: TrainingSession) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "questionmark.circle.fill").font(.caption)
+                Text("MATCH THIS WORKOUT?").font(.system(size: 10, weight: .heavy, design: .monospaced)).tracking(0.8)
+            }
+            .foregroundStyle(Palette.yellow)
+            Text("Did your \(s.cat.label.lowercased()) on \(s.date.formatted(.dateTime.weekday(.wide))) — \(PlanMatcher.actualSummary(s, model.settings)) — cover this session?")
+                .font(.caption).foregroundStyle(Palette.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 6) {
+                Text(p.name).font(.footnote.weight(.semibold)).foregroundStyle(Palette.text)
+                Text(p.date.formatted(.dateTime.month(.abbreviated).day()))
+                    .font(.caption2).foregroundStyle(Palette.textFaint)
+                Spacer()
+            }
+            HStack(spacing: 8) {
+                Button { withAnimation { confirmMatch(p, s) } } label: {
+                    Text("Yes, done").font(.system(size: 13, weight: .bold)).foregroundStyle(Palette.ink)
+                        .frame(maxWidth: .infinity).padding(.vertical, 8)
+                        .background(Palette.mint, in: Capsule())
+                }
+                Button { withAnimation { rejectMatch(p, s) } } label: {
+                    Text("No").font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.textMuted)
+                        .frame(maxWidth: .infinity).padding(.vertical, 8)
+                        .background(Palette.surface2, in: Capsule())
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.surface, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.yellow.opacity(0.4), lineWidth: 1))
     }
 
     private func plannedRow(_ p: PlannedWorkout, today: Bool) -> some View {
