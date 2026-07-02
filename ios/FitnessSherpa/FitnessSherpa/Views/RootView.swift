@@ -153,6 +153,7 @@ struct GlobalMenu: View {
     @State private var showingSettings = false
     @State private var showingInfo = false
     @State private var showingProfiles = false
+    @State private var showingIdeas = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -164,6 +165,10 @@ struct GlobalMenu: View {
             List {
                 Button { showingProfiles = true } label: {
                     Label("The four profiles", systemImage: "square.grid.2x2").foregroundStyle(Palette.text)
+                }
+                .listRowBackground(Palette.bg)
+                Button { showingIdeas = true } label: {
+                    Label("Hugin's ideas", systemImage: "lightbulb").foregroundStyle(Palette.text)
                 }
                 .listRowBackground(Palette.bg)
                 Button { showingSettings = true } label: {
@@ -190,6 +195,7 @@ struct GlobalMenu: View {
         .sheet(isPresented: $showingSettings) { SettingsView(model: model) }
         .sheet(isPresented: $showingInfo) { AppInfoView(model: model) }
         .sheet(isPresented: $showingProfiles) { DiagnosisGuideView() }
+        .sheet(isPresented: $showingIdeas) { IdeasView() }
     }
 }
 
