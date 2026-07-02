@@ -11,6 +11,7 @@ struct AthleteView: View {
     let model: AppModel
     @Environment(\.modelContext) private var context
     @Query(sort: \TrainingSession.date, order: .forward) private var sessions: [TrainingSession]
+    @Query(sort: \PlannedWorkout.date, order: .forward) private var planned: [PlannedWorkout]
     @Query(sort: \DailyReadiness.day, order: .forward) private var readinessLog: [DailyReadiness]
     @State private var editingGoal: GoalArc?
     @State private var editingLifts = false
@@ -101,6 +102,7 @@ struct AthleteView: View {
                             }
                         }
                     }
+                    adherenceCard
                     liftsCard
                     statsCard
                     HStack(spacing: 6) {
@@ -341,6 +343,37 @@ struct AthleteView: View {
                 .foregroundStyle(Palette.textFaint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var adherenceCard: some View {
+        let matches = PlanMatcher.matchMap(planned: planned, sessions: sessions)
+        let a = PlanMatcher.adherence(planned: planned, sessions: sessions, matches: matches)
+        let tint: Color = a.pct >= 80 ? Palette.green : a.pct >= 50 ? Palette.yellow : Palette.orange
+        return Card(style: .dark) {
+            VStack(alignment: .leading, spacing: 10) {
+                ModuleLabel("Plan adherence · last 7 days")
+                if a.hasPlan {
+                    HStack(alignment: .lastTextBaseline, spacing: 8) {
+                        Text("\(a.pct)%").font(.system(size: 34, weight: .heavy)).tracking(-1).foregroundStyle(tint)
+                        Text("\(a.done) of \(a.planned) sessions").font(.subheadline).foregroundStyle(Palette.textMuted)
+                    }
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Palette.surface2)
+                            Capsule().fill(tint).frame(width: max(0, geo.size.width * CGFloat(a.pct) / 100))
+                        }
+                    }
+                    .frame(height: 6)
+                    if a.unplanned > 0 {
+                        Text("\(a.unplanned) unplanned \(a.unplanned == 1 ? "workout" : "workouts") logged")
+                            .font(.caption).foregroundStyle(Palette.textFaint)
+                    }
+                } else {
+                    Text("Nothing scheduled in the last 7 days.")
+                        .font(.caption).foregroundStyle(Palette.textMuted)
+                }
+            }
+        }
     }
 
     private var liftsCard: some View {

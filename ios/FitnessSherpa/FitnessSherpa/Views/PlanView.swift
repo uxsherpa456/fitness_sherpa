@@ -15,6 +15,10 @@ struct PlanView: View {
     @Query(sort: \TrainingSession.date, order: .forward) private var sessions: [TrainingSession]
     @Query(sort: \PlannedWorkout.date, order: .forward) private var planned: [PlannedWorkout]
 
+    // RAVN-12: which synced workout closes each planned session (runtime, one-to-one, no persistence).
+    private var matches: [UUID: TrainingSession] { PlanMatcher.matchMap(planned: planned, sessions: sessions) }
+    private var matchedSessionIDs: Set<UUID> { Set(matches.values.map(\.id)) }
+
     @State private var loadError: String?
     @State private var didScroll = false
     @State private var editing: TrainingSession?
@@ -294,6 +298,12 @@ struct PlanView: View {
                         Image(systemName: s.cat.icon).font(.caption).foregroundStyle(s.cat.color)
                         Text(s.title).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.text)
                         Spacer()
+                        if s.cat != .rest, !matchedSessionIDs.contains(s.id) {
+                            Text("UNPLANNED").font(.system(size: 8, weight: .heavy, design: .monospaced)).tracking(0.5)
+                                .foregroundStyle(Palette.textFaint)
+                                .padding(.horizontal, 5).padding(.vertical, 2)
+                                .background(Palette.surface2, in: Capsule())
+                        }
                         sourceChip(s)
                     }
                     Text(detail(s)).font(.caption).foregroundStyle(Palette.textMuted)
@@ -317,7 +327,9 @@ struct PlanView: View {
     }
 
     private func plannedRow(_ p: PlannedWorkout, today: Bool) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        let matched = matches[p.id]                   // a synced workout that closed this session
+        let done = p.completed || matched != nil
+        return HStack(alignment: .top, spacing: 10) {
             dateColumn(p.date, highlight: today)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
@@ -335,19 +347,29 @@ struct PlanView: View {
                     Button {
                         p.completed.toggle(); p.updatedAt = Date(); try? context.save()
                     } label: {
-                        Image(systemName: p.completed ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(p.completed ? Palette.green : Palette.textFaint)
+                        Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(done ? Palette.green : Palette.textFaint)
                     }
                     .buttonStyle(.plain)
+                    .disabled(matched != nil)          // auto-matched sessions are locked done
                 }
                 Text(p.name).font(.subheadline.weight(.semibold))
-                    .foregroundStyle(p.completed ? Palette.textMuted : Palette.text)
-                    .strikethrough(p.completed)
+                    .foregroundStyle(done ? Palette.textMuted : Palette.text)
+                    .strikethrough(done)
                 Text(p.meta).font(.caption).foregroundStyle(Palette.textMuted)
                 if let z = p.targetZone {
                     Text("\(p.intent.label) · \(z)").font(.caption2).foregroundStyle(Palette.textFaint)
                 }
                 if let why = p.why { Text(why).font(.caption2).foregroundStyle(Palette.textFaint) }
+                if let matched {
+                    HStack(spacing: 5) {
+                        Image(systemName: "checkmark.seal.fill").font(.system(size: 10))
+                        Text(PlanMatcher.actualSummary(matched, model.settings))
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundStyle(Palette.green)
+                    .padding(.top, 1)
+                }
                 if let d = p.directions, !d.trimmingCharacters(in: .whitespaces).isEmpty {
                     DirectionsDisclosure(text: d, fromCoach: p.source == .coach)
                 }
